@@ -1,6 +1,6 @@
 PEDDLEC := go run ./cmd/peddlec
 ASM     := 64tass
-VICE    := x64
+VICE    := x64sc
 
 DEMO_SRC := examples/hello.ped
 ASM_OUT  := build/out.asm
@@ -30,7 +30,7 @@ prg: asm
 	@echo "wrote $(PRG_OUT)"
 
 run: check-run prg
-	$(VICE) $(PRG_OUT)
+	$(VICE) -autostart $(PRG_OUT)
 
 demo: run
 
