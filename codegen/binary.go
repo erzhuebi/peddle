@@ -2,6 +2,7 @@ package codegen
 
 import (
 	"fmt"
+	"strconv"
 
 	"peddle/ast"
 )
@@ -81,37 +82,11 @@ func (g *Generator) genBinaryInt(b *ast.BinaryExpr) error {
 }
 
 func (g *Generator) genComparisonToBool(b *ast.BinaryExpr) error {
-	if err := g.genExprTo(b.Right, ast.Type{Name: "byte"}); err != nil {
-		return err
-	}
-	g.emit("    sta ZP_TMP0")
-
-	if err := g.genExprTo(b.Left, ast.Type{Name: "byte"}); err != nil {
-		return err
-	}
-
 	trueLabel := g.newLabel()
 	endLabel := g.newLabel()
 
-	g.emit("    cmp ZP_TMP0")
-
-	switch b.Op {
-	case "==":
-		g.emit(fmt.Sprintf("    beq %s", trueLabel))
-	case "!=":
-		g.emit(fmt.Sprintf("    bne %s", trueLabel))
-	case "<":
-		g.emit(fmt.Sprintf("    bcc %s", trueLabel))
-	case "<=":
-		g.emit(fmt.Sprintf("    bcc %s", trueLabel))
-		g.emit(fmt.Sprintf("    beq %s", trueLabel))
-	case ">":
-		g.emit(fmt.Sprintf("    beq %s", endLabel))
-		g.emit(fmt.Sprintf("    bcs %s", trueLabel))
-	case ">=":
-		g.emit(fmt.Sprintf("    bcs %s", trueLabel))
-	default:
-		return fmt.Errorf("unsupported comparison operator %q", b.Op)
+	if err := g.genComparisonJumpTrue(b, trueLabel); err != nil {
+		return err
 	}
 
 	g.emit("    lda #0")
@@ -134,38 +109,244 @@ func (g *Generator) genConditionFalseJump(cond ast.Expr, falseLabel string) erro
 		return nil
 	}
 
-	if err := g.genExprTo(b.Right, ast.Type{Name: "byte"}); err != nil {
-		return err
-	}
-	g.emit("    sta ZP_TMP0")
+	trueLabel := g.newLabel()
+	endLabel := g.newLabel()
 
-	if err := g.genExprTo(b.Left, ast.Type{Name: "byte"}); err != nil {
+	if err := g.genComparisonJumpTrue(b, trueLabel); err != nil {
 		return err
 	}
 
-	g.emit("    cmp ZP_TMP0")
+	g.emit(fmt.Sprintf("    jmp %s", falseLabel))
+	g.emit(trueLabel + ":")
+	g.emit(endLabel + ":")
+
+	return nil
+}
+
+func (g *Generator) genComparisonJumpTrue(b *ast.BinaryExpr, trueLabel string) error {
+	switch b.Op {
+	case "==", "!=", "<", "<=", ">", ">=":
+	default:
+		return fmt.Errorf("unsupported comparison operator %q", b.Op)
+	}
+
+	if err := g.genExprToIntValue(b.Right); err != nil {
+		return err
+	}
+
+	g.emit("    lda ZP_TMP0")
+	g.emit("    sta peddle_tmp_int0")
+	g.emit("    lda ZP_TMP1")
+	g.emit("    sta peddle_tmp_int0+1")
+
+	if err := g.genExprToIntValue(b.Left); err != nil {
+		return err
+	}
 
 	switch b.Op {
 	case "==":
-		g.emit(fmt.Sprintf("    bne %s", falseLabel))
+		g.emit("    lda ZP_TMP1")
+		g.emit("    cmp peddle_tmp_int0+1")
+		g.emit("    bne " + trueLabel + "_skip")
+		g.emit("    lda ZP_TMP0")
+		g.emit("    cmp peddle_tmp_int0")
+		g.emit(fmt.Sprintf("    beq %s", trueLabel))
+		g.emit(trueLabel + "_skip:")
+
 	case "!=":
-		g.emit(fmt.Sprintf("    beq %s", falseLabel))
+		g.emit("    lda ZP_TMP1")
+		g.emit("    cmp peddle_tmp_int0+1")
+		g.emit(fmt.Sprintf("    bne %s", trueLabel))
+		g.emit("    lda ZP_TMP0")
+		g.emit("    cmp peddle_tmp_int0")
+		g.emit(fmt.Sprintf("    bne %s", trueLabel))
+
 	case "<":
-		g.emit(fmt.Sprintf("    bcs %s", falseLabel))
+		return g.genSignedLessThanJump(trueLabel)
+
 	case ">=":
-		g.emit(fmt.Sprintf("    bcc %s", falseLabel))
-	case "<=":
-		after := g.newLabel()
-		g.emit(fmt.Sprintf("    bcc %s", after))
-		g.emit(fmt.Sprintf("    beq %s", after))
-		g.emit(fmt.Sprintf("    jmp %s", falseLabel))
-		g.emit(after + ":")
+		skip := g.newLabel()
+		if err := g.genSignedLessThanJump(skip); err != nil {
+			return err
+		}
+		g.emit(fmt.Sprintf("    jmp %s", trueLabel))
+		g.emit(skip + ":")
+
 	case ">":
-		g.emit(fmt.Sprintf("    beq %s", falseLabel))
-		g.emit(fmt.Sprintf("    bcc %s", falseLabel))
-	default:
-		return fmt.Errorf("unsupported condition operator %q", b.Op)
+		return g.genSignedGreaterThanJump(trueLabel)
+
+	case "<=":
+		skip := g.newLabel()
+		if err := g.genSignedGreaterThanJump(skip); err != nil {
+			return err
+		}
+		g.emit(fmt.Sprintf("    jmp %s", trueLabel))
+		g.emit(skip + ":")
 	}
 
+	g.usedTmp16 = true
 	return nil
+}
+
+func (g *Generator) genSignedLessThanJump(trueLabel string) error {
+	leftNeg := g.newLabel()
+	sameSign := g.newLabel()
+	compareLow := g.newLabel()
+	done := g.newLabel()
+
+	g.emit("    lda ZP_TMP1")
+	g.emit("    bmi " + leftNeg)
+
+	g.emit("    lda peddle_tmp_int0+1")
+	g.emit("    bmi " + done)
+	g.emit("    jmp " + sameSign)
+
+	g.emit(leftNeg + ":")
+	g.emit("    lda peddle_tmp_int0+1")
+	g.emit("    bmi " + sameSign)
+	g.emit(fmt.Sprintf("    jmp %s", trueLabel))
+
+	g.emit(sameSign + ":")
+	g.emit("    lda ZP_TMP1")
+	g.emit("    cmp peddle_tmp_int0+1")
+	g.emit(fmt.Sprintf("    bcc %s", trueLabel))
+	g.emit("    bne " + done)
+
+	g.emit(compareLow + ":")
+	g.emit("    lda ZP_TMP0")
+	g.emit("    cmp peddle_tmp_int0")
+	g.emit(fmt.Sprintf("    bcc %s", trueLabel))
+
+	g.emit(done + ":")
+	g.usedTmp16 = true
+	return nil
+}
+
+func (g *Generator) genSignedGreaterThanJump(trueLabel string) error {
+	leftNeg := g.newLabel()
+	sameSign := g.newLabel()
+	compareLow := g.newLabel()
+	done := g.newLabel()
+
+	g.emit("    lda ZP_TMP1")
+	g.emit("    bmi " + leftNeg)
+
+	g.emit("    lda peddle_tmp_int0+1")
+	g.emit("    bmi " + trueLabel)
+	g.emit("    jmp " + sameSign)
+
+	g.emit(leftNeg + ":")
+	g.emit("    lda peddle_tmp_int0+1")
+	g.emit("    bmi " + sameSign)
+	g.emit("    jmp " + done)
+
+	g.emit(sameSign + ":")
+	g.emit("    lda peddle_tmp_int0+1")
+	g.emit("    cmp ZP_TMP1")
+	g.emit(fmt.Sprintf("    bcc %s", trueLabel))
+	g.emit("    bne " + done)
+
+	g.emit(compareLow + ":")
+	g.emit("    lda peddle_tmp_int0")
+	g.emit("    cmp ZP_TMP0")
+	g.emit(fmt.Sprintf("    bcc %s", trueLabel))
+
+	g.emit(done + ":")
+	g.usedTmp16 = true
+	return nil
+}
+
+func (g *Generator) genExprToIntValue(e ast.Expr) error {
+	switch expr := e.(type) {
+	case *ast.NumberExpr:
+		n, err := strconv.Atoi(expr.Value)
+		if err != nil {
+			return err
+		}
+		g.emit(fmt.Sprintf("    lda #<%d", n))
+		g.emit("    sta ZP_TMP0")
+		g.emit(fmt.Sprintf("    lda #>%d", n))
+		g.emit("    sta ZP_TMP1")
+		g.usedTmp16 = true
+		return nil
+
+	case *ast.IdentExpr:
+		sym, ok := g.resolve(expr.Name)
+		if !ok {
+			return fmt.Errorf("unknown variable %q", expr.Name)
+		}
+
+		if sym.Type.Name == "int" && !sym.Type.IsArray {
+			g.loadSymbol(sym)
+			return nil
+		}
+
+		g.loadSymbol(sym)
+		g.emit("    sta ZP_TMP0")
+		g.emit("    lda #0")
+		g.emit("    sta ZP_TMP1")
+		g.usedTmp16 = true
+		return nil
+
+	case *ast.IndexExpr:
+		arraySym, ok := g.resolve(expr.Name)
+		if !ok {
+			return fmt.Errorf("unknown array %q", expr.Name)
+		}
+		if !arraySym.Type.IsArray {
+			return fmt.Errorf("%q is not an array", expr.Name)
+		}
+
+		if arraySym.Type.Name == "int" {
+			return fmt.Errorf("int array reads are not implemented yet")
+		}
+
+		if err := g.genArrayIndexToY(arraySym, expr.Index); err != nil {
+			return err
+		}
+
+		g.emit("    lda (ZP_PTR0_LO), y")
+		g.emit("    sta ZP_TMP0")
+		g.emit("    lda #0")
+		g.emit("    sta ZP_TMP1")
+		g.usedTmp16 = true
+		return nil
+
+	case *ast.BinaryExpr:
+		if err := g.genBinaryTo(expr, ast.Type{Name: "int"}); err != nil {
+			return err
+		}
+		g.usedTmp16 = true
+		return nil
+
+	case *ast.CallExpr:
+		retType, err := g.genCall(expr.Name, expr.Args)
+		if err != nil {
+			return err
+		}
+
+		if retType.Name == "" {
+			return fmt.Errorf("function %s does not return a value", expr.Name)
+		}
+
+		fnFrame := g.frames[expr.Name]
+		if fnFrame == nil || fnFrame.Return == nil {
+			return fmt.Errorf("missing return slot for %s", expr.Name)
+		}
+
+		if retType.Name == "int" {
+			g.loadSymbol(*fnFrame.Return)
+			return nil
+		}
+
+		g.loadSymbol(*fnFrame.Return)
+		g.emit("    sta ZP_TMP0")
+		g.emit("    lda #0")
+		g.emit("    sta ZP_TMP1")
+		g.usedTmp16 = true
+		return nil
+
+	default:
+		return fmt.Errorf("unsupported int comparison expression")
+	}
 }

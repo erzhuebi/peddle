@@ -145,6 +145,13 @@ type StringExpr struct {
 
 func (*StringExpr) exprNode() {}
 
+type UnaryExpr struct {
+	Op   string
+	Expr Expr
+}
+
+func (*UnaryExpr) exprNode() {}
+
 type BinaryExpr struct {
 	Left  Expr
 	Op    string

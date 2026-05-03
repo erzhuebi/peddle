@@ -263,6 +263,32 @@ func (c *Checker) checkExpr(scope map[string]ast.Type, e ast.Expr) (ast.Type, er
 	case *ast.StringExpr:
 		return ast.Type{Name: "char", IsArray: true, ArrayLen: len(expr.Value) + 1}, nil
 
+	case *ast.UnaryExpr:
+		t, err := c.checkExpr(scope, expr.Expr)
+		if err != nil {
+			return ast.Type{}, err
+		}
+
+		switch expr.Op {
+		case "-":
+			if !isNumeric(t) {
+				return ast.Type{}, fmt.Errorf("unary - requires numeric operand")
+			}
+			if t.Name == "int" {
+				return ast.Type{Name: "int"}, nil
+			}
+			return ast.Type{Name: "byte"}, nil
+
+		case "!":
+			if !isNumeric(t) {
+				return ast.Type{}, fmt.Errorf("unary ! requires numeric or bool operand")
+			}
+			return ast.Type{Name: "bool"}, nil
+
+		default:
+			return ast.Type{}, fmt.Errorf("unsupported unary operator %q", expr.Op)
+		}
+
 	case *ast.BinaryExpr:
 		left, err := c.checkExpr(scope, expr.Left)
 		if err != nil {
@@ -403,11 +429,16 @@ func canAssign(dst, src ast.Type) bool {
 	}
 
 	if dst.Name == "byte" && src.Name == "int" {
-		// Numeric literals are currently typed as int; range checking comes later.
+		// Allow explicit low-byte truncation. Warnings/casts may be added later.
 		return true
 	}
 
 	if dst.Name == "char" && src.Name == "int" {
+		return true
+	}
+
+	if dst.Name == "bool" && src.Name == "int" {
+		// bool is represented as one byte: 0 = false, non-zero = true.
 		return true
 	}
 

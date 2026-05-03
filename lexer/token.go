@@ -39,6 +39,7 @@ const (
 
 	PLUS  = "+"
 	MINUS = "-"
+	BANG  = "!"
 
 	EQ  = "=="
 	NEQ = "!="

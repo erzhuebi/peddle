@@ -332,8 +332,10 @@ func (p *Parser) parseLValue() ast.LValue {
 
 		index := p.parseExpression(LOWEST)
 
-		if !p.expectCur(lexer.RBRACK) {
-			return &ast.VarLValue{Name: name}
+		if p.cur.Type != lexer.RBRACK {
+			if !p.expectPeek(lexer.RBRACK) {
+				return &ast.VarLValue{Name: name}
+			}
 		}
 
 		p.nextToken()
@@ -361,8 +363,10 @@ func (p *Parser) parseWhile() ast.Stmt {
 	p.nextToken()
 	cond := p.parseExpression(LOWEST)
 
-	if !p.expectCur(lexer.LBRACE) {
-		return nil
+	if p.cur.Type != lexer.LBRACE {
+		if !p.expectPeek(lexer.LBRACE) {
+			return nil
+		}
 	}
 
 	p.nextToken()
@@ -384,8 +388,10 @@ func (p *Parser) parseIf() ast.Stmt {
 	p.nextToken()
 	cond := p.parseExpression(LOWEST)
 
-	if !p.expectCur(lexer.LBRACE) {
-		return nil
+	if p.cur.Type != lexer.LBRACE {
+		if !p.expectPeek(lexer.LBRACE) {
+			return nil
+		}
 	}
 
 	p.nextToken()
@@ -463,6 +469,20 @@ func (p *Parser) parseExpression(precedence int) ast.Expr {
 	var left ast.Expr
 
 	switch p.cur.Type {
+	case lexer.MINUS:
+		p.nextToken()
+		left = &ast.UnaryExpr{
+			Op:   "-",
+			Expr: p.parseExpression(SUM),
+		}
+
+	case lexer.BANG:
+		p.nextToken()
+		left = &ast.UnaryExpr{
+			Op:   "!",
+			Expr: p.parseExpression(SUM),
+		}
+
 	case lexer.IDENT:
 		left = &ast.IdentExpr{Name: p.cur.Literal}
 
@@ -476,8 +496,10 @@ func (p *Parser) parseExpression(precedence int) ast.Expr {
 		p.nextToken()
 		left = p.parseExpression(LOWEST)
 
-		if !p.expectCur(lexer.RPAREN) {
-			return left
+		if p.cur.Type != lexer.RPAREN {
+			if !p.expectPeek(lexer.RPAREN) {
+				return left
+			}
 		}
 
 	default:
@@ -545,8 +567,10 @@ func (p *Parser) parseIndexExpr(name string) ast.Expr {
 
 	index := p.parseExpression(LOWEST)
 
-	if !p.expectCur(lexer.RBRACK) {
-		return &ast.IdentExpr{Name: name}
+	if p.cur.Type != lexer.RBRACK {
+		if !p.expectPeek(lexer.RBRACK) {
+			return &ast.IdentExpr{Name: name}
+		}
 	}
 
 	return &ast.IndexExpr{Name: name, Index: index}

@@ -87,7 +87,7 @@ func (l *Lexer) NextToken() Token {
 			l.readChar()
 			tok = l.newToken(NEQ, string(ch)+string(l.ch), line, column)
 		} else {
-			tok = l.newToken(ILLEGAL, string(l.ch), line, column)
+			tok = l.newToken(BANG, string(l.ch), line, column)
 		}
 
 	case '<':
@@ -147,7 +147,6 @@ func (l *Lexer) NextToken() Token {
 	l.readChar()
 	return tok
 }
-
 func (l *Lexer) newToken(t TokenType, lit string, line int, column int) Token {
 	return Token{
 		Type:    t,

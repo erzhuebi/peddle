@@ -45,16 +45,75 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 			return fmt.Errorf("%q is not an array", expr.Name)
 		}
 
-		if arraySym.Type.Name == "int" {
-			return fmt.Errorf("int array reads are not implemented yet")
-		}
-
 		if err := g.genArrayIndexToY(arraySym, expr.Index); err != nil {
 			return err
 		}
 
+		if arraySym.Type.Name == "int" {
+			g.emit("    lda (ZP_PTR0_LO), y")
+			g.emit("    sta ZP_TMP0")
+			g.emit("    iny")
+			g.emit("    lda (ZP_PTR0_LO), y")
+			g.emit("    sta ZP_TMP1")
+			g.usedTmp16 = true
+			return nil
+		}
+
 		g.emit("    lda (ZP_PTR0_LO), y")
 		return nil
+
+	case *ast.UnaryExpr:
+		switch expr.Op {
+		case "-":
+			if target.Name == "int" {
+				if err := g.genExprTo(expr.Expr, ast.Type{Name: "int"}); err != nil {
+					return err
+				}
+
+				g.emit("    lda ZP_TMP0")
+				g.emit("    eor #$ff")
+				g.emit("    clc")
+				g.emit("    adc #1")
+				g.emit("    sta ZP_TMP0")
+
+				g.emit("    lda ZP_TMP1")
+				g.emit("    eor #$ff")
+				g.emit("    adc #0")
+				g.emit("    sta ZP_TMP1")
+
+				g.usedTmp16 = true
+				return nil
+			}
+
+			if err := g.genExprTo(expr.Expr, ast.Type{Name: "byte"}); err != nil {
+				return err
+			}
+
+			g.emit("    eor #$ff")
+			g.emit("    clc")
+			g.emit("    adc #1")
+			return nil
+
+		case "!":
+			if err := g.genExprTo(expr.Expr, ast.Type{Name: "byte"}); err != nil {
+				return err
+			}
+
+			trueLabel := g.newLabel()
+			endLabel := g.newLabel()
+
+			g.emit("    cmp #0")
+			g.emit(fmt.Sprintf("    beq %s", trueLabel))
+			g.emit("    lda #0")
+			g.emit(fmt.Sprintf("    jmp %s", endLabel))
+			g.emit(trueLabel + ":")
+			g.emit("    lda #1")
+			g.emit(endLabel + ":")
+			return nil
+
+		default:
+			return fmt.Errorf("unsupported unary operator %q", expr.Op)
+		}
 
 	case *ast.BinaryExpr:
 		return g.genBinaryTo(expr, target)
@@ -71,7 +130,13 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 
 		fnFrame := g.frames[expr.Name]
 		if fnFrame == nil || fnFrame.Return == nil {
-			return fmt.Errorf("missing return slot for %s", expr.Name)
+			if target.Name == "int" && retType.Name != "int" {
+				g.emit("    sta ZP_TMP0")
+				g.emit("    lda #0")
+				g.emit("    sta ZP_TMP1")
+				g.usedTmp16 = true
+			}
+			return nil
 		}
 
 		g.loadSymbol(*fnFrame.Return)

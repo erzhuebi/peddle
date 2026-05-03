@@ -63,6 +63,24 @@ func (g *Generator) genCall(name string, args []ast.Expr) (ast.Type, error) {
 
 		g.emit(fmt.Sprintf("    sta $%04x", addr))
 		return ast.Type{}, nil
+
+	case "peek":
+		if len(args) != 1 {
+			return ast.Type{}, fmt.Errorf("peek expects one argument")
+		}
+
+		addrNum, ok := args[0].(*ast.NumberExpr)
+		if !ok {
+			return ast.Type{}, fmt.Errorf("peek currently requires constant address")
+		}
+
+		addr, err := strconv.Atoi(addrNum.Value)
+		if err != nil {
+			return ast.Type{}, err
+		}
+
+		g.emit(fmt.Sprintf("    lda $%04x", addr))
+		return ast.Type{Name: "byte"}, nil
 	}
 
 	fn, ok := g.functions[name]

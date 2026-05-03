@@ -31,6 +31,31 @@ func (g *Generator) genAssign(a *ast.AssignStmt) error {
 			return fmt.Errorf("unknown variable %q", target.Name)
 		}
 
+		if str, ok := a.Value.(*ast.StringExpr); ok {
+			if !sym.Type.IsArray || sym.Type.Name != "char" {
+				return fmt.Errorf("cannot assign string to %s", sym.Type.String())
+			}
+
+			label := g.addLiteral(str.Value)
+			done := g.newLabel()
+			loop := g.newLabel()
+
+			g.emit(fmt.Sprintf("    lda #<%s", label))
+			g.emit("    sta ZP_PTR0_LO")
+			g.emit(fmt.Sprintf("    lda #>%s", label))
+			g.emit("    sta ZP_PTR0_HI")
+
+			g.emit("    ldy #0")
+			g.emit(loop + ":")
+			g.emit("    lda (ZP_PTR0_LO), y")
+			g.emit(fmt.Sprintf("    sta %s, y", sym.Label))
+			g.emit(fmt.Sprintf("    beq %s", done))
+			g.emit("    iny")
+			g.emit(fmt.Sprintf("    jmp %s", loop))
+			g.emit(done + ":")
+			return nil
+		}
+
 		if err := g.genExprTo(a.Value, sym.Type); err != nil {
 			return err
 		}
@@ -49,13 +74,29 @@ func (g *Generator) genAssign(a *ast.AssignStmt) error {
 
 		elemType := ast.Type{Name: arraySym.Type.Name}
 
-		if elemType.Name == "int" {
-			return fmt.Errorf("int array assignment is not implemented yet")
-		}
-
 		if err := g.genExprTo(a.Value, elemType); err != nil {
 			return err
 		}
+
+		if elemType.Name == "int" {
+			g.emit("    lda ZP_TMP0")
+			g.emit("    sta peddle_tmp_int0")
+			g.emit("    lda ZP_TMP1")
+			g.emit("    sta peddle_tmp_int0+1")
+
+			if err := g.genArrayIndexToY(arraySym, target.Index); err != nil {
+				return err
+			}
+
+			g.emit("    lda peddle_tmp_int0")
+			g.emit("    sta (ZP_PTR0_LO), y")
+			g.emit("    iny")
+			g.emit("    lda peddle_tmp_int0+1")
+			g.emit("    sta (ZP_PTR0_LO), y")
+			g.usedTmp16 = true
+			return nil
+		}
+
 		g.emit("    sta ZP_TMP0")
 
 		if err := g.genArrayIndexToY(arraySym, target.Index); err != nil {
