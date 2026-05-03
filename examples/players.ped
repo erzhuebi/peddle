@@ -1,0 +1,30 @@
+struct Player {
+name: char[16]
+hp: int
+}
+
+fn main() {
+var players: Player[10]
+var i: byte
+
+i = 0
+
+while i < 10 {
+players[i].name = "PLAYER00"
+players[i].hp = 100 + i
+i = i + 1
+}
+
+print("PLAYERS:")
+
+print(players[0].name)
+print(players[1].name)
+print(players[2].name)
+print(players[3].name)
+print(players[4].name)
+print(players[5].name)
+print(players[6].name)
+print(players[7].name)
+print(players[8].name)
+print(players[9].name)
+}

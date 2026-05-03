@@ -150,3 +150,58 @@ fn main() {
 		"sta main_hp+1",
 	)
 }
+
+func TestCodegenStructCharArrayFieldStringAssignment(t *testing.T) {
+	asm := compileSource(t, `
+struct Player {
+    name: char[16]
+}
+
+fn main() {
+    var p: Player
+
+    p.name = "player00"
+}
+`)
+
+	requireASM(t, asm,
+		"main_p:",
+		".fill 16, 0",
+		"literal_0:",
+		"ldy #0",
+		"lda literal_0, y",
+		"sta main_p+0, y",
+	)
+}
+
+func TestCodegenStructArrayCharArrayFieldStringAssignment(t *testing.T) {
+	asm := compileSource(t, `
+struct Player {
+    id: byte
+    name: char[16]
+    hp: int
+}
+
+fn main() {
+    var players: Player[100]
+    var i: byte
+
+    i = 7
+    players[i].name = "player07"
+}
+`)
+
+	requireASM(t, asm,
+		"main_players:",
+		".fill 1900, 0",
+		"lda #<main_players",
+		"sta ZP_PTR0_LO",
+		"lda #>main_players",
+		"sta ZP_PTR0_HI",
+		"adc #1",
+		"sta ZP_PTR0_LO",
+		"ldy #0",
+		"lda literal_0, y",
+		"sta (ZP_PTR0_LO), y",
+	)
+}

@@ -1,23 +1,26 @@
 package codegen
 
 import (
-	"strconv"
-	"strings"
+	"fmt"
 )
 
 func asmStringBytes(s string) string {
-	var parts []string
+	out := ""
 
-	for _, r := range s {
-		switch r {
-		case '\n':
-			parts = append(parts, "13")
-		case '"':
-			parts = append(parts, "34")
-		default:
-			parts = append(parts, strconv.Quote(string(r)))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+
+		// normalize to uppercase (C64 screen default)
+		if c >= 'a' && c <= 'z' {
+			c = c - 'a' + 'A'
+		}
+
+		out += fmt.Sprintf("%d", c)
+
+		if i != len(s)-1 {
+			out += ","
 		}
 	}
 
-	return strings.Join(parts, ",")
+	return out
 }
