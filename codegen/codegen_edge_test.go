@@ -128,7 +128,7 @@ fn main() {
 
 	requireASM(t, asm,
 		"adc ZP_TMP0",
-		"tay",
+		"ldy #0",
 		"sta (ZP_PTR0_LO), y",
 		"lda (ZP_PTR0_LO), y",
 	)

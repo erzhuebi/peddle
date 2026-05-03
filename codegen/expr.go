@@ -33,6 +33,15 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 			return fmt.Errorf("unknown variable %q", expr.Name)
 		}
 
+		if target.Name == "int" && sym.Type.Name != "int" && !sym.Type.IsArray {
+			g.loadSymbol(sym)
+			g.emit("    sta ZP_TMP0")
+			g.emit("    lda #0")
+			g.emit("    sta ZP_TMP1")
+			g.usedTmp16 = true
+			return nil
+		}
+
 		g.loadSymbol(sym)
 		return nil
 

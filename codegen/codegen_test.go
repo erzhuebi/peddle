@@ -270,7 +270,7 @@ fn main() {
 
 	requireASM(t, asm,
 		"lda main_i",
-		"tay",
+		"ldy #0",
 		"sta (ZP_PTR0_LO), y",
 		"lda (ZP_PTR0_LO), y",
 	)

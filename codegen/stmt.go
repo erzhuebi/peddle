@@ -97,13 +97,14 @@ func (g *Generator) genAssign(a *ast.AssignStmt) error {
 			return nil
 		}
 
-		g.emit("    sta ZP_TMP0")
+		g.emit("    sta peddle_tmp_int0")
+		g.usedTmp16 = true
 
 		if err := g.genArrayIndexToY(arraySym, target.Index); err != nil {
 			return err
 		}
 
-		g.emit("    lda ZP_TMP0")
+		g.emit("    lda peddle_tmp_int0")
 		g.emit("    sta (ZP_PTR0_LO), y")
 		return nil
 
