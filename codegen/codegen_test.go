@@ -172,7 +172,7 @@ fn main() {
 
 func TestCodegenUserFunctionCallAndReturn(t *testing.T) {
 	asm := compileSource(t, `
-fn add(a: int, b: int): int {
+fn add(a: int, b: int) -> int {
     return a + b
 }
 

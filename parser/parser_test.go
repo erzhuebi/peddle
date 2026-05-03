@@ -185,3 +185,25 @@ fn main() {
 		t.Fatalf("expected IndexLValue, got %T", assign.Target)
 	}
 }
+
+func TestParseFunctionReturnArrow(t *testing.T) {
+	prog := parseProgramForTest(t, `
+fn add(a: int, b: int) -> int {
+    return a + b
+}
+`)
+
+	if len(prog.Functions) != 1 {
+		t.Fatalf("expected 1 function, got %d", len(prog.Functions))
+	}
+
+	fn := prog.Functions[0]
+
+	if fn.Name != "add" {
+		t.Fatalf("got function name %q, want add", fn.Name)
+	}
+
+	if fn.ReturnType.Name != "int" {
+		t.Fatalf("got return type %q, want int", fn.ReturnType.Name)
+	}
+}

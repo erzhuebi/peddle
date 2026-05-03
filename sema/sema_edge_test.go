@@ -114,7 +114,7 @@ fn main() {
 
 func TestSemaAllowsMultipleReturns(t *testing.T) {
 	src := `
-fn choose(x: int): int {
+fn choose(x: int) -> int {
     if x {
         return 1
     }

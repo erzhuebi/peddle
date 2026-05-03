@@ -13,10 +13,14 @@ import (
 
 func main() {
 	outPath := flag.String("o", "out.asm", "output ASM file")
+	flag.Usage = func() {
+		fmt.Fprintln(os.Stderr, "usage: peddlec -o output.asm input.ped")
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 
 	if flag.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: peddlec input.ped -o output.asm")
+		flag.Usage()
 		os.Exit(1)
 	}
 

@@ -121,7 +121,7 @@ func (p *Parser) parseFunction() *ast.FunctionDecl {
 		return nil
 	}
 
-	if p.peek.Type == lexer.COLON {
+	if p.peek.Type == lexer.ARROW {
 		p.nextToken()
 		p.nextToken()
 		fn.ReturnType = p.parseType()

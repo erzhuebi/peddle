@@ -356,14 +356,14 @@ fn main() {
 Functions are declared with `fn`.
 
 ```peddle
-fn add(a: int, b: int): int {
+fn add(a: int, b: int) -> int {
     return a + b
 }
 
 fn main() {
     var x: int
 
-    x = add(1, 2)
+    x = add(1, 2)fn add(a: int, b: int) -> int {
 }
 ```
 

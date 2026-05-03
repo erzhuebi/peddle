@@ -19,6 +19,7 @@ const (
 
 	FN     = "FN"
 	VAR    = "VAR"
+	ARROW  = "->"
 	WHILE  = "WHILE"
 	IF     = "IF"
 	ELSE   = "ELSE"

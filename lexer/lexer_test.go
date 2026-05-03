@@ -3,7 +3,7 @@ package lexer
 import "testing"
 
 func TestLexerOperators(t *testing.T) {
-	input := `! != == < <= > >= + - =`
+	input := `! != == < <= > >= + - -> =`
 
 	expected := []TokenType{
 		BANG,
@@ -15,6 +15,7 @@ func TestLexerOperators(t *testing.T) {
 		GTE,
 		PLUS,
 		MINUS,
+		ARROW,
 		ASSIGN,
 		EOF,
 	}

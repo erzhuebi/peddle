@@ -136,7 +136,7 @@ fn main() {
 
 func TestCodegenMultipleReturns(t *testing.T) {
 	asm := compileSource(t, `
-fn choose(x: int): int {
+fn choose(x: int) -> int {
     if x {
         return 1
     }

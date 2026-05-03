@@ -78,7 +78,7 @@ fn main() {
 
 func TestSemaUserFunctionCall(t *testing.T) {
 	src := `
-fn add(a: int, b: int): int {
+fn add(a: int, b: int) -> int {
     return a + b
 }
 
@@ -95,7 +95,7 @@ fn main() {
 
 func TestSemaRejectsWrongArgCount(t *testing.T) {
 	src := `
-fn add(a: int, b: int): int {
+fn add(a: int, b: int) -> int {
     return a + b
 }
 
@@ -142,7 +142,7 @@ fn main() {
 
 func TestSemaRejectsInvalidReturnValue(t *testing.T) {
 	src := `
-fn f(): int {
+fn f() -> int {
     return "NO"
 }
 

@@ -69,8 +69,15 @@ func (l *Lexer) NextToken() Token {
 		tok = l.newToken(DOT, string(l.ch), line, column)
 	case '+':
 		tok = l.newToken(PLUS, string(l.ch), line, column)
+
 	case '-':
-		tok = l.newToken(MINUS, string(l.ch), line, column)
+		if l.peekChar() == '>' {
+			ch := l.ch
+			l.readChar()
+			tok = l.newToken(ARROW, string(ch)+string(l.ch), line, column)
+		} else {
+			tok = l.newToken(MINUS, string(l.ch), line, column)
+		}
 
 	case '=':
 		if l.peekChar() == '=' {
@@ -147,6 +154,7 @@ func (l *Lexer) NextToken() Token {
 	l.readChar()
 	return tok
 }
+
 func (l *Lexer) newToken(t TokenType, lit string, line int, column int) Token {
 	return Token{
 		Type:    t,
