@@ -71,6 +71,57 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 		g.emit("    lda (ZP_PTR0_LO), y")
 		return nil
 
+	case *ast.IndexFieldExpr:
+		arraySym, ok := g.resolve(expr.Name)
+		if !ok {
+			return fmt.Errorf("unknown array %q", expr.Name)
+		}
+		if !arraySym.Type.IsArray {
+			return fmt.Errorf("%q is not an array", expr.Name)
+		}
+
+		elemType := ast.Type{Name: arraySym.Type.Name}
+
+		fieldType, offset, err := g.fieldInfo(elemType, expr.Field)
+		if err != nil {
+			return err
+		}
+
+		if fieldType.IsArray {
+			return fmt.Errorf("array field reads are not implemented yet")
+		}
+
+		if _, ok := g.structs[fieldType.Name]; ok {
+			return fmt.Errorf("struct field reads are not implemented yet")
+		}
+
+		if err := g.genArrayIndexToY(arraySym, expr.Index); err != nil {
+			return err
+		}
+
+		if offset != 0 {
+			g.emit("    lda ZP_PTR0_LO")
+			g.emit("    clc")
+			g.emit(fmt.Sprintf("    adc #%d", offset))
+			g.emit("    sta ZP_PTR0_LO")
+			g.emit("    lda ZP_PTR0_HI")
+			g.emit("    adc #0")
+			g.emit("    sta ZP_PTR0_HI")
+		}
+
+		if fieldType.Name == "int" {
+			g.emit("    lda (ZP_PTR0_LO), y")
+			g.emit("    sta ZP_TMP0")
+			g.emit("    iny")
+			g.emit("    lda (ZP_PTR0_LO), y")
+			g.emit("    sta ZP_TMP1")
+			g.usedTmp16 = true
+			return nil
+		}
+
+		g.emit("    lda (ZP_PTR0_LO), y")
+		return nil
+
 	case *ast.FieldExpr:
 		baseSym, ok := g.resolve(expr.Base)
 		if !ok {

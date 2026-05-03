@@ -2,11 +2,15 @@ PEDDLEC_BIN := build/peddlec
 ASM        := 64tass
 VICE       ?= $(shell command -v x64sc 2>/dev/null || command -v x64 2>/dev/null)
 
-HELLO_SRC := examples/hello.ped
-HELLO_ASM := build/hello.asm
-HELLO_PRG := build/hello.prg
+EXAMPLE ?= hello
+SRC     := examples/$(EXAMPLE).ped
+ASM_OUT := build/$(EXAMPLE).asm
+PRG_OUT := build/$(EXAMPLE).prg
 
-.PHONY: help check check-run build hello clean test
+.PHONY: help check check-run build run example hello clean test examples
+
+# default target
+all: help
 
 test: check
 	go test ./...
@@ -14,10 +18,13 @@ test: check
 help:
 	@echo "Available targets:"
 	@echo ""
-	@echo "  make build   - build peddlec compiler"
-	@echo "  make hello   - build compiler, compile hello example, assemble PRG, run in VICE"
-	@echo "  make check   - check compiler toolchain"
-	@echo "  make clean   - remove build artifacts"
+	@echo "  make build              - build peddlec compiler"
+	@echo "  make run EXAMPLE=hello  - compile examples/hello.ped, assemble PRG, run in VICE"
+	@echo "  make example EXAMPLE=x  - compile examples/x.ped and assemble PRG without running"
+	@echo "  make hello              - same as make run EXAMPLE=hello"
+	@echo "  make examples           - list available examples"
+	@echo "  make check              - check compiler toolchain"
+	@echo "  make clean              - remove build artifacts"
 	@echo ""
 	@echo "Toolchain:"
 	@echo "  macOS: brew install go 64tass vice"
@@ -52,10 +59,25 @@ build: check
 	go build -o $(PEDDLEC_BIN) ./cmd/peddlec
 	@echo "wrote $(PEDDLEC_BIN)"
 
-hello: check-run build
-	$(PEDDLEC_BIN) -o $(HELLO_ASM) $(HELLO_SRC)
-	$(ASM) $(HELLO_ASM) -o $(HELLO_PRG)
-	$(VICE) -autostart $(HELLO_PRG)
+examples:
+	@find examples -name '*.ped' -maxdepth 1 -type f | sed 's|examples/||; s|\.ped$$||' | sort
+
+example: check-run build
+	@if [ ! -f "$(SRC)" ]; then \
+		echo "missing example: $(SRC)"; \
+		echo ""; \
+		echo "Available examples:"; \
+		$(MAKE) --no-print-directory examples; \
+		exit 1; \
+	fi
+	$(PEDDLEC_BIN) -o $(ASM_OUT) $(SRC)
+	$(ASM) $(ASM_OUT) -o $(PRG_OUT)
+	@echo "wrote $(PRG_OUT)"
+
+run: example
+	$(VICE) -autostart $(PRG_OUT)
+
+hello: run
 
 clean:
 	rm -rf build

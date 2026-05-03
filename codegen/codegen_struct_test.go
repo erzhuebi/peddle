@@ -84,3 +84,69 @@ fn main() {
 		"sta main_x+1",
 	)
 }
+
+func TestCodegenStructArrayFieldByteReadWrite(t *testing.T) {
+	asm := compileSource(t, `
+struct Player {
+    x: byte
+    y: byte
+    hp: int
+}
+
+fn main() {
+    var players: Player[10]
+    var i: byte
+    var x: byte
+
+    i = 3
+    players[i].x = 42
+    x = players[i].x
+}
+`)
+
+	requireASM(t, asm,
+		"main_players:",
+		".fill 40, 0",
+		"lda #<main_players",
+		"sta ZP_PTR0_LO",
+		"lda #>main_players",
+		"sta ZP_PTR0_HI",
+		"ldy #0",
+		"sta (ZP_PTR0_LO), y",
+		"lda (ZP_PTR0_LO), y",
+		"sta main_x",
+	)
+}
+
+func TestCodegenStructArrayFieldIntWithOffsetReadWrite(t *testing.T) {
+	asm := compileSource(t, `
+struct Player {
+    x: byte
+    hp: int
+}
+
+fn main() {
+    var players: Player[10]
+    var i: byte
+    var hp: int
+
+    i = 2
+    players[i].hp = 1000
+    hp = players[i].hp
+}
+`)
+
+	requireASM(t, asm,
+		"main_players:",
+		".fill 30, 0",
+		"adc #1",
+		"sta ZP_PTR0_LO",
+		"sta (ZP_PTR0_LO), y",
+		"iny",
+		"sta (ZP_PTR0_LO), y",
+		"lda (ZP_PTR0_LO), y",
+		"sta ZP_TMP0",
+		"sta main_hp",
+		"sta main_hp+1",
+	)
+}

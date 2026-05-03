@@ -109,6 +109,14 @@ type FieldLValue struct {
 
 func (*FieldLValue) lvalueNode() {}
 
+type IndexFieldLValue struct {
+	Name  string
+	Index Expr
+	Field string
+}
+
+func (*IndexFieldLValue) lvalueNode() {}
+
 type Expr interface {
 	exprNode()
 }
@@ -132,6 +140,14 @@ type FieldExpr struct {
 }
 
 func (*FieldExpr) exprNode() {}
+
+type IndexFieldExpr struct {
+	Name  string
+	Index Expr
+	Field string
+}
+
+func (*IndexFieldExpr) exprNode() {}
 
 type NumberExpr struct {
 	Value string

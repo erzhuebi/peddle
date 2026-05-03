@@ -339,6 +339,22 @@ func (p *Parser) parseLValue() ast.LValue {
 		}
 
 		p.nextToken()
+
+		if p.cur.Type == lexer.DOT {
+			if !p.expectPeek(lexer.IDENT) {
+				return &ast.IndexLValue{Name: name, Index: index}
+			}
+
+			field := p.cur.Literal
+			p.nextToken()
+
+			return &ast.IndexFieldLValue{
+				Name:  name,
+				Index: index,
+				Field: field,
+			}
+		}
+
 		return &ast.IndexLValue{Name: name, Index: index}
 	}
 
@@ -531,12 +547,17 @@ func (p *Parser) parseExpression(precedence int) ast.Expr {
 			left = p.parseIndexExpr(ident.Name)
 
 		case lexer.DOT:
-			ident, ok := left.(*ast.IdentExpr)
-			if !ok {
-				p.errorf("only identifier field access is supported")
+			switch v := left.(type) {
+			case *ast.IdentExpr:
+				left = p.parseFieldExpr(v.Name)
+
+			case *ast.IndexExpr:
+				left = p.parseIndexFieldExpr(v.Name, v.Index)
+
+			default:
+				p.errorf("only identifier or indexed field access is supported")
 				return left
 			}
-			left = p.parseFieldExpr(ident.Name)
 
 		default:
 			op := p.peek
@@ -585,6 +606,20 @@ func (p *Parser) parseFieldExpr(base string) ast.Expr {
 
 	return &ast.FieldExpr{
 		Base:  base,
+		Field: p.cur.Literal,
+	}
+}
+
+func (p *Parser) parseIndexFieldExpr(name string, index ast.Expr) ast.Expr {
+	p.nextToken()
+
+	if !p.expectPeek(lexer.IDENT) {
+		return &ast.IndexExpr{Name: name, Index: index}
+	}
+
+	return &ast.IndexFieldExpr{
+		Name:  name,
+		Index: index,
 		Field: p.cur.Literal,
 	}
 }

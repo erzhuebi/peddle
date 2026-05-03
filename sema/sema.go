@@ -210,6 +210,26 @@ func (c *Checker) checkLValue(scope map[string]ast.Type, lv ast.LValue) (ast.Typ
 
 		return ast.Type{Name: t.Name}, nil
 
+	case *ast.IndexFieldLValue:
+		t, ok := scope[v.Name]
+		if !ok {
+			return ast.Type{}, fmt.Errorf("unknown variable %q", v.Name)
+		}
+		if !t.IsArray {
+			return ast.Type{}, fmt.Errorf("%q is not an array", v.Name)
+		}
+
+		idxType, err := c.checkExpr(scope, v.Index)
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if idxType.Name != "byte" && idxType.Name != "int" {
+			return ast.Type{}, fmt.Errorf("array index must be byte or int")
+		}
+
+		elemType := ast.Type{Name: t.Name}
+		return c.fieldType(elemType, v.Field)
+
 	case *ast.FieldLValue:
 		baseType, ok := scope[v.Base]
 		if !ok {
@@ -249,6 +269,26 @@ func (c *Checker) checkExpr(scope map[string]ast.Type, e ast.Expr) (ast.Type, er
 		}
 
 		return ast.Type{Name: t.Name}, nil
+
+	case *ast.IndexFieldExpr:
+		t, ok := scope[expr.Name]
+		if !ok {
+			return ast.Type{}, fmt.Errorf("unknown variable %q", expr.Name)
+		}
+		if !t.IsArray {
+			return ast.Type{}, fmt.Errorf("%q is not an array", expr.Name)
+		}
+
+		idxType, err := c.checkExpr(scope, expr.Index)
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if idxType.Name != "byte" && idxType.Name != "int" {
+			return ast.Type{}, fmt.Errorf("array index must be byte or int")
+		}
+
+		elemType := ast.Type{Name: t.Name}
+		return c.fieldType(elemType, expr.Field)
 
 	case *ast.FieldExpr:
 		baseType, ok := scope[expr.Base]
