@@ -62,6 +62,27 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 		g.emit("    lda (ZP_PTR0_LO), y")
 		return nil
 
+	case *ast.FieldExpr:
+		baseSym, ok := g.resolve(expr.Base)
+		if !ok {
+			return fmt.Errorf("unknown variable %q", expr.Base)
+		}
+
+		fieldType, offset, err := g.fieldInfo(baseSym.Type, expr.Field)
+		if err != nil {
+			return err
+		}
+
+		if fieldType.IsArray {
+			return fmt.Errorf("array field reads are not implemented yet")
+		}
+
+		if _, ok := g.structs[fieldType.Name]; ok {
+			return fmt.Errorf("struct field reads are not implemented yet")
+		}
+
+		return g.loadField(baseSym, fieldType, offset)
+
 	case *ast.UnaryExpr:
 		switch expr.Op {
 		case "-":

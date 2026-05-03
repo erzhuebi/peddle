@@ -1,6 +1,10 @@
 package codegen
 
-import "peddle/ast"
+import (
+	"fmt"
+
+	"peddle/ast"
+)
 
 func (g *Generator) buildFrame(fn *ast.FunctionDecl) *Frame {
 	frame := &Frame{
@@ -13,7 +17,7 @@ func (g *Generator) buildFrame(fn *ast.FunctionDecl) *Frame {
 			SourceName: p.Name,
 			Label:      fn.Name + "_" + p.Name,
 			Type:       p.Type,
-			Size:       sizeof(p.Type),
+			Size:       g.sizeof(p.Type),
 		}
 	}
 
@@ -22,7 +26,7 @@ func (g *Generator) buildFrame(fn *ast.FunctionDecl) *Frame {
 			SourceName: l.Name,
 			Label:      fn.Name + "_" + l.Name,
 			Type:       l.Type,
-			Size:       sizeof(l.Type),
+			Size:       g.sizeof(l.Type),
 		}
 	}
 
@@ -31,7 +35,7 @@ func (g *Generator) buildFrame(fn *ast.FunctionDecl) *Frame {
 			SourceName: "return",
 			Label:      fn.Name + "_return",
 			Type:       fn.ReturnType,
-			Size:       sizeof(fn.ReturnType),
+			Size:       g.sizeof(fn.ReturnType),
 		}
 	}
 
@@ -46,7 +50,7 @@ func (g *Generator) resolve(name string) (Symbol, bool) {
 	return sym, ok
 }
 
-func sizeof(t ast.Type) int {
+func (g *Generator) sizeof(t ast.Type) int {
 	base := 0
 
 	switch t.Name {
@@ -55,7 +59,13 @@ func sizeof(t ast.Type) int {
 	case "int":
 		base = 2
 	default:
-		base = 1
+		if s, ok := g.structs[t.Name]; ok {
+			for _, f := range s.Fields {
+				base += g.sizeof(f.Type)
+			}
+		} else {
+			base = 1
+		}
 	}
 
 	if t.IsArray {
@@ -63,4 +73,27 @@ func sizeof(t ast.Type) int {
 	}
 
 	return base
+}
+
+func (g *Generator) fieldInfo(base ast.Type, field string) (ast.Type, int, error) {
+	if base.IsArray {
+		return ast.Type{}, 0, fmt.Errorf("cannot access field %q on array type %s", field, base.String())
+	}
+
+	s, ok := g.structs[base.Name]
+	if !ok {
+		return ast.Type{}, 0, fmt.Errorf("type %s has no fields", base.Name)
+	}
+
+	offset := 0
+
+	for _, f := range s.Fields {
+		if f.Name == field {
+			return f.Type, offset, nil
+		}
+
+		offset += g.sizeof(f.Type)
+	}
+
+	return ast.Type{}, 0, fmt.Errorf("type %s has no field %q", base.Name, field)
 }

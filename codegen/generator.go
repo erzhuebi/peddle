@@ -10,6 +10,7 @@ type Generator struct {
 	out strings.Builder
 
 	functions map[string]*ast.FunctionDecl
+	structs   map[string]*ast.StructDecl
 	frames    map[string]*Frame
 
 	currentFn    *ast.FunctionDecl
@@ -39,11 +40,16 @@ type Symbol struct {
 func New() *Generator {
 	return &Generator{
 		functions: map[string]*ast.FunctionDecl{},
+		structs:   map[string]*ast.StructDecl{},
 		frames:    map[string]*Frame{},
 	}
 }
 
 func (g *Generator) Generate(p *ast.Program) (string, error) {
+	for _, s := range p.Structs {
+		g.structs[s.Name] = s
+	}
+
 	for _, fn := range p.Functions {
 		g.functions[fn.Name] = fn
 		g.frames[fn.Name] = g.buildFrame(fn)

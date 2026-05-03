@@ -107,6 +107,31 @@ func (g *Generator) genAssign(a *ast.AssignStmt) error {
 		g.emit("    sta (ZP_PTR0_LO), y")
 		return nil
 
+	case *ast.FieldLValue:
+		baseSym, ok := g.resolve(target.Base)
+		if !ok {
+			return fmt.Errorf("unknown variable %q", target.Base)
+		}
+
+		fieldType, offset, err := g.fieldInfo(baseSym.Type, target.Field)
+		if err != nil {
+			return err
+		}
+
+		if fieldType.IsArray {
+			return fmt.Errorf("array field assignment is not implemented yet")
+		}
+
+		if _, ok := g.structs[fieldType.Name]; ok {
+			return fmt.Errorf("struct field assignment is not implemented yet")
+		}
+
+		if err := g.genExprTo(a.Value, fieldType); err != nil {
+			return err
+		}
+
+		return g.storeIntoField(baseSym, fieldType, offset)
+
 	default:
 		return fmt.Errorf("unsupported assignment target")
 	}
