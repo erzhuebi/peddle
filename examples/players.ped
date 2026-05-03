@@ -10,7 +10,7 @@ var i: byte
 i = 0
 
 while i < 10 {
-players[i].name = "PLAYER00"
+players[i].name = "PLAYER00\n"
 players[i].hp = 100 + i
 i = i + 1
 }

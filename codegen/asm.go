@@ -10,12 +10,17 @@ func asmStringBytes(s string) string {
 	for i := 0; i < len(s); i++ {
 		c := s[i]
 
-		// normalize to uppercase (C64 screen default)
-		if c >= 'a' && c <= 'z' {
-			c = c - 'a' + 'A'
-		}
+		// handle newline escape
+		if c == '\n' {
+			out += "13"
+		} else {
+			// normalize to uppercase (C64 default charset)
+			if c >= 'a' && c <= 'z' {
+				c = c - 'a' + 'A'
+			}
 
-		out += fmt.Sprintf("%d", c)
+			out += fmt.Sprintf("%d", c)
+		}
 
 		if i != len(s)-1 {
 			out += ","

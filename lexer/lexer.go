@@ -1,5 +1,7 @@
 package lexer
 
+import "strings"
+
 type Lexer struct {
 	input        string
 	position     int
@@ -40,7 +42,6 @@ func (l *Lexer) readChar() {
 func (l *Lexer) NextToken() Token {
 	l.skipWhitespace()
 	l.skipComment()
-
 	l.skipWhitespace()
 
 	line := l.line
@@ -206,20 +207,45 @@ func (l *Lexer) readNumber() string {
 }
 
 func (l *Lexer) readString() string {
+	var out strings.Builder
+
 	l.readChar()
-	pos := l.position
 
 	for l.ch != '"' && l.ch != 0 {
+		if l.ch == '\\' {
+			l.readChar()
+
+			switch l.ch {
+			case 'n':
+				out.WriteByte('\n')
+			case '"':
+				out.WriteByte('"')
+			case '\\':
+				out.WriteByte('\\')
+			case '0':
+				out.WriteByte(0)
+			default:
+				out.WriteByte('\\')
+				if l.ch != 0 {
+					out.WriteByte(l.ch)
+				}
+			}
+
+			if l.ch != 0 {
+				l.readChar()
+			}
+			continue
+		}
+
+		out.WriteByte(l.ch)
 		l.readChar()
 	}
-
-	lit := l.input[pos:l.position]
 
 	if l.ch == '"' {
 		l.readChar()
 	}
 
-	return lit
+	return out.String()
 }
 
 func isLetter(ch byte) bool {
