@@ -296,3 +296,237 @@ fn main() {
 		"sbc peddle_tmp_int0",
 	)
 }
+
+func TestCodegenArraySizeReturnsCapacity(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    var a: int[10]
+    var n: int
+
+    n = size(a)
+}
+`)
+
+	requireASM(t, asm,
+		"main_a:",
+		".word 10",
+		"ldy #0",
+		"lda (ZP_PTR0_LO), y",
+		"sta ZP_TMP0",
+		"sta main_n",
+		"sta main_n+1",
+	)
+}
+
+func TestCodegenArrayLenReadsRuntimeLength(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    var a: byte[10]
+    var n: int
+
+    n = len(a)
+}
+`)
+
+	requireASM(t, asm,
+		"main_a:",
+		".word 10",
+		".word 0",
+		"ldy #2",
+		"lda (ZP_PTR0_LO), y",
+		"sta ZP_TMP0",
+		"sta main_n",
+		"sta main_n+1",
+	)
+}
+
+func TestCodegenArrayIndexWriteUpdatesLength(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    var a: byte[10]
+    var n: int
+
+    a[5] = 1
+    n = len(a)
+}
+`)
+
+	requireASM(t, asm,
+		"main_a:",
+		".word 10",
+		".word 0",
+		"inc ZP_TMP0",
+		"sta main_a+2",
+		"sta main_a+3",
+		"ldy #2",
+		"sta main_n",
+		"sta main_n+1",
+	)
+}
+
+func TestCodegenAppendByteArray(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    var a: byte[10]
+
+    append(a, 1)
+}
+`)
+
+	requireASM(t, asm,
+		"main_a:",
+		".word 10",
+		".word 0",
+		"ldy #2",
+		"sta peddle_tmp_int0",
+		"sta (ZP_PTR0_LO), y",
+		"adc #1",
+	)
+}
+
+func TestCodegenAppendIntArray(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    var a: int[10]
+
+    append(a, 1000)
+}
+`)
+
+	requireASM(t, asm,
+		"main_a:",
+		".word 10",
+		".word 0",
+		"lda #<1000",
+		"sta peddle_tmp_int0",
+		"lda #>1000",
+		"sta peddle_tmp_int0+1",
+		"sta (ZP_PTR0_LO), y",
+		"iny",
+	)
+}
+
+func TestCodegenCopyByteArray(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    var x: byte[10]
+    var y: byte[10]
+
+    append(x, 1)
+    append(x, 2)
+    copy(y, x)
+}
+`)
+
+	requireASM(t, asm,
+		"main_x:",
+		".word 10",
+		"main_y:",
+		".word 10",
+		"sta ZP_PTR1_LO",
+		"sta ZP_PTR1_HI",
+		"sta (ZP_PTR1_LO), y",
+		"inc ZP_PTR0_LO",
+		"inc ZP_PTR1_LO",
+	)
+}
+
+func TestCodegenFillByteArray(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    var a: byte[10]
+
+    fill(a, 1)
+}
+`)
+
+	requireASM(t, asm,
+		"main_a:",
+		".word 10",
+		".word 0",
+		"ldy #0",
+		"ldy #2",
+		"sta (ZP_PTR0_LO), y",
+		"sta peddle_tmp_int0",
+		"lda ZP_TMP0",
+	)
+}
+
+func TestCodegenFillIntArray(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    var a: int[10]
+
+    fill(a, 1)
+}
+`)
+
+	requireASM(t, asm,
+		"main_a:",
+		".word 10",
+		".word 0",
+		"lda #<1",
+		"sta ZP_TMP0",
+		"lda #>1",
+		"sta ZP_TMP1",
+		"adc #2",
+	)
+}
+
+func TestCodegenCopyStringLiteral(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    var s: char[10]
+
+    copy(s, "ABC")
+    print(s)
+}
+`)
+
+	requireASM(t, asm,
+		"literal_0:",
+		".byte 65,66,67,0",
+		"ldy #2",
+		"ldy #3",
+		"sta (ZP_PTR0_LO), y",
+		"jsr peddle_print_counted_string",
+	)
+}
+
+func TestCodegenStrcpyAlias(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    var s: char[10]
+
+    strcpy(s, "ABC")
+}
+`)
+
+	requireASM(t, asm,
+		"literal_0:",
+		".byte 65,66,67,0",
+		"ldy #2",
+		"ldy #3",
+		"sta (ZP_PTR0_LO), y",
+	)
+}
+
+func TestCodegenStraddAlias(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    var s: char[10]
+
+    copy(s, "ABC")
+    stradd(s, "D")
+}
+`)
+
+	requireASM(t, asm,
+		"literal_0:",
+		"literal_1:",
+		"adc #<1",
+		"adc #>1",
+		"lda literal_1, y",
+		"sta (ZP_PTR0_LO), y",
+	)
+}

@@ -408,20 +408,49 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 		}
 		return ast.Type{Name: "byte"}, nil
 
-	case "strlen":
+	case "len", "size", "strlen":
 		if len(args) != 1 {
-			return ast.Type{}, fmt.Errorf("strlen expects one argument")
+			return ast.Type{}, fmt.Errorf("%s expects one argument", name)
 		}
+
 		t, err := c.checkExpr(scope, args[0])
 		if err != nil {
 			return ast.Type{}, err
 		}
-		if !(t.IsArray && t.Name == "char") {
-			return ast.Type{}, fmt.Errorf("strlen expects char array")
+
+		if !(t.IsArray) {
+			return ast.Type{}, fmt.Errorf("%s expects array", name)
 		}
+
 		return ast.Type{Name: "int"}, nil
 
-	case "strcpy", "stradd":
+	case "append":
+		if len(args) != 2 {
+			return ast.Type{}, fmt.Errorf("append expects two arguments")
+		}
+
+		dst, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+
+		if !dst.IsArray {
+			return ast.Type{}, fmt.Errorf("append destination must be array")
+		}
+
+		valueType, err := c.checkExpr(scope, args[1])
+		if err != nil {
+			return ast.Type{}, err
+		}
+
+		elemType := ast.Type{Name: dst.Name}
+		if !sameType(elemType, valueType) && !canAssign(elemType, valueType) {
+			return ast.Type{}, fmt.Errorf("append value cannot be %s for %s[]", valueType.String(), dst.Name)
+		}
+
+		return ast.Type{}, nil
+
+	case "copy", "strcpy":
 		if len(args) != 2 {
 			return ast.Type{}, fmt.Errorf("%s expects two arguments", name)
 		}
@@ -436,16 +465,71 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 			return ast.Type{}, err
 		}
 
+		if !dst.IsArray {
+			return ast.Type{}, fmt.Errorf("%s destination must be array", name)
+		}
+
+		if !src.IsArray {
+			return ast.Type{}, fmt.Errorf("%s source must be array", name)
+		}
+
+		if dst.Name != src.Name {
+			return ast.Type{}, fmt.Errorf("%s requires arrays with same element type", name)
+		}
+
+		if src.ArrayLen > dst.ArrayLen {
+			return ast.Type{}, fmt.Errorf("source array does not fit destination")
+		}
+
+		return ast.Type{}, nil
+
+	case "stradd":
+		if len(args) != 2 {
+			return ast.Type{}, fmt.Errorf("stradd expects two arguments")
+		}
+
+		dst, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+
+		src, err := c.checkExpr(scope, args[1])
+		if err != nil {
+			return ast.Type{}, err
+		}
+
 		if !(dst.IsArray && dst.Name == "char") {
-			return ast.Type{}, fmt.Errorf("%s destination must be char array", name)
+			return ast.Type{}, fmt.Errorf("stradd destination must be char array")
 		}
 
 		if !(src.IsArray && src.Name == "char") {
-			return ast.Type{}, fmt.Errorf("%s source must be char array", name)
+			return ast.Type{}, fmt.Errorf("stradd source must be char array")
 		}
 
-		if name == "strcpy" && src.ArrayLen > dst.ArrayLen {
-			return ast.Type{}, fmt.Errorf("source string does not fit destination")
+		return ast.Type{}, nil
+
+	case "fill":
+		if len(args) != 2 {
+			return ast.Type{}, fmt.Errorf("fill expects two arguments")
+		}
+
+		dst, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+
+		if !dst.IsArray {
+			return ast.Type{}, fmt.Errorf("fill destination must be array")
+		}
+
+		valueType, err := c.checkExpr(scope, args[1])
+		if err != nil {
+			return ast.Type{}, err
+		}
+
+		elemType := ast.Type{Name: dst.Name}
+		if !sameType(elemType, valueType) && !canAssign(elemType, valueType) {
+			return ast.Type{}, fmt.Errorf("fill value cannot be %s for %s[]", valueType.String(), dst.Name)
 		}
 
 		return ast.Type{}, nil

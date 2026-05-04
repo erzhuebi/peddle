@@ -67,6 +67,10 @@ func (g *Generator) genAssign(a *ast.AssignStmt) error {
 			g.emit("    lda ZP_TMP1")
 			g.emit("    sta peddle_tmp_int0+1")
 
+			if err := g.genUpdateArrayLenFromIndex(arraySym, target.Index); err != nil {
+				return err
+			}
+
 			if err := g.genArrayIndexToY(arraySym, target.Index); err != nil {
 				return err
 			}
@@ -82,6 +86,10 @@ func (g *Generator) genAssign(a *ast.AssignStmt) error {
 
 		g.emit("    sta peddle_tmp_int0")
 		g.usedTmp16 = true
+
+		if err := g.genUpdateArrayLenFromIndex(arraySym, target.Index); err != nil {
+			return err
+		}
 
 		if err := g.genArrayIndexToY(arraySym, target.Index); err != nil {
 			return err
@@ -113,6 +121,10 @@ func (g *Generator) genAssign(a *ast.AssignStmt) error {
 				return fmt.Errorf("array field assignment is not implemented yet")
 			}
 
+			if err := g.genUpdateArrayLenFromIndex(arraySym, target.Index); err != nil {
+				return err
+			}
+
 			return g.genCopyStringLiteralToCharArray(&ast.IndexFieldExpr{
 				Name:  target.Name,
 				Index: target.Index,
@@ -124,41 +136,9 @@ func (g *Generator) genAssign(a *ast.AssignStmt) error {
 			return fmt.Errorf("struct field assignment is not implemented yet")
 		}
 
-		if err := g.genExprTo(a.Value, fieldType); err != nil {
+		if err := g.genUpdateArrayLenFromIndex(arraySym, target.Index); err != nil {
 			return err
 		}
-
-		if fieldType.Name == "int" {
-			g.emit("    lda ZP_TMP0")
-			g.emit("    sta peddle_tmp_int0")
-			g.emit("    lda ZP_TMP1")
-			g.emit("    sta peddle_tmp_int0+1")
-
-			if err := g.genArrayIndexToY(arraySym, target.Index); err != nil {
-				return err
-			}
-
-			if offset != 0 {
-				g.emit("    lda ZP_PTR0_LO")
-				g.emit("    clc")
-				g.emit(fmt.Sprintf("    adc #%d", offset))
-				g.emit("    sta ZP_PTR0_LO")
-				g.emit("    lda ZP_PTR0_HI")
-				g.emit("    adc #0")
-				g.emit("    sta ZP_PTR0_HI")
-			}
-
-			g.emit("    lda peddle_tmp_int0")
-			g.emit("    sta (ZP_PTR0_LO), y")
-			g.emit("    iny")
-			g.emit("    lda peddle_tmp_int0+1")
-			g.emit("    sta (ZP_PTR0_LO), y")
-			g.usedTmp16 = true
-			return nil
-		}
-
-		g.emit("    sta peddle_tmp_int0")
-		g.usedTmp16 = true
 
 		if err := g.genArrayIndexToY(arraySym, target.Index); err != nil {
 			return err
@@ -174,7 +154,41 @@ func (g *Generator) genAssign(a *ast.AssignStmt) error {
 			g.emit("    sta ZP_PTR0_HI")
 		}
 
+		g.emit("    lda ZP_PTR0_LO")
+		g.emit("    sta ZP_PTR1_LO")
+		g.emit("    lda ZP_PTR0_HI")
+		g.emit("    sta ZP_PTR1_HI")
+
+		if err := g.genExprTo(a.Value, fieldType); err != nil {
+			return err
+		}
+
+		if fieldType.Name == "int" {
+			g.emit("    lda ZP_PTR1_LO")
+			g.emit("    sta ZP_PTR0_LO")
+			g.emit("    lda ZP_PTR1_HI")
+			g.emit("    sta ZP_PTR0_HI")
+
+			g.emit("    lda ZP_TMP0")
+			g.emit("    ldy #0")
+			g.emit("    sta (ZP_PTR0_LO), y")
+			g.emit("    lda ZP_TMP1")
+			g.emit("    iny")
+			g.emit("    sta (ZP_PTR0_LO), y")
+			g.usedTmp16 = true
+			return nil
+		}
+
+		g.emit("    sta peddle_tmp_int0")
+		g.usedTmp16 = true
+
+		g.emit("    lda ZP_PTR1_LO")
+		g.emit("    sta ZP_PTR0_LO")
+		g.emit("    lda ZP_PTR1_HI")
+		g.emit("    sta ZP_PTR0_HI")
+
 		g.emit("    lda peddle_tmp_int0")
+		g.emit("    ldy #0")
 		g.emit("    sta (ZP_PTR0_LO), y")
 		return nil
 

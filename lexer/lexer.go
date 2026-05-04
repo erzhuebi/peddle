@@ -22,6 +22,10 @@ func New(input string) *Lexer {
 	return l
 }
 
+func (l *Lexer) Input() string {
+	return l.input
+}
+
 func (l *Lexer) readChar() {
 	if l.ch == '\n' {
 		l.line++

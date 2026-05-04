@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"peddle/ast"
 	"peddle/lexer"
@@ -15,10 +16,15 @@ type Parser struct {
 	peek lexer.Token
 
 	errors []string
+
+	lines []string
 }
 
 func New(l *lexer.Lexer) *Parser {
-	p := &Parser{l: l}
+	p := &Parser{
+		l:     l,
+		lines: strings.Split(l.Input(), "\n"),
+	}
 	p.nextToken()
 	p.nextToken()
 	return p
@@ -693,6 +699,23 @@ func (p *Parser) expectCur(t lexer.TokenType) bool {
 
 func (p *Parser) errorf(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
-	msg = fmt.Sprintf("%d:%d: %s", p.cur.Line, p.cur.Column, msg)
-	p.errors = append(p.errors, msg)
+
+	line := p.cur.Line
+	col := p.cur.Column
+
+	var srcLine string
+	if line-1 >= 0 && line-1 < len(p.lines) {
+		srcLine = p.lines[line-1]
+	}
+
+	caret := ""
+	if col > 0 {
+		caret = strings.Repeat(" ", col-1) + "^^^"
+	}
+
+	full := fmt.Sprintf("%d:%d: %s\n\n    %s\n    %s",
+		line, col, msg, srcLine, caret,
+	)
+
+	p.errors = append(p.errors, full)
 }
