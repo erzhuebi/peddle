@@ -301,7 +301,7 @@ func (c *Checker) checkExpr(scope map[string]ast.Type, e ast.Expr) (ast.Type, er
 		return ast.Type{Name: "int"}, nil
 
 	case *ast.StringExpr:
-		return ast.Type{Name: "char", IsArray: true, ArrayLen: len(expr.Value) + 1}, nil
+		return ast.Type{Name: "char", IsArray: true, ArrayLen: len(expr.Value)}, nil
 
 	case *ast.UnaryExpr:
 		t, err := c.checkExpr(scope, expr.Expr)
@@ -407,6 +407,48 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 			return ast.Type{}, fmt.Errorf("peek argument must be numeric")
 		}
 		return ast.Type{Name: "byte"}, nil
+
+	case "strlen":
+		if len(args) != 1 {
+			return ast.Type{}, fmt.Errorf("strlen expects one argument")
+		}
+		t, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !(t.IsArray && t.Name == "char") {
+			return ast.Type{}, fmt.Errorf("strlen expects char array")
+		}
+		return ast.Type{Name: "int"}, nil
+
+	case "strcpy", "stradd":
+		if len(args) != 2 {
+			return ast.Type{}, fmt.Errorf("%s expects two arguments", name)
+		}
+
+		dst, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+
+		src, err := c.checkExpr(scope, args[1])
+		if err != nil {
+			return ast.Type{}, err
+		}
+
+		if !(dst.IsArray && dst.Name == "char") {
+			return ast.Type{}, fmt.Errorf("%s destination must be char array", name)
+		}
+
+		if !(src.IsArray && src.Name == "char") {
+			return ast.Type{}, fmt.Errorf("%s source must be char array", name)
+		}
+
+		if name == "strcpy" && src.ArrayLen > dst.ArrayLen {
+			return ast.Type{}, fmt.Errorf("source string does not fit destination")
+		}
+
+		return ast.Type{}, nil
 	}
 
 	fn, ok := c.functions[name]

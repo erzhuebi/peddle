@@ -69,7 +69,7 @@ func (g *Generator) sizeof(t ast.Type) int {
 	}
 
 	if t.IsArray {
-		return base * t.ArrayLen
+		return 4 + base*t.ArrayLen
 	}
 
 	return base

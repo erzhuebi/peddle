@@ -145,9 +145,11 @@ fn main() {
 
 	requireASM(t, asm,
 		"literal_0:",
-		"sta main_s, y",
+		"ldy #2",
+		"ldy #3",
+		"sta (ZP_PTR0_LO), y",
 		"beq",
-		"jsr peddle_print_string",
+		"jsr peddle_print_counted_string",
 	)
 }
 

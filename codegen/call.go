@@ -16,6 +16,15 @@ func (g *Generator) genCall(name string, args []ast.Expr) (ast.Type, error) {
 
 	case "peek":
 		return g.genPeek(args)
+
+	case "strlen":
+		return g.genStrlen(args)
+
+	case "strcpy":
+		return g.genStrcpy(args)
+
+	case "stradd":
+		return g.genStradd(args)
 	}
 
 	fn, ok := g.functions[name]

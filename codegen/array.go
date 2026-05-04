@@ -41,12 +41,12 @@ func (g *Generator) genArrayIndexToY(arraySym Symbol, index ast.Expr) error {
 		g.usedTmp16 = true
 	}
 
-	g.emit(fmt.Sprintf("    lda #<%s", arraySym.Label))
+	g.emit(fmt.Sprintf("    lda #<%s+4", arraySym.Label))
 	g.emit("    clc")
 	g.emit("    adc ZP_TMP0")
 	g.emit("    sta ZP_PTR0_LO")
 
-	g.emit(fmt.Sprintf("    lda #>%s", arraySym.Label))
+	g.emit(fmt.Sprintf("    lda #>%s+4", arraySym.Label))
 	g.emit("    adc ZP_TMP1")
 	g.emit("    sta ZP_PTR0_HI")
 

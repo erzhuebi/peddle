@@ -36,24 +36,7 @@ func (g *Generator) genAssign(a *ast.AssignStmt) error {
 				return fmt.Errorf("cannot assign string to %s", sym.Type.String())
 			}
 
-			label := g.addLiteral(str.Value)
-			done := g.newLabel()
-			loop := g.newLabel()
-
-			g.emit(fmt.Sprintf("    lda #<%s", label))
-			g.emit("    sta ZP_PTR0_LO")
-			g.emit(fmt.Sprintf("    lda #>%s", label))
-			g.emit("    sta ZP_PTR0_HI")
-
-			g.emit("    ldy #0")
-			g.emit(loop + ":")
-			g.emit("    lda (ZP_PTR0_LO), y")
-			g.emit(fmt.Sprintf("    sta %s, y", sym.Label))
-			g.emit(fmt.Sprintf("    beq %s", done))
-			g.emit("    iny")
-			g.emit(fmt.Sprintf("    jmp %s", loop))
-			g.emit(done + ":")
-			return nil
+			return g.genCopyStringLiteralToCharArray(&ast.IdentExpr{Name: target.Name}, str.Value)
 		}
 
 		if err := g.genExprTo(a.Value, sym.Type); err != nil {
@@ -130,33 +113,11 @@ func (g *Generator) genAssign(a *ast.AssignStmt) error {
 				return fmt.Errorf("array field assignment is not implemented yet")
 			}
 
-			if err := g.genArrayIndexToY(arraySym, target.Index); err != nil {
-				return err
-			}
-
-			if offset != 0 {
-				g.emit("    lda ZP_PTR0_LO")
-				g.emit("    clc")
-				g.emit(fmt.Sprintf("    adc #%d", offset))
-				g.emit("    sta ZP_PTR0_LO")
-				g.emit("    lda ZP_PTR0_HI")
-				g.emit("    adc #0")
-				g.emit("    sta ZP_PTR0_HI")
-			}
-
-			label := g.addLiteral(str.Value)
-			done := g.newLabel()
-			loop := g.newLabel()
-
-			g.emit("    ldy #0")
-			g.emit(loop + ":")
-			g.emit(fmt.Sprintf("    lda %s, y", label))
-			g.emit("    sta (ZP_PTR0_LO), y")
-			g.emit(fmt.Sprintf("    beq %s", done))
-			g.emit("    iny")
-			g.emit(fmt.Sprintf("    jmp %s", loop))
-			g.emit(done + ":")
-			return nil
+			return g.genCopyStringLiteralToCharArray(&ast.IndexFieldExpr{
+				Name:  target.Name,
+				Index: target.Index,
+				Field: target.Field,
+			}, str.Value)
 		}
 
 		if _, ok := g.structs[fieldType.Name]; ok {
@@ -234,19 +195,10 @@ func (g *Generator) genAssign(a *ast.AssignStmt) error {
 				return fmt.Errorf("array field assignment is not implemented yet")
 			}
 
-			label := g.addLiteral(str.Value)
-			done := g.newLabel()
-			loop := g.newLabel()
-
-			g.emit("    ldy #0")
-			g.emit(loop + ":")
-			g.emit(fmt.Sprintf("    lda %s, y", label))
-			g.emit(fmt.Sprintf("    sta %s+%d, y", baseSym.Label, offset))
-			g.emit(fmt.Sprintf("    beq %s", done))
-			g.emit("    iny")
-			g.emit(fmt.Sprintf("    jmp %s", loop))
-			g.emit(done + ":")
-			return nil
+			return g.genCopyStringLiteralToCharArray(&ast.FieldExpr{
+				Base:  target.Base,
+				Field: target.Field,
+			}, str.Value)
 		}
 
 		if _, ok := g.structs[fieldType.Name]; ok {
