@@ -418,7 +418,7 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 			return ast.Type{}, err
 		}
 
-		if !(t.IsArray) {
+		if !t.IsArray {
 			return ast.Type{}, fmt.Errorf("%s expects array", name)
 		}
 
@@ -441,6 +441,10 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 		valueType, err := c.checkExpr(scope, args[1])
 		if err != nil {
 			return ast.Type{}, err
+		}
+
+		if dst.Name == "char" && valueType.Name == "char" && valueType.IsArray {
+			return ast.Type{}, nil
 		}
 
 		elemType := ast.Type{Name: dst.Name}

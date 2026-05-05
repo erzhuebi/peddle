@@ -166,6 +166,23 @@ func (g *Generator) genAppend(args []ast.Expr) (ast.Type, error) {
 		return ast.Type{}, fmt.Errorf("append expects two arguments")
 	}
 
+	if src, ok := args[1].(*ast.StringExpr); ok {
+		arrayType, err := g.arrayExprType(args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+
+		if !(arrayType.IsArray && arrayType.Name == "char") {
+			return ast.Type{}, fmt.Errorf("append string literal requires char array destination")
+		}
+
+		if err := g.genAppendStringLiteralToCharArray(args[0], src.Value); err != nil {
+			return ast.Type{}, err
+		}
+
+		return ast.Type{}, nil
+	}
+
 	arrayType, err := g.arrayExprType(args[0])
 	if err != nil {
 		return ast.Type{}, err
