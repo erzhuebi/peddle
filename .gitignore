@@ -8,5 +8,6 @@
 /modules.xml
 # Ignore all assembly files
 *.asm
+*.prg
 # Ignore IntelliJ config folder
 .idea/
