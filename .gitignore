@@ -11,3 +11,5 @@
 *.prg
 # Ignore IntelliJ config folder
 .idea/
+/~$peddle_tasks.xlsx
+build/
