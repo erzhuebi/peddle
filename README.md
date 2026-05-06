@@ -1,6 +1,6 @@
 🚀 Peddle
 
-Peddle is a minimal, C-inspired programming language and cross-compiler for the C64 Ultimate (C64U). It is designed to build small, fast, and efficient PRG binaries while keeping the language and compiler intentionally simple.
+Peddle is a minimalistic programming language and cross-compiler for the C64 Ultimate (C64U). It is designed to build small, fast, and efficient PRG binaries while keeping the language and compiler intentionally simple.
 
 Inspired by C, Java, and Go, Peddle focuses only on what is truly necessary—reducing complexity to make both the compiler lightweight and the generated programs compact and performant.
 
