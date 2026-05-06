@@ -19,4 +19,4 @@ All built with a clean, minimal language and a modern cross-compilation workflow
 
 🧬 Name
 
-The name Peddle is a homage to Chuck Peddle, creator of the legendary 6502 CPU, which powered the Commodore 64.
+The name Peddle is a homage to **Chuck Peddle**, creator of the legendary 6502 CPU, which powered the Commodore 64.
