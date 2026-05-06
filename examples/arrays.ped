@@ -17,7 +17,7 @@ fn main() {
     print("PEDDLE ARRAY DEMO ")
 
     copy(title, "TEAM ")
-    stradd(title, "ALPHA ")
+    append(title, "ALPHA ")
     print(title)
 
     append(nums, 10)

@@ -253,23 +253,6 @@ func (g *Generator) genAppend(args []ast.Expr) (ast.Type, error) {
 	return ast.Type{}, nil
 }
 
-func (g *Generator) genStringAppend(args []ast.Expr) (ast.Type, error) {
-	if len(args) != 2 {
-		return ast.Type{}, fmt.Errorf("stradd expects two arguments")
-	}
-
-	src, ok := args[1].(*ast.StringExpr)
-	if !ok {
-		return ast.Type{}, fmt.Errorf("stradd source must be string literal for now")
-	}
-
-	if err := g.genAppendStringLiteralToCharArray(args[0], src.Value); err != nil {
-		return ast.Type{}, err
-	}
-
-	return ast.Type{}, nil
-}
-
 func (g *Generator) genCopy(args []ast.Expr) (ast.Type, error) {
 	if len(args) != 2 {
 		return ast.Type{}, fmt.Errorf("copy expects two arguments")

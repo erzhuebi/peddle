@@ -144,7 +144,7 @@ fn main() {
     print("PEDDLE ARRAY DEMO ")
 
     copy(title, "TEAM ")
-    stradd(title, "ALPHA ")
+    append(title, "ALPHA ")
     print(title)
 
     append(nums, 10)
@@ -175,7 +175,7 @@ fn main() {
     i = 1
     players[i].id = 2
     copy(players[i].name, "ADA")
-    stradd(players[i].name, "! ")
+    append(players[i].name, "! ")
     players[i].hp = 120
 
     i = 0

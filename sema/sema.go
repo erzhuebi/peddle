@@ -408,7 +408,7 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 		}
 		return ast.Type{Name: "byte"}, nil
 
-	case "len", "size", "strlen":
+	case "len", "size":
 		if len(args) != 1 {
 			return ast.Type{}, fmt.Errorf("%s expects one argument", name)
 		}
@@ -454,9 +454,9 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 
 		return ast.Type{}, nil
 
-	case "copy", "strcpy":
+	case "copy":
 		if len(args) != 2 {
-			return ast.Type{}, fmt.Errorf("%s expects two arguments", name)
+			return ast.Type{}, fmt.Errorf("copy expects two arguments")
 		}
 
 		dst, err := c.checkExpr(scope, args[0])
@@ -470,44 +470,19 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 		}
 
 		if !dst.IsArray {
-			return ast.Type{}, fmt.Errorf("%s destination must be array", name)
+			return ast.Type{}, fmt.Errorf("copy destination must be array")
 		}
 
 		if !src.IsArray {
-			return ast.Type{}, fmt.Errorf("%s source must be array", name)
+			return ast.Type{}, fmt.Errorf("copy source must be array")
 		}
 
 		if dst.Name != src.Name {
-			return ast.Type{}, fmt.Errorf("%s requires arrays with same element type", name)
+			return ast.Type{}, fmt.Errorf("copy requires arrays with same element type")
 		}
 
 		if src.ArrayLen > dst.ArrayLen {
 			return ast.Type{}, fmt.Errorf("source array does not fit destination")
-		}
-
-		return ast.Type{}, nil
-
-	case "stradd":
-		if len(args) != 2 {
-			return ast.Type{}, fmt.Errorf("stradd expects two arguments")
-		}
-
-		dst, err := c.checkExpr(scope, args[0])
-		if err != nil {
-			return ast.Type{}, err
-		}
-
-		src, err := c.checkExpr(scope, args[1])
-		if err != nil {
-			return ast.Type{}, err
-		}
-
-		if !(dst.IsArray && dst.Name == "char") {
-			return ast.Type{}, fmt.Errorf("stradd destination must be char array")
-		}
-
-		if !(src.IsArray && src.Name == "char") {
-			return ast.Type{}, fmt.Errorf("stradd source must be char array")
 		}
 
 		return ast.Type{}, nil

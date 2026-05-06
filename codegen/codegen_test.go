@@ -493,31 +493,13 @@ fn main() {
 	)
 }
 
-func TestCodegenStrcpyAlias(t *testing.T) {
-	asm := compileSource(t, `
-fn main() {
-    var s: char[10]
-
-    strcpy(s, "ABC")
-}
-`)
-
-	requireASM(t, asm,
-		"literal_0:",
-		".byte 65,66,67,0",
-		"ldy #2",
-		"ldy #3",
-		"sta (ZP_PTR0_LO), y",
-	)
-}
-
-func TestCodegenStraddAlias(t *testing.T) {
+func TestCodegenAppendStringLiteral(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
     var s: char[10]
 
     copy(s, "ABC")
-    stradd(s, "D")
+    append(s, "D")
 }
 `)
 
