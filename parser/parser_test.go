@@ -230,3 +230,57 @@ fn main() {
 		t.Fatalf("expected 1 function")
 	}
 }
+
+func TestParseMultipleVarDecls(t *testing.T) {
+	prog := parseProgramForTest(t, `
+fn main() {
+    var x, y, z: int
+    var a, b: byte[16]
+
+    x = 1
+}
+`)
+
+	if len(prog.Functions) != 1 {
+		t.Fatalf("expected 1 function, got %d", len(prog.Functions))
+	}
+
+	fn := prog.Functions[0]
+
+	if len(fn.Locals) != 5 {
+		t.Fatalf("expected 5 locals, got %d", len(fn.Locals))
+	}
+
+	expected := []struct {
+		name     string
+		typeName string
+		isArray  bool
+		arrayLen int
+	}{
+		{name: "x", typeName: "int"},
+		{name: "y", typeName: "int"},
+		{name: "z", typeName: "int"},
+		{name: "a", typeName: "byte", isArray: true, arrayLen: 16},
+		{name: "b", typeName: "byte", isArray: true, arrayLen: 16},
+	}
+
+	for i, want := range expected {
+		got := fn.Locals[i]
+
+		if got.Name != want.name {
+			t.Fatalf("local %d: got name %q, want %q", i, got.Name, want.name)
+		}
+
+		if got.Type.Name != want.typeName {
+			t.Fatalf("local %d: got type %q, want %q", i, got.Type.Name, want.typeName)
+		}
+
+		if got.Type.IsArray != want.isArray {
+			t.Fatalf("local %d: got IsArray %v, want %v", i, got.Type.IsArray, want.isArray)
+		}
+
+		if got.Type.ArrayLen != want.arrayLen {
+			t.Fatalf("local %d: got ArrayLen %d, want %d", i, got.Type.ArrayLen, want.arrayLen)
+		}
+	}
+}

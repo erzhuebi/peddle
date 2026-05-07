@@ -270,7 +270,11 @@ fn main() {
 		"peddle_print_string:",
 		"jsr peddle_print_string",
 	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
 }
+
 func TestCodegenClearArraysAssembles(t *testing.T) {
 	asm := compileSource(t, `
 struct Player {
@@ -294,6 +298,46 @@ fn main() {
     clear(players)
 }
 `)
+
+	requireNoASM(t, asm,
+		"_skip_broken",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
+func TestCodegenOptSizeArrayHelpersAssemble(t *testing.T) {
+	asm := compileSourceWithOptions(t, `
+fn main() {
+    var a: byte[10]
+    var b: byte[10]
+    var i: int[10]
+    var j: int[10]
+    var s: char[16]
+
+    append(a, 1)
+    fill(a, 2)
+    copy(b, a)
+
+    append(i, 1000)
+    fill(i, 7)
+    copy(j, i)
+
+    copy(s, "HELLO")
+    append(s, "!")
+}
+`, Options{OptMode: OptModeSize})
+
+	requireASM(t, asm,
+		"jsr peddle_append_byte",
+		"jsr peddle_fill_byte",
+		"jsr peddle_array_copy",
+		"jsr peddle_append_int",
+		"jsr peddle_fill_int",
+		"jsr peddle_string_copy_literal",
+		"jsr peddle_string_append_literal",
+	)
 
 	requireNoASM(t, asm,
 		"_skip_broken",

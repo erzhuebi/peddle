@@ -12,6 +12,14 @@ import (
 func compileSource(t *testing.T, src string) string {
 	t.Helper()
 
+	return compileSourceWithOptions(t, src, Options{
+		OptMode: OptModeSpeed,
+	})
+}
+
+func compileSourceWithOptions(t *testing.T, src string, options Options) string {
+	t.Helper()
+
 	l := lexer.New(src)
 	p := parser.New(l)
 	prog := p.ParseProgram()
@@ -24,7 +32,7 @@ func compileSource(t *testing.T, src string) string {
 		t.Fatalf("sema error: %v", err)
 	}
 
-	asm, err := New().Generate(prog)
+	asm, err := NewWithOptions(options).Generate(prog)
 	if err != nil {
 		t.Fatalf("codegen error: %v", err)
 	}
@@ -594,5 +602,65 @@ fn main() {
 		".byte 65,66,67,0",
 		"peddle_print_string:",
 		"jsr peddle_print_string",
+	)
+}
+
+func TestCodegenOptSpeedDoesNotEmitSizeRuntimeHelpers(t *testing.T) {
+	asm := compileSourceWithOptions(t, `
+fn main() {
+    var a: byte[10]
+    var b: byte[10]
+    var s: char[10]
+
+    append(a, 1)
+    fill(a, 2)
+    copy(b, a)
+    copy(s, "ABC")
+    append(s, "D")
+}
+`, Options{OptMode: OptModeSpeed})
+
+	requireNoASM(t, asm,
+		"peddle_array_copy:",
+		"peddle_fill_byte:",
+		"peddle_fill_int:",
+		"peddle_append_byte:",
+		"peddle_append_int:",
+		"peddle_string_copy_literal:",
+		"peddle_string_append_literal:",
+		"jsr peddle_array_copy",
+		"jsr peddle_fill_byte",
+		"jsr peddle_append_byte",
+		"jsr peddle_string_copy_literal",
+		"jsr peddle_string_append_literal",
+	)
+}
+
+func TestCodegenOptSizeEmitsRuntimeHelpersForLargeBuiltins(t *testing.T) {
+	asm := compileSourceWithOptions(t, `
+fn main() {
+    var a: byte[10]
+    var b: byte[10]
+    var s: char[10]
+
+    append(a, 1)
+    fill(a, 2)
+    copy(b, a)
+    copy(s, "ABC")
+    append(s, "D")
+}
+`, Options{OptMode: OptModeSize})
+
+	requireASM(t, asm,
+		"jsr peddle_append_byte",
+		"jsr peddle_fill_byte",
+		"jsr peddle_array_copy",
+		"jsr peddle_string_copy_literal",
+		"jsr peddle_string_append_literal",
+		"peddle_append_byte:",
+		"peddle_fill_byte:",
+		"peddle_array_copy:",
+		"peddle_string_copy_literal:",
+		"peddle_string_append_literal:",
 	)
 }
