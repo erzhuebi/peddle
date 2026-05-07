@@ -6,8 +6,21 @@ import (
 	"peddle/ast"
 )
 
+type OptMode string
+
+const (
+	OptModeSpeed OptMode = "speed"
+	OptModeSize  OptMode = "size"
+)
+
+type Options struct {
+	OptMode OptMode
+}
+
 type Generator struct {
 	out strings.Builder
+
+	options Options
 
 	functions map[string]*ast.FunctionDecl
 	structs   map[string]*ast.StructDecl
@@ -20,6 +33,14 @@ type Generator struct {
 
 	usedPrint bool
 	usedTmp16 bool
+
+	usedArrayCopyRuntime    bool
+	usedFillByteRuntime     bool
+	usedFillIntRuntime      bool
+	usedAppendByteRuntime   bool
+	usedAppendIntRuntime    bool
+	usedStringCopyRuntime   bool
+	usedStringAppendRuntime bool
 
 	labelCounter int
 }
@@ -38,7 +59,18 @@ type Symbol struct {
 }
 
 func New() *Generator {
+	return NewWithOptions(Options{
+		OptMode: OptModeSpeed,
+	})
+}
+
+func NewWithOptions(options Options) *Generator {
+	if options.OptMode == "" {
+		options.OptMode = OptModeSpeed
+	}
+
 	return &Generator{
+		options:   options,
 		functions: map[string]*ast.FunctionDecl{},
 		structs:   map[string]*ast.StructDecl{},
 		frames:    map[string]*Frame{},

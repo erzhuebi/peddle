@@ -13,14 +13,21 @@ import (
 
 func main() {
 	outPath := flag.String("o", "out.asm", "output ASM file")
+	optMode := flag.String("opt", "speed", "optimization mode: speed or size")
+
 	flag.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: peddlec -o output.asm input.ped")
+		fmt.Fprintln(os.Stderr, "usage: peddlec -o output.asm [--opt=speed|--opt=size] input.ped")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
 
 	if flag.NArg() != 1 {
 		flag.Usage()
+		os.Exit(1)
+	}
+
+	if *optMode != "speed" && *optMode != "size" {
+		fmt.Fprintf(os.Stderr, "invalid optimization mode %q: expected speed or size\n", *optMode)
 		os.Exit(1)
 	}
 
@@ -49,7 +56,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	g := codegen.New()
+	g := codegen.NewWithOptions(codegen.Options{
+		OptMode: codegen.OptMode(*optMode),
+	})
+
 	asm, err := g.Generate(program)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "codegen error:", err)

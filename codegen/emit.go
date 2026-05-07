@@ -38,7 +38,17 @@ func (g *Generator) emitRuntime() {
 	g.emit("")
 	g.emit("; runtime")
 
-	if g.usedTmp16 || g.usedPrint {
+	needsTmp16 := g.usedTmp16 ||
+		g.usedPrint ||
+		g.usedArrayCopyRuntime ||
+		g.usedFillByteRuntime ||
+		g.usedFillIntRuntime ||
+		g.usedAppendByteRuntime ||
+		g.usedAppendIntRuntime ||
+		g.usedStringCopyRuntime ||
+		g.usedStringAppendRuntime
+
+	if needsTmp16 {
 		g.emit("peddle_tmp_int0:")
 		g.emit("    .fill 2, 0")
 	}
@@ -68,6 +78,326 @@ peddle_print_counted_string_dec_low:
     jmp peddle_print_counted_string
 
 peddle_print_counted_string_done:
+    rts
+`)
+	}
+
+	if g.usedArrayCopyRuntime {
+		g.emit(`
+peddle_array_copy:
+    lda peddle_tmp_int0
+    ora peddle_tmp_int0+1
+    beq peddle_array_copy_done
+
+    ldy #0
+    lda (ZP_PTR0_LO), y
+    sta (ZP_PTR1_LO), y
+
+    inc ZP_PTR0_LO
+    bne peddle_array_copy_src_no_carry
+    inc ZP_PTR0_HI
+
+peddle_array_copy_src_no_carry:
+    inc ZP_PTR1_LO
+    bne peddle_array_copy_dst_no_carry
+    inc ZP_PTR1_HI
+
+peddle_array_copy_dst_no_carry:
+    lda peddle_tmp_int0
+    bne peddle_array_copy_dec_low
+    dec peddle_tmp_int0+1
+
+peddle_array_copy_dec_low:
+    dec peddle_tmp_int0
+    jmp peddle_array_copy
+
+peddle_array_copy_done:
+    rts
+`)
+	}
+
+	if g.usedFillByteRuntime {
+		g.emit(`
+peddle_fill_byte:
+    lda peddle_tmp_int0
+    ora peddle_tmp_int0+1
+    beq peddle_fill_byte_done
+
+    ldy #0
+    lda ZP_TMP0
+    sta (ZP_PTR0_LO), y
+
+    inc ZP_PTR0_LO
+    bne peddle_fill_byte_ptr_no_carry
+    inc ZP_PTR0_HI
+
+peddle_fill_byte_ptr_no_carry:
+    lda peddle_tmp_int0
+    bne peddle_fill_byte_dec_low
+    dec peddle_tmp_int0+1
+
+peddle_fill_byte_dec_low:
+    dec peddle_tmp_int0
+    jmp peddle_fill_byte
+
+peddle_fill_byte_done:
+    rts
+`)
+	}
+
+	if g.usedFillIntRuntime {
+		g.emit(`
+peddle_fill_int:
+    lda peddle_tmp_int0
+    ora peddle_tmp_int0+1
+    beq peddle_fill_int_done
+
+    ldy #0
+    lda ZP_TMP0
+    sta (ZP_PTR0_LO), y
+    iny
+    lda ZP_TMP1
+    sta (ZP_PTR0_LO), y
+
+    lda ZP_PTR0_LO
+    clc
+    adc #2
+    sta ZP_PTR0_LO
+    lda ZP_PTR0_HI
+    adc #0
+    sta ZP_PTR0_HI
+
+    lda peddle_tmp_int0
+    bne peddle_fill_int_dec_low
+    dec peddle_tmp_int0+1
+
+peddle_fill_int_dec_low:
+    dec peddle_tmp_int0
+    jmp peddle_fill_int
+
+peddle_fill_int_done:
+    rts
+`)
+	}
+
+	if g.usedAppendByteRuntime {
+		g.emit(`
+peddle_append_byte:
+    lda ZP_PTR0_LO
+    sta ZP_PTR1_LO
+    lda ZP_PTR0_HI
+    sta ZP_PTR1_HI
+
+    ldy #2
+    lda (ZP_PTR1_LO), y
+    sta ZP_TMP0
+    iny
+    lda (ZP_PTR1_LO), y
+    sta ZP_TMP1
+
+    lda ZP_PTR0_LO
+    clc
+    adc #4
+    sta ZP_PTR0_LO
+    lda ZP_PTR0_HI
+    adc #0
+    sta ZP_PTR0_HI
+
+    lda ZP_PTR0_LO
+    clc
+    adc ZP_TMP0
+    sta ZP_PTR0_LO
+    lda ZP_PTR0_HI
+    adc ZP_TMP1
+    sta ZP_PTR0_HI
+
+    lda peddle_tmp_int0
+    ldy #0
+    sta (ZP_PTR0_LO), y
+
+    ldy #2
+    lda (ZP_PTR1_LO), y
+    clc
+    adc #1
+    sta (ZP_PTR1_LO), y
+    iny
+    lda (ZP_PTR1_LO), y
+    adc #0
+    sta (ZP_PTR1_LO), y
+
+    rts
+`)
+	}
+
+	if g.usedAppendIntRuntime {
+		g.emit(`
+peddle_append_int:
+    lda ZP_PTR0_LO
+    sta ZP_PTR1_LO
+    lda ZP_PTR0_HI
+    sta ZP_PTR1_HI
+
+    ldy #2
+    lda (ZP_PTR1_LO), y
+    sta ZP_TMP0
+    iny
+    lda (ZP_PTR1_LO), y
+    sta ZP_TMP1
+
+    asl ZP_TMP0
+    rol ZP_TMP1
+
+    lda ZP_PTR0_LO
+    clc
+    adc #4
+    sta ZP_PTR0_LO
+    lda ZP_PTR0_HI
+    adc #0
+    sta ZP_PTR0_HI
+
+    lda ZP_PTR0_LO
+    clc
+    adc ZP_TMP0
+    sta ZP_PTR0_LO
+    lda ZP_PTR0_HI
+    adc ZP_TMP1
+    sta ZP_PTR0_HI
+
+    lda peddle_tmp_int0
+    ldy #0
+    sta (ZP_PTR0_LO), y
+    lda peddle_tmp_int0+1
+    iny
+    sta (ZP_PTR0_LO), y
+
+    ldy #2
+    lda (ZP_PTR1_LO), y
+    clc
+    adc #1
+    sta (ZP_PTR1_LO), y
+    iny
+    lda (ZP_PTR1_LO), y
+    adc #0
+    sta (ZP_PTR1_LO), y
+
+    rts
+`)
+	}
+
+	if g.usedStringCopyRuntime {
+		g.emit(`
+peddle_string_copy_literal:
+    lda peddle_tmp_int0
+    ldy #2
+    sta (ZP_PTR0_LO), y
+    lda peddle_tmp_int0+1
+    ldy #3
+    sta (ZP_PTR0_LO), y
+
+    lda ZP_PTR0_LO
+    clc
+    adc #4
+    sta ZP_PTR0_LO
+    lda ZP_PTR0_HI
+    adc #0
+    sta ZP_PTR0_HI
+
+peddle_string_copy_literal_loop:
+    lda peddle_tmp_int0
+    ora peddle_tmp_int0+1
+    beq peddle_string_copy_literal_done
+
+    ldy #0
+    lda (ZP_PTR1_LO), y
+    sta (ZP_PTR0_LO), y
+
+    inc ZP_PTR1_LO
+    bne peddle_string_copy_literal_src_no_carry
+    inc ZP_PTR1_HI
+
+peddle_string_copy_literal_src_no_carry:
+    inc ZP_PTR0_LO
+    bne peddle_string_copy_literal_dst_no_carry
+    inc ZP_PTR0_HI
+
+peddle_string_copy_literal_dst_no_carry:
+    lda peddle_tmp_int0
+    bne peddle_string_copy_literal_dec_low
+    dec peddle_tmp_int0+1
+
+peddle_string_copy_literal_dec_low:
+    dec peddle_tmp_int0
+    jmp peddle_string_copy_literal_loop
+
+peddle_string_copy_literal_done:
+    rts
+`)
+	}
+
+	if g.usedStringAppendRuntime {
+		g.emit(`
+peddle_string_append_literal:
+    ldy #2
+    lda (ZP_PTR0_LO), y
+    sta ZP_TMP0
+    iny
+    lda (ZP_PTR0_LO), y
+    sta ZP_TMP1
+
+    lda ZP_TMP0
+    clc
+    adc peddle_tmp_int0
+    ldy #2
+    sta (ZP_PTR0_LO), y
+    lda ZP_TMP1
+    adc peddle_tmp_int0+1
+    ldy #3
+    sta (ZP_PTR0_LO), y
+
+    lda ZP_PTR0_LO
+    clc
+    adc #4
+    sta ZP_PTR0_LO
+    lda ZP_PTR0_HI
+    adc #0
+    sta ZP_PTR0_HI
+
+    lda ZP_PTR0_LO
+    clc
+    adc ZP_TMP0
+    sta ZP_PTR0_LO
+    lda ZP_PTR0_HI
+    adc ZP_TMP1
+    sta ZP_PTR0_HI
+
+peddle_string_append_literal_loop:
+    lda peddle_tmp_int0
+    ora peddle_tmp_int0+1
+    beq peddle_string_append_literal_done
+
+    ldy #0
+    lda (ZP_PTR1_LO), y
+    sta (ZP_PTR0_LO), y
+
+    inc ZP_PTR1_LO
+    bne peddle_string_append_literal_src_no_carry
+    inc ZP_PTR1_HI
+
+peddle_string_append_literal_src_no_carry:
+    inc ZP_PTR0_LO
+    bne peddle_string_append_literal_dst_no_carry
+    inc ZP_PTR0_HI
+
+peddle_string_append_literal_dst_no_carry:
+    lda peddle_tmp_int0
+    bne peddle_string_append_literal_dec_low
+    dec peddle_tmp_int0+1
+
+peddle_string_append_literal_dec_low:
+    dec peddle_tmp_int0
+    jmp peddle_string_append_literal_loop
+
+peddle_string_append_literal_done:
     rts
 `)
 	}

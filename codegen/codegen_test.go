@@ -535,6 +535,48 @@ fn main() {
 	)
 }
 
+func TestCodegenDoesNotEmitUnusedPrintRuntime(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    var x: byte
+
+    x = 1
+}
+`)
+
+	requireNoASM(t, asm,
+		"peddle_print_counted_string:",
+		"peddle_print_string:",
+		"jsr peddle_print_counted_string",
+		"jsr peddle_print_string",
+	)
+}
+
+func TestCodegenNonPrintBuiltinsDoNotEmitPrintRuntime(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    var a: byte[10]
+    var n: int
+    var b: byte
+
+    append(a, 1)
+    clear(a)
+    fill(a, 2)
+    n = len(a)
+    n = size(a)
+    b = peek(53280)
+    poke(53281, b)
+}
+`)
+
+	requireNoASM(t, asm,
+		"peddle_print_counted_string:",
+		"peddle_print_string:",
+		"jsr peddle_print_counted_string",
+		"jsr peddle_print_string",
+	)
+}
+
 func TestCodegenStringLiteralsAreNotZeroTerminated(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {

@@ -200,6 +200,10 @@ func (g *Generator) genAppend(args []ast.Expr) (ast.Type, error) {
 		return ast.Type{}, fmt.Errorf("append does not support struct elements yet")
 	}
 
+	if g.options.OptMode == OptModeSize {
+		return g.genAppendRuntime(args, elemType)
+	}
+
 	if err := g.genExprTo(args[1], elemType); err != nil {
 		return ast.Type{}, err
 	}
@@ -254,6 +258,37 @@ func (g *Generator) genAppend(args []ast.Expr) (ast.Type, error) {
 	g.emit("    lda (ZP_PTR0_LO), y")
 	g.emit("    adc #0")
 	g.emit("    sta (ZP_PTR0_LO), y")
+
+	g.usedTmp16 = true
+	return ast.Type{}, nil
+}
+
+func (g *Generator) genAppendRuntime(args []ast.Expr, elemType ast.Type) (ast.Type, error) {
+	if err := g.genExprTo(args[1], elemType); err != nil {
+		return ast.Type{}, err
+	}
+
+	if elemType.Name == "int" {
+		g.emit("    lda ZP_TMP0")
+		g.emit("    sta peddle_tmp_int0")
+		g.emit("    lda ZP_TMP1")
+		g.emit("    sta peddle_tmp_int0+1")
+	} else {
+		g.emit("    sta peddle_tmp_int0")
+	}
+
+	if err := g.genArrayAddress(args[0]); err != nil {
+		return ast.Type{}, err
+	}
+
+	switch elemType.Name {
+	case "int":
+		g.emit("    jsr peddle_append_int")
+		g.usedAppendIntRuntime = true
+	default:
+		g.emit("    jsr peddle_append_byte")
+		g.usedAppendByteRuntime = true
+	}
 
 	g.usedTmp16 = true
 	return ast.Type{}, nil
@@ -326,6 +361,13 @@ func (g *Generator) genCopy(args []ast.Expr) (ast.Type, error) {
 	g.emit("    sta ZP_PTR1_HI")
 
 	g.genLengthTimesElemSizeToCounter(elemSize)
+
+	if g.options.OptMode == OptModeSize {
+		g.emit("    jsr peddle_array_copy")
+		g.usedArrayCopyRuntime = true
+		g.usedTmp16 = true
+		return ast.Type{}, nil
+	}
 
 	loop := g.newLabel()
 	done := g.newLabel()
@@ -421,6 +463,19 @@ func (g *Generator) genFill(args []ast.Expr) (ast.Type, error) {
 	g.emit(fmt.Sprintf("    lda #>%d", arrayType.ArrayLen))
 	g.emit("    sta peddle_tmp_int0+1")
 
+	if g.options.OptMode == OptModeSize {
+		if elemType.Name == "int" {
+			g.emit("    jsr peddle_fill_int")
+			g.usedFillIntRuntime = true
+		} else {
+			g.emit("    jsr peddle_fill_byte")
+			g.usedFillByteRuntime = true
+		}
+
+		g.usedTmp16 = true
+		return ast.Type{}, nil
+	}
+
 	loop := g.newLabel()
 	done := g.newLabel()
 
@@ -465,6 +520,139 @@ func (g *Generator) genFill(args []ast.Expr) (ast.Type, error) {
 	g.emit(done + ":")
 	g.usedTmp16 = true
 	return ast.Type{}, nil
+}
+
+func (g *Generator) genCopyStringLiteralToCharArray(dst ast.Expr, value string) error {
+	if err := g.genCharArrayAddress(dst); err != nil {
+		return err
+	}
+
+	label := g.addLiteral(value)
+
+	if g.options.OptMode == OptModeSize {
+		g.emit(fmt.Sprintf("    lda #<%d", len(value)))
+		g.emit("    sta peddle_tmp_int0")
+		g.emit(fmt.Sprintf("    lda #>%d", len(value)))
+		g.emit("    sta peddle_tmp_int0+1")
+
+		g.emit(fmt.Sprintf("    lda #<%s", label))
+		g.emit("    sta ZP_PTR1_LO")
+		g.emit(fmt.Sprintf("    lda #>%s", label))
+		g.emit("    sta ZP_PTR1_HI")
+
+		g.emit("    jsr peddle_string_copy_literal")
+		g.usedStringCopyRuntime = true
+		g.usedTmp16 = true
+		return nil
+	}
+
+	loop := g.newLabel()
+	done := g.newLabel()
+
+	g.emit(fmt.Sprintf("    lda #<%d", len(value)))
+	g.emit("    ldy #2")
+	g.emit("    sta (ZP_PTR0_LO), y")
+	g.emit(fmt.Sprintf("    lda #>%d", len(value)))
+	g.emit("    ldy #3")
+	g.emit("    sta (ZP_PTR0_LO), y")
+
+	g.emit("    lda ZP_PTR0_LO")
+	g.emit("    clc")
+	g.emit("    adc #4")
+	g.emit("    sta ZP_PTR0_LO")
+	g.emit("    lda ZP_PTR0_HI")
+	g.emit("    adc #0")
+	g.emit("    sta ZP_PTR0_HI")
+
+	g.emit("    ldy #0")
+	g.emit(loop + ":")
+	g.emit(fmt.Sprintf("    cpy #%d", len(value)))
+	g.emit(fmt.Sprintf("    beq %s", done))
+	g.emit(fmt.Sprintf("    lda %s, y", label))
+	g.emit("    sta (ZP_PTR0_LO), y")
+	g.emit("    iny")
+	g.emit(fmt.Sprintf("    jmp %s", loop))
+	g.emit(done + ":")
+	return nil
+}
+
+func (g *Generator) genAppendStringLiteralToCharArray(dst ast.Expr, value string) error {
+	if err := g.genCharArrayAddress(dst); err != nil {
+		return err
+	}
+
+	label := g.addLiteral(value)
+
+	if g.options.OptMode == OptModeSize {
+		g.emit(fmt.Sprintf("    lda #<%d", len(value)))
+		g.emit("    sta peddle_tmp_int0")
+		g.emit(fmt.Sprintf("    lda #>%d", len(value)))
+		g.emit("    sta peddle_tmp_int0+1")
+
+		g.emit(fmt.Sprintf("    lda #<%s", label))
+		g.emit("    sta ZP_PTR1_LO")
+		g.emit(fmt.Sprintf("    lda #>%s", label))
+		g.emit("    sta ZP_PTR1_HI")
+
+		g.emit("    jsr peddle_string_append_literal")
+		g.usedStringAppendRuntime = true
+		g.usedTmp16 = true
+		return nil
+	}
+
+	loop := g.newLabel()
+	done := g.newLabel()
+
+	g.emit("    ldy #2")
+	g.emit("    lda (ZP_PTR0_LO), y")
+	g.emit("    sta peddle_tmp_int0")
+	g.emit("    iny")
+	g.emit("    lda (ZP_PTR0_LO), y")
+	g.emit("    sta peddle_tmp_int0+1")
+
+	g.emit("    lda peddle_tmp_int0")
+	g.emit("    clc")
+	g.emit(fmt.Sprintf("    adc #<%d", len(value)))
+	g.emit("    sta ZP_TMP0")
+	g.emit("    lda peddle_tmp_int0+1")
+	g.emit(fmt.Sprintf("    adc #>%d", len(value)))
+	g.emit("    sta ZP_TMP1")
+
+	g.emit("    ldy #2")
+	g.emit("    lda ZP_TMP0")
+	g.emit("    sta (ZP_PTR0_LO), y")
+	g.emit("    iny")
+	g.emit("    lda ZP_TMP1")
+	g.emit("    sta (ZP_PTR0_LO), y")
+
+	g.emit("    lda ZP_PTR0_LO")
+	g.emit("    clc")
+	g.emit("    adc #4")
+	g.emit("    sta ZP_PTR0_LO")
+	g.emit("    lda ZP_PTR0_HI")
+	g.emit("    adc #0")
+	g.emit("    sta ZP_PTR0_HI")
+
+	g.emit("    lda ZP_PTR0_LO")
+	g.emit("    clc")
+	g.emit("    adc peddle_tmp_int0")
+	g.emit("    sta ZP_PTR0_LO")
+	g.emit("    lda ZP_PTR0_HI")
+	g.emit("    adc peddle_tmp_int0+1")
+	g.emit("    sta ZP_PTR0_HI")
+
+	g.emit("    ldy #0")
+	g.emit(loop + ":")
+	g.emit(fmt.Sprintf("    cpy #%d", len(value)))
+	g.emit(fmt.Sprintf("    beq %s", done))
+	g.emit(fmt.Sprintf("    lda %s, y", label))
+	g.emit("    sta (ZP_PTR0_LO), y")
+	g.emit("    iny")
+	g.emit(fmt.Sprintf("    jmp %s", loop))
+	g.emit(done + ":")
+
+	g.usedTmp16 = true
+	return nil
 }
 
 func (g *Generator) genClear(args []ast.Expr) (ast.Type, error) {
@@ -626,103 +814,6 @@ func (g *Generator) arrayExprType(expr ast.Expr) (ast.Type, error) {
 	}
 
 	return ast.Type{}, fmt.Errorf("expected array")
-}
-
-func (g *Generator) genCopyStringLiteralToCharArray(dst ast.Expr, value string) error {
-	if err := g.genCharArrayAddress(dst); err != nil {
-		return err
-	}
-
-	label := g.addLiteral(value)
-	loop := g.newLabel()
-	done := g.newLabel()
-
-	g.emit(fmt.Sprintf("    lda #<%d", len(value)))
-	g.emit("    ldy #2")
-	g.emit("    sta (ZP_PTR0_LO), y")
-	g.emit(fmt.Sprintf("    lda #>%d", len(value)))
-	g.emit("    ldy #3")
-	g.emit("    sta (ZP_PTR0_LO), y")
-
-	g.emit("    lda ZP_PTR0_LO")
-	g.emit("    clc")
-	g.emit("    adc #4")
-	g.emit("    sta ZP_PTR0_LO")
-	g.emit("    lda ZP_PTR0_HI")
-	g.emit("    adc #0")
-	g.emit("    sta ZP_PTR0_HI")
-
-	g.emit("    ldy #0")
-	g.emit(loop + ":")
-	g.emit(fmt.Sprintf("    cpy #%d", len(value)))
-	g.emit(fmt.Sprintf("    beq %s", done))
-	g.emit(fmt.Sprintf("    lda %s, y", label))
-	g.emit("    sta (ZP_PTR0_LO), y")
-	g.emit("    iny")
-	g.emit(fmt.Sprintf("    jmp %s", loop))
-	g.emit(done + ":")
-	return nil
-}
-
-func (g *Generator) genAppendStringLiteralToCharArray(dst ast.Expr, value string) error {
-	if err := g.genCharArrayAddress(dst); err != nil {
-		return err
-	}
-
-	label := g.addLiteral(value)
-	loop := g.newLabel()
-	done := g.newLabel()
-
-	g.emit("    ldy #2")
-	g.emit("    lda (ZP_PTR0_LO), y")
-	g.emit("    sta peddle_tmp_int0")
-	g.emit("    iny")
-	g.emit("    lda (ZP_PTR0_LO), y")
-	g.emit("    sta peddle_tmp_int0+1")
-
-	g.emit("    lda peddle_tmp_int0")
-	g.emit("    clc")
-	g.emit(fmt.Sprintf("    adc #<%d", len(value)))
-	g.emit("    sta ZP_TMP0")
-	g.emit("    lda peddle_tmp_int0+1")
-	g.emit(fmt.Sprintf("    adc #>%d", len(value)))
-	g.emit("    sta ZP_TMP1")
-
-	g.emit("    ldy #2")
-	g.emit("    lda ZP_TMP0")
-	g.emit("    sta (ZP_PTR0_LO), y")
-	g.emit("    iny")
-	g.emit("    lda ZP_TMP1")
-	g.emit("    sta (ZP_PTR0_LO), y")
-
-	g.emit("    lda ZP_PTR0_LO")
-	g.emit("    clc")
-	g.emit("    adc #4")
-	g.emit("    sta ZP_PTR0_LO")
-	g.emit("    lda ZP_PTR0_HI")
-	g.emit("    adc #0")
-	g.emit("    sta ZP_PTR0_HI")
-
-	g.emit("    lda ZP_PTR0_LO")
-	g.emit("    clc")
-	g.emit("    adc peddle_tmp_int0")
-	g.emit("    sta ZP_PTR0_LO")
-	g.emit("    lda ZP_PTR0_HI")
-	g.emit("    adc peddle_tmp_int0+1")
-	g.emit("    sta ZP_PTR0_HI")
-
-	g.emit("    ldy #0")
-	g.emit(loop + ":")
-	g.emit(fmt.Sprintf("    cpy #%d", len(value)))
-	g.emit(fmt.Sprintf("    beq %s", done))
-	g.emit(fmt.Sprintf("    lda %s, y", label))
-	g.emit("    sta (ZP_PTR0_LO), y")
-	g.emit("    iny")
-	g.emit(fmt.Sprintf("    jmp %s", loop))
-	g.emit(done + ":")
-
-	g.usedTmp16 = true
-	return nil
 }
 
 func (g *Generator) genUpdateArrayLenFromIndex(arraySym Symbol, index ast.Expr) error {
