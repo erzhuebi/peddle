@@ -198,22 +198,34 @@ func (p *Parser) parseVarDeclsAtBlockStart() []*ast.VarDecl {
 	var locals []*ast.VarDecl
 
 	for p.cur.Type == lexer.VAR {
-		decl := p.parseVarDecl()
-		if decl != nil {
-			locals = append(locals, decl)
-		}
+		decls := p.parseVarDecls()
+		locals = append(locals, decls...)
 		p.nextToken()
 	}
 
 	return locals
 }
 
-func (p *Parser) parseVarDecl() *ast.VarDecl {
+func (p *Parser) parseVarDecls() []*ast.VarDecl {
+	var names []string
+
 	if !p.expectPeek(lexer.IDENT) {
 		return nil
 	}
 
-	name := p.cur.Literal
+	names = append(names, p.cur.Literal)
+
+	for p.peek.Type == lexer.COMMA {
+		p.nextToken()
+		p.nextToken()
+
+		if p.cur.Type != lexer.IDENT {
+			p.errorf("expected identifier after comma in var declaration")
+			return nil
+		}
+
+		names = append(names, p.cur.Literal)
+	}
 
 	if !p.expectPeek(lexer.COLON) {
 		return nil
@@ -222,7 +234,16 @@ func (p *Parser) parseVarDecl() *ast.VarDecl {
 	p.nextToken()
 	typ := p.parseType()
 
-	return &ast.VarDecl{Name: name, Type: typ}
+	var decls []*ast.VarDecl
+
+	for _, name := range names {
+		decls = append(decls, &ast.VarDecl{
+			Name: name,
+			Type: typ,
+		})
+	}
+
+	return decls
 }
 
 func (p *Parser) parseType() ast.Type {

@@ -89,7 +89,7 @@ fn main() {
 	requireASM(t, asm,
 		"lda main_done",
 		"cmp #0",
-		"jsr peddle_print_string",
+		"jsr peddle_print_counted_string",
 	)
 }
 
@@ -109,7 +109,7 @@ fn main() {
 	requireASM(t, asm,
 		"lda main_x",
 		"sta ZP_TMP0",
-		"jsr peddle_print_string",
+		"jsr peddle_print_counted_string",
 	)
 }
 

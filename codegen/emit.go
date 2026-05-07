@@ -45,24 +45,6 @@ func (g *Generator) emitRuntime() {
 
 	if g.usedPrint {
 		g.emit(`
-peddle_print_string:
-    ldy #0
-
-peddle_print_string_loop:
-    lda (ZP_PTR0_LO), y
-    beq peddle_print_string_done
-
-    jsr $ffd2
-
-    iny
-    bne peddle_print_string_loop
-
-    inc ZP_PTR0_HI
-    jmp peddle_print_string_loop
-
-peddle_print_string_done:
-    rts
-
 peddle_print_counted_string:
     lda peddle_tmp_int0
     ora peddle_tmp_int0+1
@@ -101,7 +83,10 @@ func (g *Generator) emitLiterals() {
 
 	for i, lit := range g.literals {
 		g.emit(fmt.Sprintf("literal_%d:", i))
-		g.emit(fmt.Sprintf("    .byte %s,0", asmStringBytes(lit)))
+
+		if len(lit) > 0 {
+			g.emit(fmt.Sprintf("    .byte %s", asmStringBytes(lit)))
+		}
 	}
 }
 

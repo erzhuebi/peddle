@@ -207,3 +207,26 @@ fn add(a: int, b: int) -> int {
 		t.Fatalf("got return type %q, want int", fn.ReturnType.Name)
 	}
 }
+
+func TestParseComments(t *testing.T) {
+	src := `
+fn main() {
+    // this is a comment
+    var x: int
+    x = 1 // trailing comment
+}
+`
+
+	l := lexer.New(src)
+	p := New(l)
+
+	prog := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	if len(prog.Functions) != 1 {
+		t.Fatalf("expected 1 function")
+	}
+}

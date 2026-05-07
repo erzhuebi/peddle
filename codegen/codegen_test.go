@@ -51,7 +51,7 @@ fn main() {
 
 	requireASM(t, asm,
 		"jsr main",
-		"jsr peddle_print_string",
+		"jsr peddle_print_counted_string",
 		"literal_0:",
 	)
 }
@@ -110,7 +110,7 @@ fn main() {
 	requireASM(t, asm,
 		"bmi",
 		"cmp peddle_tmp_int0+1",
-		"jsr peddle_print_string",
+		"jsr peddle_print_counted_string",
 	)
 }
 
@@ -212,7 +212,7 @@ fn main() {
 `)
 
 	requireASM(t, asm,
-		"jsr peddle_print_string",
+		"jsr peddle_print_counted_string",
 		"literal_0:",
 		"literal_1:",
 	)
@@ -485,11 +485,33 @@ fn main() {
 
 	requireASM(t, asm,
 		"literal_0:",
-		".byte 65,66,67,0",
+		".byte 65,66,67",
 		"ldy #2",
 		"ldy #3",
 		"sta (ZP_PTR0_LO), y",
 		"jsr peddle_print_counted_string",
+	)
+}
+
+func TestCodegenClearArray(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    var a: byte[10]
+
+    append(a, 1)
+    clear(a)
+}
+`)
+
+	requireASM(t, asm,
+		"main_a:",
+		".word 10",
+		".word 0",
+		"ldy #2",
+		"lda #0",
+		"sta (ZP_PTR0_LO), y",
+		"iny",
+		"sta (ZP_PTR0_LO), y",
 	)
 }
 
@@ -510,5 +532,25 @@ fn main() {
 		"adc #>1",
 		"lda literal_1, y",
 		"sta (ZP_PTR0_LO), y",
+	)
+}
+
+func TestCodegenStringLiteralsAreNotZeroTerminated(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    print("ABC")
+}
+`)
+
+	requireASM(t, asm,
+		"literal_0:",
+		".byte 65,66,67",
+		"jsr peddle_print_counted_string",
+	)
+
+	requireNoASM(t, asm,
+		".byte 65,66,67,0",
+		"peddle_print_string:",
+		"jsr peddle_print_string",
 	)
 }

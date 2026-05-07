@@ -16,13 +16,19 @@ func (g *Generator) genPrint(args []ast.Expr) (ast.Type, error) {
 	case *ast.StringExpr:
 		label := g.addLiteral(expr.Value)
 
+		g.emit(fmt.Sprintf("    lda #<%d", len(expr.Value)))
+		g.emit("    sta peddle_tmp_int0")
+		g.emit(fmt.Sprintf("    lda #>%d", len(expr.Value)))
+		g.emit("    sta peddle_tmp_int0+1")
+
 		g.emit(fmt.Sprintf("    lda #<%s", label))
 		g.emit("    sta ZP_PTR0_LO")
 		g.emit(fmt.Sprintf("    lda #>%s", label))
 		g.emit("    sta ZP_PTR0_HI")
 
-		g.emit("    jsr peddle_print_string")
+		g.emit("    jsr peddle_print_counted_string")
 		g.usedPrint = true
+		g.usedTmp16 = true
 		return ast.Type{}, nil
 
 	case *ast.IdentExpr, *ast.FieldExpr, *ast.IndexFieldExpr:
@@ -458,6 +464,24 @@ func (g *Generator) genFill(args []ast.Expr) (ast.Type, error) {
 
 	g.emit(done + ":")
 	g.usedTmp16 = true
+	return ast.Type{}, nil
+}
+
+func (g *Generator) genClear(args []ast.Expr) (ast.Type, error) {
+	if len(args) != 1 {
+		return ast.Type{}, fmt.Errorf("clear expects one argument")
+	}
+
+	if err := g.genArrayAddress(args[0]); err != nil {
+		return ast.Type{}, err
+	}
+
+	g.emit("    ldy #2")
+	g.emit("    lda #0")
+	g.emit("    sta (ZP_PTR0_LO), y")
+	g.emit("    iny")
+	g.emit("    sta (ZP_PTR0_LO), y")
+
 	return ast.Type{}, nil
 }
 

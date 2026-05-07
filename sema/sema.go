@@ -512,6 +512,22 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 		}
 
 		return ast.Type{}, nil
+
+	case "clear":
+		if len(args) != 1 {
+			return ast.Type{}, fmt.Errorf("clear expects one argument")
+		}
+
+		dst, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+
+		if !dst.IsArray {
+			return ast.Type{}, fmt.Errorf("clear expects array")
+		}
+
+		return ast.Type{}, nil
 	}
 
 	fn, ok := c.functions[name]

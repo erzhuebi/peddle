@@ -218,3 +218,87 @@ fn main() {
 	requireReferencedLabelsDefined(t, asm)
 	requireASMAssemblesWith64tass(t, asm)
 }
+
+func TestCodegenCountedStringLiteralsAssemble(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    print("ABC")
+    print("")
+    print("DONE")
+}
+`)
+
+	requireNoASM(t, asm,
+		"peddle_print_string:",
+		"jsr peddle_print_string",
+		".byte 65,66,67,0",
+	)
+
+	requireASM(t, asm,
+		"jsr peddle_print_counted_string",
+		"literal_0:",
+		"literal_1:",
+		"literal_2:",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
+func TestCodegenEmptyStringLiteralLengthIsZero(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    var s: char[10]
+
+    copy(s, "")
+    append(s, "")
+    print("")
+}
+`)
+
+	requireASM(t, asm,
+		"lda #<0",
+		"lda #>0",
+		"jsr peddle_print_counted_string",
+		"literal_0:",
+		"literal_1:",
+		"literal_2:",
+	)
+
+	requireNoASM(t, asm,
+		".byte 0,0",
+		"peddle_print_string:",
+		"jsr peddle_print_string",
+	)
+}
+func TestCodegenClearArraysAssembles(t *testing.T) {
+	asm := compileSource(t, `
+struct Player {
+    id: byte
+    name: char[16]
+    hp: int
+}
+
+fn main() {
+    var nums: int[10]
+    var title: char[16]
+    var players: Player[4]
+
+    append(nums, 1)
+    clear(nums)
+
+    copy(title, "HELLO")
+    clear(title)
+
+    players[0].id = 1
+    clear(players)
+}
+`)
+
+	requireNoASM(t, asm,
+		"_skip_broken",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
