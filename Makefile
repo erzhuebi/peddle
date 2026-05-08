@@ -3,6 +3,9 @@ ASM        := 64tass
 VICE       ?= $(shell command -v x64sc 2>/dev/null || command -v x64 2>/dev/null)
 
 EXAMPLE ?= hello
+OPT     ?= speed
+MEM_FLAGS ?=
+
 SRC     := examples/$(EXAMPLE).ped
 ASM_OUT := build/$(EXAMPLE).asm
 PRG_OUT := build/$(EXAMPLE).prg
@@ -18,13 +21,18 @@ test: check
 help:
 	@echo "Available targets:"
 	@echo ""
-	@echo "  make build              - build peddlec compiler"
-	@echo "  make run EXAMPLE=hello  - compile examples/hello.ped, assemble PRG, run in VICE"
-	@echo "  make example EXAMPLE=x  - compile examples/x.ped and assemble PRG without running"
-	@echo "  make hello              - same as make run EXAMPLE=hello"
-	@echo "  make examples           - list available examples"
-	@echo "  make check              - check compiler toolchain"
-	@echo "  make clean              - remove build artifacts"
+	@echo "  make build                         - build peddlec compiler"
+	@echo "  make run EXAMPLE=hello             - compile examples/hello.ped, assemble PRG, run in VICE"
+	@echo "  make run EXAMPLE=hello OPT=size    - same, but compile with --opt=size"
+	@echo "  make example EXAMPLE=x             - compile examples/x.ped and assemble PRG without running"
+	@echo "  make hello                         - same as make run EXAMPLE=hello"
+	@echo "  make examples                      - list available examples"
+	@echo "  make check                         - check compiler toolchain"
+	@echo "  make clean                         - remove build artifacts"
+	@echo ""
+	@echo "Optional variables:"
+	@echo "  OPT=speed|size"
+	@echo "  MEM_FLAGS='--mem-report --mem-limit=32768'"
 	@echo ""
 	@echo "Toolchain:"
 	@echo "  macOS: brew install go 64tass vice"
@@ -70,7 +78,7 @@ example: check-run build
 		$(MAKE) --no-print-directory examples; \
 		exit 1; \
 	fi
-	$(PEDDLEC_BIN) -o $(ASM_OUT) $(SRC)
+	$(PEDDLEC_BIN) --opt=$(OPT) $(MEM_FLAGS) -o $(ASM_OUT) $(SRC)
 	$(ASM) $(ASM_OUT) -o $(PRG_OUT)
 	@echo "wrote $(PRG_OUT)"
 

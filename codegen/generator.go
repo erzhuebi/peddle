@@ -1,6 +1,7 @@
 package codegen
 
 import (
+	"fmt"
 	"strings"
 
 	"peddle/ast"
@@ -14,7 +15,14 @@ const (
 )
 
 type Options struct {
-	OptMode OptMode
+	OptMode           OptMode
+	StaticMemoryLimit int
+}
+
+type MemoryReport struct {
+	StaticDataBytes   int
+	LiteralBytes      int
+	StaticSymbolCount int
 }
 
 type Generator struct {
@@ -41,6 +49,8 @@ type Generator struct {
 	usedAppendIntRuntime    bool
 	usedStringCopyRuntime   bool
 	usedStringAppendRuntime bool
+
+	memoryReport MemoryReport
 
 	labelCounter int
 }
@@ -95,11 +105,43 @@ func (g *Generator) Generate(p *ast.Program) (string, error) {
 		}
 	}
 
+	g.memoryReport = g.computeMemoryReport()
+
+	if g.options.StaticMemoryLimit > 0 && g.memoryReport.StaticDataBytes > g.options.StaticMemoryLimit {
+		return "", fmt.Errorf("static memory usage %d bytes exceeds limit %d bytes", g.memoryReport.StaticDataBytes, g.options.StaticMemoryLimit)
+	}
+
 	g.emitRuntime()
 	g.emitLiterals()
 	g.emitStaticData()
 
 	return g.out.String(), nil
+}
+
+func (g *Generator) MemoryReport() MemoryReport {
+	return g.memoryReport
+}
+
+func (g *Generator) computeMemoryReport() MemoryReport {
+	report := MemoryReport{}
+
+	for _, frame := range g.frames {
+		for _, sym := range frame.Symbols {
+			report.StaticDataBytes += sym.Size
+			report.StaticSymbolCount++
+		}
+
+		if frame.Return != nil {
+			report.StaticDataBytes += frame.Return.Size
+			report.StaticSymbolCount++
+		}
+	}
+
+	for _, lit := range g.literals {
+		report.LiteralBytes += len(lit)
+	}
+
+	return report
 }
 
 func (g *Generator) genFunction(fn *ast.FunctionDecl) error {
