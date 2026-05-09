@@ -11,17 +11,29 @@ import (
 	"peddle/sema"
 )
 
+const Version = "0.1.0"
+
 func main() {
 	outPath := flag.String("o", "out.asm", "output ASM file")
 	optMode := flag.String("opt", "speed", "optimization mode: speed or size")
 	memReport := flag.Bool("mem-report", false, "print compiler memory usage report")
 	memLimit := flag.Int("mem-limit", 0, "maximum static data memory in bytes, 0 disables the limit")
 
+	showVersion := flag.Bool("version", false, "print compiler version")
+	showVersionShort := flag.Bool("v", false, "print compiler version")
+
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: peddlec -o output.asm [--opt=speed|--opt=size] [--mem-report] [--mem-limit=N] input.ped")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
+
+	if *showVersion || *showVersionShort {
+		fmt.Printf("peddlec %s\n", Version)
+		fmt.Println("target: c64/6502")
+		fmt.Println("assembler: 64tass")
+		return
+	}
 
 	if flag.NArg() != 1 {
 		flag.Usage()
