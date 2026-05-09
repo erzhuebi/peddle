@@ -491,6 +491,7 @@ const (
 	BITOR
 	BITXOR
 	BITAND
+	SHIFT
 	SUM
 	PRODUCT
 	CALL
@@ -508,6 +509,8 @@ var precedences = map[lexer.TokenType]int{
 	lexer.PIPE:     BITOR,
 	lexer.CARET:    BITXOR,
 	lexer.AMP:      BITAND,
+	lexer.SHL:      SHIFT,
+	lexer.SHR:      SHIFT,
 	lexer.PLUS:     SUM,
 	lexer.MINUS:    SUM,
 	lexer.ASTERISK: PRODUCT,

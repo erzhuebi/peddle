@@ -111,7 +111,11 @@ func (l *Lexer) NextToken() Token {
 		}
 
 	case '<':
-		if l.peekChar() == '=' {
+		if l.peekChar() == '<' {
+			ch := l.ch
+			l.readChar()
+			tok = l.newToken(SHL, string(ch)+string(l.ch), line, column)
+		} else if l.peekChar() == '=' {
 			ch := l.ch
 			l.readChar()
 			tok = l.newToken(LTE, string(ch)+string(l.ch), line, column)
@@ -120,7 +124,11 @@ func (l *Lexer) NextToken() Token {
 		}
 
 	case '>':
-		if l.peekChar() == '=' {
+		if l.peekChar() == '>' {
+			ch := l.ch
+			l.readChar()
+			tok = l.newToken(SHR, string(ch)+string(l.ch), line, column)
+		} else if l.peekChar() == '=' {
 			ch := l.ch
 			l.readChar()
 			tok = l.newToken(GTE, string(ch)+string(l.ch), line, column)

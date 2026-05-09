@@ -762,3 +762,163 @@ fn main() {
 	requireReferencedLabelsDefined(t, asm)
 	requireASMAssemblesWith64tass(t, asm)
 }
+
+func TestCodegenStage2ConstantShiftsAreInlineInSpeedMode(t *testing.T) {
+	input := `
+fn main() {
+    var a, b: byte
+    var x, y: int
+
+    a = 1 << 3
+    b = 128 >> 2
+
+    x = 1 << 12
+    y = 4096 >> 4
+}
+`
+
+	asm := compileSourceWithOptions(t, input, Options{
+		OptMode: OptModeSpeed,
+	})
+
+	requireASM(t, asm,
+		"asl",
+		"lsr",
+		"asl ZP_TMP0",
+		"rol ZP_TMP1",
+		"lsr ZP_TMP1",
+		"ror ZP_TMP0",
+	)
+
+	requireNoASM(t, asm,
+		"jsr peddle_shl_byte",
+		"jsr peddle_shr_byte",
+		"jsr peddle_shl_int",
+		"jsr peddle_shr_int",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
+func TestCodegenStage2ConstantShiftsAreInlineInSizeMode(t *testing.T) {
+	input := `
+fn main() {
+    var a, b: byte
+    var x, y: int
+
+    a = 1 << 3
+    b = 128 >> 2
+
+    x = 1 << 12
+    y = 4096 >> 4
+}
+`
+
+	asm := compileSourceWithOptions(t, input, Options{
+		OptMode: OptModeSize,
+	})
+
+	requireASM(t, asm,
+		"asl",
+		"lsr",
+		"asl ZP_TMP0",
+		"rol ZP_TMP1",
+		"lsr ZP_TMP1",
+		"ror ZP_TMP0",
+	)
+
+	requireNoASM(t, asm,
+		"jsr peddle_shl_byte",
+		"jsr peddle_shr_byte",
+		"jsr peddle_shl_int",
+		"jsr peddle_shr_int",
+		"peddle_shl_byte:",
+		"peddle_shr_byte:",
+		"peddle_shl_int:",
+		"peddle_shr_int:",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
+func TestCodegenStage2VariableShiftsInlineInSpeedMode(t *testing.T) {
+	input := `
+fn main() {
+    var a, b, s: byte
+    var x, y, n: int
+
+    a = 8
+    s = 1
+    b = a << s
+    b = b >> s
+
+    x = 1024
+    n = 2
+    y = x << n
+    y = y >> n
+}
+`
+
+	asm := compileSourceWithOptions(t, input, Options{
+		OptMode: OptModeSpeed,
+	})
+
+	requireASM(t, asm,
+		"dex",
+		"dec peddle_tmp_int0",
+		"asl ZP_TMP1",
+		"lsr ZP_TMP1",
+		"asl ZP_TMP0",
+		"rol ZP_TMP1",
+		"ror ZP_TMP0",
+	)
+
+	requireNoASM(t, asm,
+		"jsr peddle_shl_byte",
+		"jsr peddle_shr_byte",
+		"jsr peddle_shl_int",
+		"jsr peddle_shr_int",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
+func TestCodegenStage2VariableShiftsUseRuntimeInSizeMode(t *testing.T) {
+	input := `
+fn main() {
+    var a, b, s: byte
+    var x, y, n: int
+
+    a = 8
+    s = 1
+    b = a << s
+    b = b >> s
+
+    x = 1024
+    n = 2
+    y = x << n
+    y = y >> n
+}
+`
+
+	asm := compileSourceWithOptions(t, input, Options{
+		OptMode: OptModeSize,
+	})
+
+	requireASM(t, asm,
+		"jsr peddle_shl_byte",
+		"jsr peddle_shr_byte",
+		"jsr peddle_shl_int",
+		"jsr peddle_shr_int",
+		"peddle_shl_byte:",
+		"peddle_shr_byte:",
+		"peddle_shl_int:",
+		"peddle_shr_int:",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}

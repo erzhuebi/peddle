@@ -9,7 +9,7 @@ import (
 
 func (g *Generator) genBinaryTo(b *ast.BinaryExpr, target ast.Type) error {
 	switch b.Op {
-	case "+", "-", "*", "&", "|", "^":
+	case "+", "-", "*", "&", "|", "^", "<<", ">>":
 		if target.Name == "int" {
 			return g.genBinaryInt(b)
 		}
@@ -24,6 +24,18 @@ func (g *Generator) genBinaryTo(b *ast.BinaryExpr, target ast.Type) error {
 }
 
 func (g *Generator) genBinaryByte(b *ast.BinaryExpr) error {
+	if b.Op == "<<" || b.Op == ">>" {
+		if count, ok, err := constShiftCount(b.Right); err != nil {
+			return err
+		} else if ok {
+			if err := g.genExprTo(b.Left, ast.Type{Name: "byte"}); err != nil {
+				return err
+			}
+			g.emitConstShiftByte(b.Op, count)
+			return nil
+		}
+	}
+
 	if err := g.genExprTo(b.Right, ast.Type{Name: "byte"}); err != nil {
 		return err
 	}
@@ -79,12 +91,44 @@ func (g *Generator) genBinaryByte(b *ast.BinaryExpr) error {
 		g.emit(fmt.Sprintf("    jmp %s", loop))
 		g.emit(done + ":")
 		g.emit("    txa")
+
+	case "<<", ">>":
+		if g.options.OptMode == OptModeSize {
+			g.emit("    ldx ZP_TMP0")
+			g.emit("    stx peddle_tmp_int0")
+
+			if b.Op == "<<" {
+				g.emit("    jsr peddle_shl_byte")
+				g.usedShlByteRuntime = true
+			} else {
+				g.emit("    jsr peddle_shr_byte")
+				g.usedShrByteRuntime = true
+			}
+
+			g.usedTmp16 = true
+			return nil
+		}
+
+		g.emitVariableShiftByte(b.Op)
 	}
 
 	return nil
 }
 
 func (g *Generator) genBinaryInt(b *ast.BinaryExpr) error {
+	if b.Op == "<<" || b.Op == ">>" {
+		if count, ok, err := constShiftCount(b.Right); err != nil {
+			return err
+		} else if ok {
+			if err := g.genExprTo(b.Left, ast.Type{Name: "int"}); err != nil {
+				return err
+			}
+			g.emitConstShiftInt(b.Op, count)
+			g.usedTmp16 = true
+			return nil
+		}
+	}
+
 	if err := g.genExprTo(b.Right, ast.Type{Name: "int"}); err != nil {
 		return err
 	}
@@ -149,10 +193,120 @@ func (g *Generator) genBinaryInt(b *ast.BinaryExpr) error {
 		}
 
 		return g.genInlineMulInt()
+
+	case "<<", ">>":
+		if g.options.OptMode == OptModeSize {
+			if b.Op == "<<" {
+				g.emit("    jsr peddle_shl_int")
+				g.usedShlIntRuntime = true
+			} else {
+				g.emit("    jsr peddle_shr_int")
+				g.usedShrIntRuntime = true
+			}
+
+			g.usedTmp16 = true
+			return nil
+		}
+
+		g.emitVariableShiftInt(b.Op)
 	}
 
 	g.usedTmp16 = true
 	return nil
+}
+
+func constShiftCount(e ast.Expr) (int, bool, error) {
+	n, ok := e.(*ast.NumberExpr)
+	if !ok {
+		return 0, false, nil
+	}
+
+	v, err := strconv.Atoi(n.Value)
+	if err != nil {
+		return 0, false, err
+	}
+
+	if v < 0 {
+		v = 0
+	}
+
+	return v, true, nil
+}
+
+func (g *Generator) emitConstShiftByte(op string, count int) {
+	if count > 8 {
+		count = 8
+	}
+
+	for i := 0; i < count; i++ {
+		if op == "<<" {
+			g.emit("    asl")
+		} else {
+			g.emit("    lsr")
+		}
+	}
+}
+
+func (g *Generator) emitConstShiftInt(op string, count int) {
+	if count > 16 {
+		count = 16
+	}
+
+	for i := 0; i < count; i++ {
+		if op == "<<" {
+			g.emit("    asl ZP_TMP0")
+			g.emit("    rol ZP_TMP1")
+		} else {
+			g.emit("    lsr ZP_TMP1")
+			g.emit("    ror ZP_TMP0")
+		}
+	}
+}
+
+func (g *Generator) emitVariableShiftByte(op string) {
+	loop := g.newLabel()
+	done := g.newLabel()
+
+	g.emit("    sta ZP_TMP1")
+	g.emit("    ldx ZP_TMP0")
+
+	g.emit(loop + ":")
+	g.emit(fmt.Sprintf("    beq %s", done))
+
+	if op == "<<" {
+		g.emit("    asl ZP_TMP1")
+	} else {
+		g.emit("    lsr ZP_TMP1")
+	}
+
+	g.emit("    dex")
+	g.emit(fmt.Sprintf("    jmp %s", loop))
+
+	g.emit(done + ":")
+	g.emit("    lda ZP_TMP1")
+}
+
+func (g *Generator) emitVariableShiftInt(op string) {
+	loop := g.newLabel()
+	done := g.newLabel()
+
+	g.emit(loop + ":")
+	g.emit("    lda peddle_tmp_int0")
+	g.emit(fmt.Sprintf("    beq %s", done))
+
+	if op == "<<" {
+		g.emit("    asl ZP_TMP0")
+		g.emit("    rol ZP_TMP1")
+	} else {
+		g.emit("    lsr ZP_TMP1")
+		g.emit("    ror ZP_TMP0")
+	}
+
+	g.emit("    dec peddle_tmp_int0")
+	g.emit(fmt.Sprintf("    jmp %s", loop))
+
+	g.emit(done + ":")
+	g.usedTmp16 = true
 }
 
 func (g *Generator) genInlineMulInt() error {

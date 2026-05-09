@@ -44,6 +44,8 @@ const (
 	AMP      = "&"
 	PIPE     = "|"
 	CARET    = "^"
+	SHL      = "<<"
+	SHR      = ">>"
 	BANG     = "!"
 
 	EQ  = "=="

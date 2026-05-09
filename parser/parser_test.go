@@ -361,3 +361,63 @@ fn main() {
 		t.Fatalf("expected deepest operator *, got %q", mul.Op)
 	}
 }
+
+func TestParserStage2ShiftOperatorPrecedence(t *testing.T) {
+	input := `
+fn main() {
+    var a, b, c, d, x: int
+    x = a | b & c << d + 1
+}
+`
+
+	l := lexer.New(input)
+	p := New(l)
+	prog := p.ParseProgram()
+
+	if len(p.Errors()) != 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	fn := prog.Functions[0]
+
+	stmt, ok := fn.Body[0].(*ast.AssignStmt)
+	if !ok {
+		t.Fatalf("expected AssignStmt, got %T", fn.Body[0])
+	}
+
+	expr, ok := stmt.Value.(*ast.BinaryExpr)
+	if !ok {
+		t.Fatalf("expected BinaryExpr, got %T", stmt.Value)
+	}
+
+	if expr.Op != "|" {
+		t.Fatalf("expected top-level operator |, got %q", expr.Op)
+	}
+
+	andExpr, ok := expr.Right.(*ast.BinaryExpr)
+	if !ok {
+		t.Fatalf("expected right side BinaryExpr, got %T", expr.Right)
+	}
+
+	if andExpr.Op != "&" {
+		t.Fatalf("expected second-level operator &, got %q", andExpr.Op)
+	}
+
+	shiftExpr, ok := andExpr.Right.(*ast.BinaryExpr)
+	if !ok {
+		t.Fatalf("expected shift BinaryExpr, got %T", andExpr.Right)
+	}
+
+	if shiftExpr.Op != "<<" {
+		t.Fatalf("expected shift operator <<, got %q", shiftExpr.Op)
+	}
+
+	addExpr, ok := shiftExpr.Right.(*ast.BinaryExpr)
+	if !ok {
+		t.Fatalf("expected add BinaryExpr as shift count, got %T", shiftExpr.Right)
+	}
+
+	if addExpr.Op != "+" {
+		t.Fatalf("expected + to bind tighter than <<, got %q", addExpr.Op)
+	}
+}

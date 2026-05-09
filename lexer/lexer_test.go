@@ -63,3 +63,40 @@ func TestLexerStage1Operators(t *testing.T) {
 		}
 	}
 }
+
+func TestLexerStage2ShiftOperators(t *testing.T) {
+	input := `a << 1 b >> 2 a <= b a >= b`
+
+	tests := []struct {
+		expectedType    TokenType
+		expectedLiteral string
+	}{
+		{IDENT, "a"},
+		{SHL, "<<"},
+		{NUMBER, "1"},
+		{IDENT, "b"},
+		{SHR, ">>"},
+		{NUMBER, "2"},
+		{IDENT, "a"},
+		{LTE, "<="},
+		{IDENT, "b"},
+		{IDENT, "a"},
+		{GTE, ">="},
+		{IDENT, "b"},
+		{EOF, ""},
+	}
+
+	l := New(input)
+
+	for i, tt := range tests {
+		tok := l.NextToken()
+
+		if tok.Type != tt.expectedType {
+			t.Fatalf("tests[%d] token type wrong. expected=%q got=%q", i, tt.expectedType, tok.Type)
+		}
+
+		if tok.Literal != tt.expectedLiteral {
+			t.Fatalf("tests[%d] literal wrong. expected=%q got=%q", i, tt.expectedLiteral, tok.Literal)
+		}
+	}
+}

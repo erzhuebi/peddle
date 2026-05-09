@@ -49,6 +49,10 @@ type Generator struct {
 	usedAppendIntRuntime    bool
 	usedMulByteRuntime      bool
 	usedMulIntRuntime       bool
+	usedShlByteRuntime      bool
+	usedShrByteRuntime      bool
+	usedShlIntRuntime       bool
+	usedShrIntRuntime       bool
 	usedStringCopyRuntime   bool
 	usedStringAppendRuntime bool
 

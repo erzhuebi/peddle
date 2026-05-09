@@ -186,3 +186,35 @@ fn main() {
 		t.Fatalf("sema check failed: %v", err)
 	}
 }
+
+func TestSemaStage2ShiftOperators(t *testing.T) {
+	input := `
+fn main() {
+    var a, b, s: byte
+    var x, y, n: int
+
+    a = 1 << 3
+    b = 128 >> 2
+    a = b << s
+    b = a >> s
+
+    x = 1 << 12
+    y = 4096 >> 4
+    x = y << n
+    y = x >> n
+}
+`
+
+	l := lexer.New(input)
+	p := parser.New(l)
+	prog := p.ParseProgram()
+
+	if len(p.Errors()) != 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	checker := New()
+	if err := checker.Check(prog); err != nil {
+		t.Fatalf("sema check failed: %v", err)
+	}
+}

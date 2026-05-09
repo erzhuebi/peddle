@@ -47,6 +47,10 @@ func (g *Generator) emitRuntime() {
 		g.usedAppendIntRuntime ||
 		g.usedMulByteRuntime ||
 		g.usedMulIntRuntime ||
+		g.usedShlByteRuntime ||
+		g.usedShrByteRuntime ||
+		g.usedShlIntRuntime ||
+		g.usedShrIntRuntime ||
 		g.usedStringCopyRuntime ||
 		g.usedStringAppendRuntime
 
@@ -354,6 +358,78 @@ peddle_mul_int_done:
     sta ZP_TMP0
     lda ZP_PTR1_HI
     sta ZP_TMP1
+    rts
+`)
+	}
+
+	if g.usedShlByteRuntime {
+		g.emit(`
+peddle_shl_byte:
+    sta ZP_TMP0
+
+peddle_shl_byte_loop:
+    lda peddle_tmp_int0
+    beq peddle_shl_byte_done
+
+    asl ZP_TMP0
+    dec peddle_tmp_int0
+    jmp peddle_shl_byte_loop
+
+peddle_shl_byte_done:
+    lda ZP_TMP0
+    rts
+`)
+	}
+
+	if g.usedShrByteRuntime {
+		g.emit(`
+peddle_shr_byte:
+    sta ZP_TMP0
+
+peddle_shr_byte_loop:
+    lda peddle_tmp_int0
+    beq peddle_shr_byte_done
+
+    lsr ZP_TMP0
+    dec peddle_tmp_int0
+    jmp peddle_shr_byte_loop
+
+peddle_shr_byte_done:
+    lda ZP_TMP0
+    rts
+`)
+	}
+
+	if g.usedShlIntRuntime {
+		g.emit(`
+peddle_shl_int:
+peddle_shl_int_loop:
+    lda peddle_tmp_int0
+    beq peddle_shl_int_done
+
+    asl ZP_TMP0
+    rol ZP_TMP1
+    dec peddle_tmp_int0
+    jmp peddle_shl_int_loop
+
+peddle_shl_int_done:
+    rts
+`)
+	}
+
+	if g.usedShrIntRuntime {
+		g.emit(`
+peddle_shr_int:
+peddle_shr_int_loop:
+    lda peddle_tmp_int0
+    beq peddle_shr_int_done
+
+    lsr ZP_TMP1
+    ror ZP_TMP0
+    dec peddle_tmp_int0
+    jmp peddle_shr_int_loop
+
+peddle_shr_int_done:
     rts
 `)
 	}
