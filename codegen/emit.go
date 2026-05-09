@@ -45,6 +45,8 @@ func (g *Generator) emitRuntime() {
 		g.usedFillIntRuntime ||
 		g.usedAppendByteRuntime ||
 		g.usedAppendIntRuntime ||
+		g.usedMulByteRuntime ||
+		g.usedMulIntRuntime ||
 		g.usedStringCopyRuntime ||
 		g.usedStringAppendRuntime
 
@@ -284,6 +286,78 @@ peddle_append_int:
 `)
 	}
 
+	if g.usedMulByteRuntime {
+		g.emit(`
+peddle_mul_byte:
+    sta ZP_TMP0
+    lda #0
+    sta ZP_TMP1
+
+peddle_mul_byte_loop:
+    lda peddle_tmp_int0
+    beq peddle_mul_byte_done
+
+    clc
+    lda ZP_TMP1
+    adc ZP_TMP0
+    sta ZP_TMP1
+
+    dec peddle_tmp_int0
+    jmp peddle_mul_byte_loop
+
+peddle_mul_byte_done:
+    lda ZP_TMP1
+    rts
+`)
+	}
+
+	if g.usedMulIntRuntime {
+		g.emit(`
+peddle_mul_int:
+    lda ZP_TMP0
+    sta ZP_PTR0_LO
+    lda ZP_TMP1
+    sta ZP_PTR0_HI
+
+    lda #0
+    sta ZP_PTR1_LO
+    sta ZP_PTR1_HI
+
+peddle_mul_int_loop:
+    lda peddle_tmp_int0
+    ora peddle_tmp_int0+1
+    beq peddle_mul_int_done
+
+    lda peddle_tmp_int0
+    and #1
+    beq peddle_mul_int_skip_add
+
+    clc
+    lda ZP_PTR1_LO
+    adc ZP_PTR0_LO
+    sta ZP_PTR1_LO
+    lda ZP_PTR1_HI
+    adc ZP_PTR0_HI
+    sta ZP_PTR1_HI
+
+peddle_mul_int_skip_add:
+    asl ZP_PTR0_LO
+    rol ZP_PTR0_HI
+
+    lsr peddle_tmp_int0+1
+    ror peddle_tmp_int0
+
+    jmp peddle_mul_int_loop
+
+peddle_mul_int_done:
+    lda ZP_PTR1_LO
+    sta ZP_TMP0
+    lda ZP_PTR1_HI
+    sta ZP_TMP1
+    rts
+`)
+	}
+
 	if g.usedStringCopyRuntime {
 		g.emit(`
 peddle_string_copy_literal:
@@ -434,6 +508,80 @@ func (g *Generator) emitStaticData() {
 			g.emit(fmt.Sprintf("%s:", frame.Return.Label))
 			g.emitStaticValue(frame.Return.Type)
 		}
+	}
+}
+
+func (g *Generator) emitMulRuntime() {
+	if g.usedMulByteRuntime {
+		g.emit(`
+peddle_mul_byte:
+    sta ZP_TMP0
+    lda #0
+    sta ZP_TMP1
+
+peddle_mul_byte_loop:
+    lda peddle_tmp_int0
+    beq peddle_mul_byte_done
+
+    clc
+    lda ZP_TMP1
+    adc ZP_TMP0
+    sta ZP_TMP1
+
+    dec peddle_tmp_int0
+    jmp peddle_mul_byte_loop
+
+peddle_mul_byte_done:
+    lda ZP_TMP1
+    rts
+`)
+	}
+
+	if g.usedMulIntRuntime {
+		g.emit(`
+peddle_mul_int:
+    lda ZP_TMP0
+    sta ZP_PTR0_LO
+    lda ZP_TMP1
+    sta ZP_PTR0_HI
+
+    lda #0
+    sta ZP_PTR1_LO
+    sta ZP_PTR1_HI
+
+peddle_mul_int_loop:
+    lda peddle_tmp_int0
+    ora peddle_tmp_int0+1
+    beq peddle_mul_int_done
+
+    lda peddle_tmp_int0
+    and #1
+    beq peddle_mul_int_skip_add
+
+    clc
+    lda ZP_PTR1_LO
+    adc ZP_PTR0_LO
+    sta ZP_PTR1_LO
+    lda ZP_PTR1_HI
+    adc ZP_PTR0_HI
+    sta ZP_PTR1_HI
+
+peddle_mul_int_skip_add:
+    asl ZP_PTR0_LO
+    rol ZP_PTR0_HI
+
+    lsr peddle_tmp_int0+1
+    ror peddle_tmp_int0
+
+    jmp peddle_mul_int_loop
+
+peddle_mul_int_done:
+    lda ZP_PTR1_LO
+    sta ZP_TMP0
+    lda ZP_PTR1_HI
+    sta ZP_TMP1
+    rts
+`)
 	}
 }
 

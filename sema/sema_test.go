@@ -154,3 +154,35 @@ fn main() {
 		t.Fatalf("expected sema error")
 	}
 }
+
+func TestSemaStage1Operators(t *testing.T) {
+	input := `
+fn main() {
+    var a, b: byte
+    var x, y: int
+
+    a = 3 * 4
+    a = a & 15
+    a = a | 64
+    a = a ^ 255
+
+    x = 300 * 4
+    y = x & 1023
+    y = x | 4096
+    y = x ^ 65535
+}
+`
+
+	l := lexer.New(input)
+	p := parser.New(l)
+	prog := p.ParseProgram()
+
+	if len(p.Errors()) != 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	checker := New()
+	if err := checker.Check(prog); err != nil {
+		t.Fatalf("sema check failed: %v", err)
+	}
+}

@@ -38,9 +38,13 @@ const (
 	DOT    = "."
 	ASSIGN = "="
 
-	PLUS  = "+"
-	MINUS = "-"
-	BANG  = "!"
+	PLUS     = "+"
+	MINUS    = "-"
+	ASTERISK = "*"
+	AMP      = "&"
+	PIPE     = "|"
+	CARET    = "^"
+	BANG     = "!"
 
 	EQ  = "=="
 	NEQ = "!="

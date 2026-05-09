@@ -284,3 +284,80 @@ fn main() {
 		}
 	}
 }
+
+func TestParserStage1OperatorPrecedence(t *testing.T) {
+	input := `
+fn main() {
+    var a, b, c, d, e, x: int
+    x = a | b ^ c & d + e * 2
+}
+`
+
+	l := lexer.New(input)
+	p := New(l)
+	prog := p.ParseProgram()
+
+	if len(p.Errors()) != 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	if len(prog.Functions) != 1 {
+		t.Fatalf("expected 1 function, got %d", len(prog.Functions))
+	}
+
+	fn := prog.Functions[0]
+
+	if len(fn.Body) != 1 {
+		t.Fatalf("expected 1 statement, got %d", len(fn.Body))
+	}
+
+	stmt, ok := fn.Body[0].(*ast.AssignStmt)
+	if !ok {
+		t.Fatalf("expected AssignStmt, got %T", fn.Body[0])
+	}
+
+	expr, ok := stmt.Value.(*ast.BinaryExpr)
+	if !ok {
+		t.Fatalf("expected BinaryExpr, got %T", stmt.Value)
+	}
+
+	if expr.Op != "|" {
+		t.Fatalf("expected top-level operator |, got %q", expr.Op)
+	}
+
+	right, ok := expr.Right.(*ast.BinaryExpr)
+	if !ok {
+		t.Fatalf("expected right side BinaryExpr, got %T", expr.Right)
+	}
+
+	if right.Op != "^" {
+		t.Fatalf("expected second-level operator ^, got %q", right.Op)
+	}
+
+	rightRight, ok := right.Right.(*ast.BinaryExpr)
+	if !ok {
+		t.Fatalf("expected right-right BinaryExpr, got %T", right.Right)
+	}
+
+	if rightRight.Op != "&" {
+		t.Fatalf("expected third-level operator &, got %q", rightRight.Op)
+	}
+
+	add, ok := rightRight.Right.(*ast.BinaryExpr)
+	if !ok {
+		t.Fatalf("expected add BinaryExpr, got %T", rightRight.Right)
+	}
+
+	if add.Op != "+" {
+		t.Fatalf("expected fourth-level operator +, got %q", add.Op)
+	}
+
+	mul, ok := add.Right.(*ast.BinaryExpr)
+	if !ok {
+		t.Fatalf("expected multiply BinaryExpr, got %T", add.Right)
+	}
+
+	if mul.Op != "*" {
+		t.Fatalf("expected deepest operator *, got %q", mul.Op)
+	}
+}

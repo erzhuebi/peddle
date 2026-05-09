@@ -664,3 +664,101 @@ fn main() {
 		"peddle_string_append_literal:",
 	)
 }
+
+func TestCodegenStage1OperatorsSpeedMode(t *testing.T) {
+	input := `
+fn main() {
+    var a, b: byte
+    var x, y: int
+
+    a = 3 * 4
+    b = a & 15
+    b = b | 64
+    b = b ^ 255
+
+    x = 300 * 4
+    y = x & 1023
+    y = y | 4096
+    y = y ^ 65535
+}
+`
+
+	asm := compileSourceWithOptions(t, input, Options{
+		OptMode: OptModeSpeed,
+	})
+
+	requireASM(t, asm, "and ZP_TMP0")
+	requireASM(t, asm, "ora ZP_TMP0")
+	requireASM(t, asm, "eor ZP_TMP0")
+
+	requireASM(t, asm, "and peddle_tmp_int0")
+	requireASM(t, asm, "ora peddle_tmp_int0")
+	requireASM(t, asm, "eor peddle_tmp_int0")
+
+	requireNoASM(t, asm, "jsr peddle_mul_byte")
+	requireNoASM(t, asm, "jsr peddle_mul_int")
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
+func TestCodegenStage1OperatorsSizeModeUsesMulRuntime(t *testing.T) {
+	input := `
+fn main() {
+    var a: byte
+    var x: int
+
+    a = 3 * 4
+    x = 300 * 4
+}
+`
+
+	asm := compileSourceWithOptions(t, input, Options{
+		OptMode: OptModeSize,
+	})
+
+	requireASM(t, asm, "jsr peddle_mul_byte")
+	requireASM(t, asm, "peddle_mul_byte:")
+
+	requireASM(t, asm, "jsr peddle_mul_int")
+	requireASM(t, asm, "peddle_mul_int:")
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
+func TestCodegenStage1BitwiseOperatorsRemainInlineInSizeMode(t *testing.T) {
+	input := `
+fn main() {
+    var a, b: byte
+    var x, y: int
+
+    b = a & 15
+    b = b | 64
+    b = b ^ 255
+
+    y = x & 1023
+    y = y | 4096
+    y = y ^ 65535
+}
+`
+
+	asm := compileSourceWithOptions(t, input, Options{
+		OptMode: OptModeSize,
+	})
+
+	requireASM(t, asm, "and ZP_TMP0")
+	requireASM(t, asm, "ora ZP_TMP0")
+	requireASM(t, asm, "eor ZP_TMP0")
+
+	requireASM(t, asm, "and peddle_tmp_int0")
+	requireASM(t, asm, "ora peddle_tmp_int0")
+	requireASM(t, asm, "eor peddle_tmp_int0")
+
+	requireNoASM(t, asm, "peddle_and")
+	requireNoASM(t, asm, "peddle_or")
+	requireNoASM(t, asm, "peddle_xor")
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}

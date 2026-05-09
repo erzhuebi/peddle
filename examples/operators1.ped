@@ -1,0 +1,38 @@
+fn main() {
+    var border: byte
+    var bg: byte
+    var x: int
+    var y: int
+
+    // byte multiplication
+    border = 3 * 4
+
+    // byte bitwise ops:
+    // 12 & 10 = 8
+    // 8 | 2 = 10
+    // 10 ^ 15 = 5
+    border = border & 10
+    border = border | 2
+    border = border ^ 15
+
+    // int multiplication and bitwise ops:
+    // 300 * 4 = 1200
+    // 1200 & 1023 = 176
+    // 176 | 4096 = 4272
+    // 4272 ^ 255 = 4447
+    x = 300 * 4
+    y = x & 1023
+    y = y | 4096
+    y = y ^ 255
+
+    // Show visible result on C64:
+    // border should become 5
+    // background should become low byte of y:
+    // 4447 & 255 = 95
+    bg = y
+
+    poke(53280, border)
+    poke(53281, bg)
+
+    print("STAGE1 OK")
+}

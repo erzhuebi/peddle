@@ -488,24 +488,32 @@ const (
 	LOWEST
 	EQUALS
 	LESSGREATER
+	BITOR
+	BITXOR
+	BITAND
 	SUM
+	PRODUCT
 	CALL
 	INDEX
 	FIELD
 )
 
 var precedences = map[lexer.TokenType]int{
-	lexer.EQ:     EQUALS,
-	lexer.NEQ:    EQUALS,
-	lexer.LT:     LESSGREATER,
-	lexer.LTE:    LESSGREATER,
-	lexer.GT:     LESSGREATER,
-	lexer.GTE:    LESSGREATER,
-	lexer.PLUS:   SUM,
-	lexer.MINUS:  SUM,
-	lexer.LPAREN: CALL,
-	lexer.LBRACK: INDEX,
-	lexer.DOT:    FIELD,
+	lexer.EQ:       EQUALS,
+	lexer.NEQ:      EQUALS,
+	lexer.LT:       LESSGREATER,
+	lexer.LTE:      LESSGREATER,
+	lexer.GT:       LESSGREATER,
+	lexer.GTE:      LESSGREATER,
+	lexer.PIPE:     BITOR,
+	lexer.CARET:    BITXOR,
+	lexer.AMP:      BITAND,
+	lexer.PLUS:     SUM,
+	lexer.MINUS:    SUM,
+	lexer.ASTERISK: PRODUCT,
+	lexer.LPAREN:   CALL,
+	lexer.LBRACK:   INDEX,
+	lexer.DOT:      FIELD,
 }
 
 func (p *Parser) parseExpression(precedence int) ast.Expr {

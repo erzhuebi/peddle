@@ -341,7 +341,16 @@ func (c *Checker) checkExpr(scope map[string]ast.Type, e ast.Expr) (ast.Type, er
 		}
 
 		switch expr.Op {
-		case "+", "-":
+		case "+", "-", "*":
+			if !isNumeric(left) || !isNumeric(right) {
+				return ast.Type{}, fmt.Errorf("operator %s requires numeric operands", expr.Op)
+			}
+			if left.Name == "int" || right.Name == "int" {
+				return ast.Type{Name: "int"}, nil
+			}
+			return ast.Type{Name: "byte"}, nil
+
+		case "&", "|", "^":
 			if !isNumeric(left) || !isNumeric(right) {
 				return ast.Type{}, fmt.Errorf("operator %s requires numeric operands", expr.Op)
 			}

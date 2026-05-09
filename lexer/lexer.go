@@ -74,6 +74,14 @@ func (l *Lexer) NextToken() Token {
 		tok = l.newToken(DOT, string(l.ch), line, column)
 	case '+':
 		tok = l.newToken(PLUS, string(l.ch), line, column)
+	case '*':
+		tok = l.newToken(ASTERISK, string(l.ch), line, column)
+	case '&':
+		tok = l.newToken(AMP, string(l.ch), line, column)
+	case '|':
+		tok = l.newToken(PIPE, string(l.ch), line, column)
+	case '^':
+		tok = l.newToken(CARET, string(l.ch), line, column)
 
 	case '-':
 		if l.peekChar() == '>' {
@@ -175,7 +183,6 @@ func (l *Lexer) skipWhitespace() {
 			l.readChar()
 		}
 
-		// Skip // comments
 		if l.ch == '/' && l.peekChar() == '/' {
 			for l.ch != '\n' && l.ch != 0 {
 				l.readChar()
