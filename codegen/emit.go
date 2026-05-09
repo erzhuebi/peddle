@@ -47,6 +47,8 @@ func (g *Generator) emitRuntime() {
 		g.usedAppendIntRuntime ||
 		g.usedMulByteRuntime ||
 		g.usedMulIntRuntime ||
+		g.usedDivModByteRuntime ||
+		g.usedDivModIntRuntime ||
 		g.usedShlByteRuntime ||
 		g.usedShrByteRuntime ||
 		g.usedShlIntRuntime ||
@@ -354,6 +356,92 @@ peddle_mul_int_skip_add:
     jmp peddle_mul_int_loop
 
 peddle_mul_int_done:
+    lda ZP_PTR1_LO
+    sta ZP_TMP0
+    lda ZP_PTR1_HI
+    sta ZP_TMP1
+    rts
+`)
+	}
+
+	if g.usedDivModByteRuntime {
+		g.emit(`
+peddle_divmod_byte:
+    sta ZP_TMP1
+    lda peddle_tmp_int0
+    beq peddle_divmod_byte_div_zero
+
+    ldx #0
+
+peddle_divmod_byte_loop:
+    lda ZP_TMP1
+    cmp peddle_tmp_int0
+    bcc peddle_divmod_byte_done
+
+    sec
+    sbc peddle_tmp_int0
+    sta ZP_TMP1
+
+    inx
+    jmp peddle_divmod_byte_loop
+
+peddle_divmod_byte_div_zero:
+    lda #0
+    rts
+
+peddle_divmod_byte_done:
+    txa
+    rts
+`)
+	}
+
+	if g.usedDivModIntRuntime {
+		g.emit(`
+peddle_divmod_int:
+    lda ZP_TMP0
+    sta ZP_PTR0_LO
+    lda ZP_TMP1
+    sta ZP_PTR0_HI
+
+    lda peddle_tmp_int0
+    ora peddle_tmp_int0+1
+    beq peddle_divmod_int_div_zero
+
+    lda #0
+    sta ZP_PTR1_LO
+    sta ZP_PTR1_HI
+
+peddle_divmod_int_loop:
+    lda ZP_PTR0_HI
+    cmp peddle_tmp_int0+1
+    bcc peddle_divmod_int_done
+    bne peddle_divmod_int_subtract
+
+    lda ZP_PTR0_LO
+    cmp peddle_tmp_int0
+    bcc peddle_divmod_int_done
+
+peddle_divmod_int_subtract:
+    sec
+    lda ZP_PTR0_LO
+    sbc peddle_tmp_int0
+    sta ZP_PTR0_LO
+    lda ZP_PTR0_HI
+    sbc peddle_tmp_int0+1
+    sta ZP_PTR0_HI
+
+    inc ZP_PTR1_LO
+    bne peddle_divmod_int_loop
+    inc ZP_PTR1_HI
+    jmp peddle_divmod_int_loop
+
+peddle_divmod_int_div_zero:
+    lda #0
+    sta ZP_TMP0
+    sta ZP_TMP1
+    rts
+
+peddle_divmod_int_done:
     lda ZP_PTR1_LO
     sta ZP_TMP0
     lda ZP_PTR1_HI

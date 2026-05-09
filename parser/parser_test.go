@@ -209,25 +209,34 @@ fn add(a: int, b: int) -> int {
 }
 
 func TestParseComments(t *testing.T) {
-	src := `
+	input := `
 fn main() {
-    // this is a comment
+    # this is a comment
     var x: int
-    x = 1 // trailing comment
+    x = 1 # trailing comment
 }
 `
 
-	l := lexer.New(src)
+	l := lexer.New(input)
 	p := New(l)
-
 	prog := p.ParseProgram()
 
-	if len(p.Errors()) > 0 {
+	if len(p.Errors()) != 0 {
 		t.Fatalf("parser errors: %v", p.Errors())
 	}
 
 	if len(prog.Functions) != 1 {
-		t.Fatalf("expected 1 function")
+		t.Fatalf("expected 1 function, got %d", len(prog.Functions))
+	}
+
+	fn := prog.Functions[0]
+
+	if len(fn.Locals) != 1 {
+		t.Fatalf("expected 1 local, got %d", len(fn.Locals))
+	}
+
+	if len(fn.Body) != 1 {
+		t.Fatalf("expected 1 body statement, got %d", len(fn.Body))
 	}
 }
 
@@ -419,5 +428,56 @@ fn main() {
 
 	if addExpr.Op != "+" {
 		t.Fatalf("expected + to bind tighter than <<, got %q", addExpr.Op)
+	}
+}
+
+func TestParserStage3DivisionModuloPrecedence(t *testing.T) {
+	input := `
+fn main() {
+    var a, b, c, d, x: int
+    x = a + b / c % d
+}
+`
+
+	l := lexer.New(input)
+	p := New(l)
+	prog := p.ParseProgram()
+
+	if len(p.Errors()) != 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	fn := prog.Functions[0]
+
+	stmt, ok := fn.Body[0].(*ast.AssignStmt)
+	if !ok {
+		t.Fatalf("expected AssignStmt, got %T", fn.Body[0])
+	}
+
+	expr, ok := stmt.Value.(*ast.BinaryExpr)
+	if !ok {
+		t.Fatalf("expected BinaryExpr, got %T", stmt.Value)
+	}
+
+	if expr.Op != "+" {
+		t.Fatalf("expected top-level operator +, got %q", expr.Op)
+	}
+
+	modExpr, ok := expr.Right.(*ast.BinaryExpr)
+	if !ok {
+		t.Fatalf("expected right side BinaryExpr, got %T", expr.Right)
+	}
+
+	if modExpr.Op != "%" {
+		t.Fatalf("expected right side operator %%, got %q", modExpr.Op)
+	}
+
+	divExpr, ok := modExpr.Left.(*ast.BinaryExpr)
+	if !ok {
+		t.Fatalf("expected division BinaryExpr, got %T", modExpr.Left)
+	}
+
+	if divExpr.Op != "/" {
+		t.Fatalf("expected division operator /, got %q", divExpr.Op)
 	}
 }

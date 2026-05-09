@@ -41,6 +41,8 @@ const (
 	PLUS     = "+"
 	MINUS    = "-"
 	ASTERISK = "*"
+	SLASH    = "/"
+	PERCENT  = "%"
 	AMP      = "&"
 	PIPE     = "|"
 	CARET    = "^"

@@ -53,6 +53,8 @@ type Generator struct {
 	usedShrByteRuntime      bool
 	usedShlIntRuntime       bool
 	usedShrIntRuntime       bool
+	usedDivModByteRuntime   bool
+	usedDivModIntRuntime    bool
 	usedStringCopyRuntime   bool
 	usedStringAppendRuntime bool
 

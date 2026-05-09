@@ -218,3 +218,34 @@ fn main() {
 		t.Fatalf("sema check failed: %v", err)
 	}
 }
+
+func TestSemaStage3DivisionModuloOperators(t *testing.T) {
+	input := `
+fn main() {
+    var a, b: byte
+    var x, y: int
+
+    a = 100 / 5
+    b = 100 % 7
+
+    x = 1000 / 10
+    y = 1000 % 33
+
+    x = a / b
+    y = x % 10
+}
+`
+
+	l := lexer.New(input)
+	p := parser.New(l)
+	prog := p.ParseProgram()
+
+	if len(p.Errors()) != 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	checker := New()
+	if err := checker.Check(prog); err != nil {
+		t.Fatalf("sema check failed: %v", err)
+	}
+}

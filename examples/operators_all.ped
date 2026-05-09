@@ -1,0 +1,53 @@
+fn main() {
+    var border: byte
+    var bg: byte
+    var a: byte
+    var b: byte
+    var s: byte
+
+    var x: int
+    var y: int
+    var n: int
+
+    # byte arithmetic
+    a = 20 + 5
+    a = a - 3
+    a = a * 2
+    b = a / 7
+    b = a % 7
+
+    # byte bitwise
+    border = 10 & 15
+    border = border | 32
+    border = border ^ 15
+
+    # byte shifts
+    s = 2
+    border = border << s
+    border = border >> 1
+
+    # int arithmetic
+    x = 1000 + 250
+    x = x - 50
+    x = x * 3
+    y = x / 10
+    y = x % 256
+
+    # int bitwise
+    y = y & 1023
+    y = y | 4096
+    y = y ^ 255
+
+    # int shifts
+    n = 2
+    y = y << n
+    y = y >> 3
+
+    # mix byte/int assignment truncation for visible colors
+    bg = y
+
+    poke(53280, border)
+    poke(53281, bg)
+
+    print("ALL OPS OK")
+}

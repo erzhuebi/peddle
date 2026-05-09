@@ -922,3 +922,159 @@ fn main() {
 	requireReferencedLabelsDefined(t, asm)
 	requireASMAssemblesWith64tass(t, asm)
 }
+
+func TestCodegenStage3DivisionAndModuloSpeedMode(t *testing.T) {
+	input := `
+fn main() {
+    var a: byte
+    var b: byte
+    var x: int
+    var y: int
+
+    a = 100 / 5
+    b = 100 % 7
+
+    x = 1000 / 10
+    y = 1000 % 33
+}
+`
+
+	asm := compileSourceWithOptions(t, input, Options{
+		OptMode: OptModeSpeed,
+	})
+
+	requireASM(t, asm,
+		"cmp ZP_TMP0",
+		"sbc ZP_TMP0",
+		"sta ZP_TMP1",
+		"cmp peddle_tmp_int0+1",
+		"sbc peddle_tmp_int0",
+		"sbc peddle_tmp_int0+1",
+	)
+
+	requireNoASM(t, asm,
+		"jsr peddle_divmod_byte",
+		"jsr peddle_divmod_int",
+		"peddle_divmod_byte:",
+		"peddle_divmod_int:",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
+func TestCodegenStage3DivisionAndModuloSizeMode(t *testing.T) {
+	input := `
+fn main() {
+    var a: byte
+    var b: byte
+    var x: int
+    var y: int
+
+    a = 100 / 5
+    b = 100 % 7
+
+    x = 1000 / 10
+    y = 1000 % 33
+}
+`
+
+	asm := compileSourceWithOptions(t, input, Options{
+		OptMode: OptModeSize,
+	})
+
+	requireASM(t, asm,
+		"jsr peddle_divmod_byte",
+		"jsr peddle_divmod_int",
+		"peddle_divmod_byte:",
+		"peddle_divmod_int:",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
+func TestCodegenStage3ModuloUsesRemainderRegister(t *testing.T) {
+	input := `
+fn main() {
+    var a: byte
+    var x: int
+
+    a = 13 % 5
+    x = 1000 % 256
+}
+`
+
+	asm := compileSourceWithOptions(t, input, Options{
+		OptMode: OptModeSpeed,
+	})
+
+	requireASM(t, asm,
+		"sta ZP_TMP1",
+		"sta ZP_PTR0_LO",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
+func TestCodegenStage3DivisionByZeroSpeedModeIsInline(t *testing.T) {
+	input := `
+fn main() {
+    var a: byte
+    var x: int
+
+    a = 10 / 0
+    x = 100 / 0
+}
+`
+
+	asm := compileSourceWithOptions(t, input, Options{
+		OptMode: OptModeSpeed,
+	})
+
+	requireASM(t, asm,
+		"lda #0",
+		"beq",
+		"jmp L",
+		"_return:",
+	)
+
+	requireNoASM(t, asm,
+		"peddle_divmod_byte_div_zero:",
+		"peddle_divmod_int_div_zero:",
+		"jsr peddle_divmod_byte",
+		"jsr peddle_divmod_int",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
+func TestCodegenStage3DivisionByZeroSizeModeRuntimeExists(t *testing.T) {
+	input := `
+fn main() {
+    var a: byte
+    var x: int
+
+    a = 10 / 0
+    x = 100 / 0
+}
+`
+
+	asm := compileSourceWithOptions(t, input, Options{
+		OptMode: OptModeSize,
+	})
+
+	requireASM(t, asm,
+		"jsr peddle_divmod_byte",
+		"jsr peddle_divmod_int",
+		"peddle_divmod_byte_div_zero:",
+		"peddle_divmod_int_div_zero:",
+		"lda #0",
+		"rts",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}

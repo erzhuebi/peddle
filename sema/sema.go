@@ -341,7 +341,7 @@ func (c *Checker) checkExpr(scope map[string]ast.Type, e ast.Expr) (ast.Type, er
 		}
 
 		switch expr.Op {
-		case "+", "-", "*", "<<", ">>":
+		case "+", "-", "*", "/", "%", "<<", ">>":
 			if !isNumeric(left) || !isNumeric(right) {
 				return ast.Type{}, fmt.Errorf("operator %s requires numeric operands", expr.Op)
 			}
@@ -368,7 +368,6 @@ func (c *Checker) checkExpr(scope map[string]ast.Type, e ast.Expr) (ast.Type, er
 		default:
 			return ast.Type{}, fmt.Errorf("unsupported operator %q", expr.Op)
 		}
-
 	case *ast.CallExpr:
 		return c.checkCall(scope, expr.Name, expr.Args)
 

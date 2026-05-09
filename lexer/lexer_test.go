@@ -100,3 +100,36 @@ func TestLexerStage2ShiftOperators(t *testing.T) {
 		}
 	}
 }
+
+func TestLexerStage3DivisionModuloAndHashComments(t *testing.T) {
+	input := `
+# full line comment
+a / b % c # trailing comment
+`
+
+	tests := []struct {
+		expectedType    TokenType
+		expectedLiteral string
+	}{
+		{IDENT, "a"},
+		{SLASH, "/"},
+		{IDENT, "b"},
+		{PERCENT, "%"},
+		{IDENT, "c"},
+		{EOF, ""},
+	}
+
+	l := New(input)
+
+	for i, tt := range tests {
+		tok := l.NextToken()
+
+		if tok.Type != tt.expectedType {
+			t.Fatalf("tests[%d] token type wrong. expected=%q got=%q", i, tt.expectedType, tok.Type)
+		}
+
+		if tok.Literal != tt.expectedLiteral {
+			t.Fatalf("tests[%d] literal wrong. expected=%q got=%q", i, tt.expectedLiteral, tok.Literal)
+		}
+	}
+}

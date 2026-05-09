@@ -9,7 +9,7 @@ import (
 
 func (g *Generator) genBinaryTo(b *ast.BinaryExpr, target ast.Type) error {
 	switch b.Op {
-	case "+", "-", "*", "&", "|", "^", "<<", ">>":
+	case "+", "-", "*", "/", "%", "&", "|", "^", "<<", ">>":
 		if target.Name == "int" {
 			return g.genBinaryInt(b)
 		}
@@ -91,6 +91,21 @@ func (g *Generator) genBinaryByte(b *ast.BinaryExpr) error {
 		g.emit(fmt.Sprintf("    jmp %s", loop))
 		g.emit(done + ":")
 		g.emit("    txa")
+
+	case "/", "%":
+		if g.options.OptMode == OptModeSize {
+			g.emit("    ldx ZP_TMP0")
+			g.emit("    stx peddle_tmp_int0")
+			g.emit("    jsr peddle_divmod_byte")
+			if b.Op == "%" {
+				g.emit("    lda ZP_TMP1")
+			}
+			g.usedDivModByteRuntime = true
+			g.usedTmp16 = true
+			return nil
+		}
+
+		g.emitInlineDivModByte(b.Op)
 
 	case "<<", ">>":
 		if g.options.OptMode == OptModeSize {
@@ -193,6 +208,22 @@ func (g *Generator) genBinaryInt(b *ast.BinaryExpr) error {
 		}
 
 		return g.genInlineMulInt()
+
+	case "/", "%":
+		if g.options.OptMode == OptModeSize {
+			g.emit("    jsr peddle_divmod_int")
+			if b.Op == "%" {
+				g.emit("    lda ZP_PTR0_LO")
+				g.emit("    sta ZP_TMP0")
+				g.emit("    lda ZP_PTR0_HI")
+				g.emit("    sta ZP_TMP1")
+			}
+			g.usedDivModIntRuntime = true
+			g.usedTmp16 = true
+			return nil
+		}
+
+		g.emitInlineDivModInt(b.Op)
 
 	case "<<", ">>":
 		if g.options.OptMode == OptModeSize {
@@ -583,4 +614,114 @@ func (g *Generator) genExprToIntValue(e ast.Expr) error {
 	default:
 		return g.genExprTo(e, ast.Type{Name: "int"})
 	}
+}
+
+func (g *Generator) emitInlineDivModByte(op string) {
+	divZero := g.newLabel()
+	loop := g.newLabel()
+	done := g.newLabel()
+
+	g.emit("    sta ZP_TMP1")
+	g.emit("    lda ZP_TMP0")
+	g.emit(fmt.Sprintf("    beq %s", divZero))
+	g.emit("    ldx #0")
+
+	g.emit(loop + ":")
+	g.emit("    lda ZP_TMP1")
+	g.emit("    cmp ZP_TMP0")
+	g.emit(fmt.Sprintf("    bcc %s", done))
+	g.emit("    sec")
+	g.emit("    sbc ZP_TMP0")
+	g.emit("    sta ZP_TMP1")
+	g.emit("    inx")
+	g.emit(fmt.Sprintf("    jmp %s", loop))
+
+	g.emit(divZero + ":")
+	if op == "/" {
+		g.emit("    lda #0")
+	} else {
+		g.emit("    lda ZP_TMP1")
+	}
+	g.emit(fmt.Sprintf("    jmp %s", done+"_return"))
+
+	g.emit(done + ":")
+	if op == "/" {
+		g.emit("    txa")
+	} else {
+		g.emit("    lda ZP_TMP1")
+	}
+
+	g.emit(done + "_return:")
+}
+
+func (g *Generator) emitInlineDivModInt(op string) {
+	divZero := g.newLabel()
+	loop := g.newLabel()
+	subtract := g.newLabel()
+	done := g.newLabel()
+
+	g.emit("    lda ZP_TMP0")
+	g.emit("    sta ZP_PTR0_LO")
+	g.emit("    lda ZP_TMP1")
+	g.emit("    sta ZP_PTR0_HI")
+
+	g.emit("    lda peddle_tmp_int0")
+	g.emit("    ora peddle_tmp_int0+1")
+	g.emit(fmt.Sprintf("    beq %s", divZero))
+
+	g.emit("    lda #0")
+	g.emit("    sta ZP_PTR1_LO")
+	g.emit("    sta ZP_PTR1_HI")
+
+	g.emit(loop + ":")
+	g.emit("    lda ZP_PTR0_HI")
+	g.emit("    cmp peddle_tmp_int0+1")
+	g.emit(fmt.Sprintf("    bcc %s", done))
+	g.emit(fmt.Sprintf("    bne %s", subtract))
+	g.emit("    lda ZP_PTR0_LO")
+	g.emit("    cmp peddle_tmp_int0")
+	g.emit(fmt.Sprintf("    bcc %s", done))
+
+	g.emit(subtract + ":")
+	g.emit("    sec")
+	g.emit("    lda ZP_PTR0_LO")
+	g.emit("    sbc peddle_tmp_int0")
+	g.emit("    sta ZP_PTR0_LO")
+	g.emit("    lda ZP_PTR0_HI")
+	g.emit("    sbc peddle_tmp_int0+1")
+	g.emit("    sta ZP_PTR0_HI")
+
+	g.emit("    inc ZP_PTR1_LO")
+	g.emit(fmt.Sprintf("    bne %s", loop))
+	g.emit("    inc ZP_PTR1_HI")
+	g.emit(fmt.Sprintf("    jmp %s", loop))
+
+	g.emit(divZero + ":")
+	if op == "/" {
+		g.emit("    lda #0")
+		g.emit("    sta ZP_TMP0")
+		g.emit("    sta ZP_TMP1")
+	} else {
+		g.emit("    lda ZP_PTR0_LO")
+		g.emit("    sta ZP_TMP0")
+		g.emit("    lda ZP_PTR0_HI")
+		g.emit("    sta ZP_TMP1")
+	}
+	g.emit(fmt.Sprintf("    jmp %s", done+"_return"))
+
+	g.emit(done + ":")
+	if op == "/" {
+		g.emit("    lda ZP_PTR1_LO")
+		g.emit("    sta ZP_TMP0")
+		g.emit("    lda ZP_PTR1_HI")
+		g.emit("    sta ZP_TMP1")
+	} else {
+		g.emit("    lda ZP_PTR0_LO")
+		g.emit("    sta ZP_TMP0")
+		g.emit("    lda ZP_PTR0_HI")
+		g.emit("    sta ZP_TMP1")
+	}
+
+	g.emit(done + "_return:")
+	g.usedTmp16 = true
 }

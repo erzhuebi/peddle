@@ -76,6 +76,10 @@ func (l *Lexer) NextToken() Token {
 		tok = l.newToken(PLUS, string(l.ch), line, column)
 	case '*':
 		tok = l.newToken(ASTERISK, string(l.ch), line, column)
+	case '/':
+		tok = l.newToken(SLASH, string(l.ch), line, column)
+	case '%':
+		tok = l.newToken(PERCENT, string(l.ch), line, column)
 	case '&':
 		tok = l.newToken(AMP, string(l.ch), line, column)
 	case '|':
@@ -176,22 +180,13 @@ func (l *Lexer) NextToken() Token {
 	return tok
 }
 
-func (l *Lexer) newToken(t TokenType, lit string, line int, column int) Token {
-	return Token{
-		Type:    t,
-		Literal: lit,
-		Line:    line,
-		Column:  column,
-	}
-}
-
 func (l *Lexer) skipWhitespace() {
 	for {
 		for l.ch == ' ' || l.ch == '\t' || l.ch == '\n' || l.ch == '\r' {
 			l.readChar()
 		}
 
-		if l.ch == '/' && l.peekChar() == '/' {
+		if l.ch == '#' {
 			for l.ch != '\n' && l.ch != 0 {
 				l.readChar()
 			}
@@ -203,10 +198,19 @@ func (l *Lexer) skipWhitespace() {
 }
 
 func (l *Lexer) skipComment() {
-	if l.ch == '/' && l.peekChar() == '/' {
+	if l.ch == '#' {
 		for l.ch != '\n' && l.ch != 0 {
 			l.readChar()
 		}
+	}
+}
+
+func (l *Lexer) newToken(t TokenType, lit string, line int, column int) Token {
+	return Token{
+		Type:    t,
+		Literal: lit,
+		Line:    line,
+		Column:  column,
 	}
 }
 

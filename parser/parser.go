@@ -514,6 +514,8 @@ var precedences = map[lexer.TokenType]int{
 	lexer.PLUS:     SUM,
 	lexer.MINUS:    SUM,
 	lexer.ASTERISK: PRODUCT,
+	lexer.SLASH:    PRODUCT,
+	lexer.PERCENT:  PRODUCT,
 	lexer.LPAREN:   CALL,
 	lexer.LBRACK:   INDEX,
 	lexer.DOT:      FIELD,
