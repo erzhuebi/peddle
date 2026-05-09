@@ -44,6 +44,12 @@ func (p *Parser) ParseProgram() *ast.Program {
 
 	for p.cur.Type != lexer.EOF {
 		switch p.cur.Type {
+		case lexer.CONST:
+			c := p.parseConst()
+			if c != nil {
+				prog.Consts = append(prog.Consts, c)
+			}
+
 		case lexer.STRUCT:
 			s := p.parseStruct()
 			if s != nil {
@@ -57,12 +63,36 @@ func (p *Parser) ParseProgram() *ast.Program {
 			}
 
 		default:
-			p.errorf("expected struct or function declaration, got %s", p.cur.Type)
+			p.errorf("expected const, struct or function declaration, got %s", p.cur.Type)
 			p.nextToken()
 		}
 	}
 
 	return prog
+}
+
+func (p *Parser) parseConst() *ast.ConstDecl {
+	if !p.expectPeek(lexer.IDENT) {
+		return nil
+	}
+
+	name := p.cur.Literal
+
+	if !p.expectPeek(lexer.ASSIGN) {
+		return nil
+	}
+
+	if !p.expectPeek(lexer.NUMBER) {
+		return nil
+	}
+
+	c := &ast.ConstDecl{
+		Name:  name,
+		Value: p.cur.Literal,
+	}
+
+	p.nextToken()
+	return c
 }
 
 func (p *Parser) parseStruct() *ast.StructDecl {

@@ -1,8 +1,14 @@
 package ast
 
 type Program struct {
+	Consts    []*ConstDecl
 	Structs   []*StructDecl
 	Functions []*FunctionDecl
+}
+
+type ConstDecl struct {
+	Name  string
+	Value string
 }
 
 type StructDecl struct {

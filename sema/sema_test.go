@@ -249,3 +249,81 @@ fn main() {
 		t.Fatalf("sema check failed: %v", err)
 	}
 }
+
+func TestSemaConstDeclarationsAndUsage(t *testing.T) {
+	input := `
+const BORDER = $d020
+const BG = 0xd021
+const MASK = %1111_0000
+const BIG = 1_000
+
+fn main() {
+    var b: byte
+    var x: int
+
+    b = MASK
+    x = BIG + 24
+
+    poke(BORDER, b)
+    poke(BG, x)
+}
+`
+
+	l := lexer.New(input)
+	p := parser.New(l)
+	prog := p.ParseProgram()
+
+	if len(p.Errors()) != 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	checker := New()
+	if err := checker.Check(prog); err != nil {
+		t.Fatalf("sema check failed: %v", err)
+	}
+}
+
+func TestSemaDuplicateConstFails(t *testing.T) {
+	input := `
+const A = 1
+const A = 2
+
+fn main() {
+}
+`
+
+	l := lexer.New(input)
+	p := parser.New(l)
+	prog := p.ParseProgram()
+
+	if len(p.Errors()) != 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	checker := New()
+	if err := checker.Check(prog); err == nil {
+		t.Fatalf("expected duplicate const error")
+	}
+}
+
+func TestSemaConstFunctionNameConflictFails(t *testing.T) {
+	input := `
+const main = 1
+
+fn main() {
+}
+`
+
+	l := lexer.New(input)
+	p := parser.New(l)
+	prog := p.ParseProgram()
+
+	if len(p.Errors()) != 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	checker := New()
+	if err := checker.Check(prog); err == nil {
+		t.Fatalf("expected const/function conflict error")
+	}
+}

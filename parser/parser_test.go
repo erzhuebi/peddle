@@ -481,3 +481,88 @@ fn main() {
 		t.Fatalf("expected division operator /, got %q", divExpr.Op)
 	}
 }
+
+func TestParseConstDeclarations(t *testing.T) {
+	input := `
+const BORDER = $d020
+const BG = 0xd021
+const MASK = %1111_0000
+const BIG = 1_000
+
+fn main() {
+    var x: int
+    x = BIG
+}
+`
+
+	l := lexer.New(input)
+	p := New(l)
+	prog := p.ParseProgram()
+
+	if len(p.Errors()) != 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	if len(prog.Consts) != 4 {
+		t.Fatalf("expected 4 consts, got %d", len(prog.Consts))
+	}
+
+	tests := []struct {
+		name  string
+		value string
+	}{
+		{"BORDER", "53280"},
+		{"BG", "53281"},
+		{"MASK", "240"},
+		{"BIG", "1000"},
+	}
+
+	for i, tt := range tests {
+		if prog.Consts[i].Name != tt.name {
+			t.Fatalf("const[%d] name wrong. expected=%q got=%q", i, tt.name, prog.Consts[i].Name)
+		}
+
+		if prog.Consts[i].Value != tt.value {
+			t.Fatalf("const[%d] value wrong. expected=%q got=%q", i, tt.value, prog.Consts[i].Value)
+		}
+	}
+
+	if len(prog.Functions) != 1 {
+		t.Fatalf("expected 1 function, got %d", len(prog.Functions))
+	}
+}
+
+func TestParseConstBeforeStructAndFunction(t *testing.T) {
+	input := `
+const DEFAULT_HP = 100
+
+struct Player {
+    hp: byte
+}
+
+fn main() {
+    var p: Player
+    p.hp = DEFAULT_HP
+}
+`
+
+	l := lexer.New(input)
+	p := New(l)
+	prog := p.ParseProgram()
+
+	if len(p.Errors()) != 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	if len(prog.Consts) != 1 {
+		t.Fatalf("expected 1 const, got %d", len(prog.Consts))
+	}
+
+	if len(prog.Structs) != 1 {
+		t.Fatalf("expected 1 struct, got %d", len(prog.Structs))
+	}
+
+	if len(prog.Functions) != 1 {
+		t.Fatalf("expected 1 function, got %d", len(prog.Functions))
+	}
+}

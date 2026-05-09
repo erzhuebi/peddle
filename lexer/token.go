@@ -17,6 +17,7 @@ const (
 	NUMBER = "NUMBER"
 	STRING = "STRING"
 
+	CONST  = "CONST"
 	FN     = "FN"
 	VAR    = "VAR"
 	ARROW  = "->"
@@ -59,6 +60,7 @@ const (
 )
 
 var keywords = map[string]TokenType{
+	"const":  CONST,
 	"fn":     FN,
 	"var":    VAR,
 	"while":  WHILE,

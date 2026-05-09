@@ -587,6 +587,15 @@ func (g *Generator) genExprToIntValue(e ast.Expr) error {
 		return nil
 
 	case *ast.IdentExpr:
+		if n, ok := g.constants[expr.Name]; ok {
+			g.emit(fmt.Sprintf("    lda #<%d", n))
+			g.emit("    sta ZP_TMP0")
+			g.emit(fmt.Sprintf("    lda #>%d", n))
+			g.emit("    sta ZP_TMP1")
+			g.usedTmp16 = true
+			return nil
+		}
+
 		sym, ok := g.resolve(expr.Name)
 		if !ok {
 			return fmt.Errorf("unknown variable %q", expr.Name)

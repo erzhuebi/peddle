@@ -28,6 +28,20 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 		return nil
 
 	case *ast.IdentExpr:
+		if n, ok := g.constants[expr.Name]; ok {
+			if target.Name == "int" {
+				g.emit(fmt.Sprintf("    lda #<%d", n))
+				g.emit("    sta ZP_TMP0")
+				g.emit(fmt.Sprintf("    lda #>%d", n))
+				g.emit("    sta ZP_TMP1")
+				g.usedTmp16 = true
+				return nil
+			}
+
+			g.emit(fmt.Sprintf("    lda #%d", n&0xff))
+			return nil
+		}
+
 		sym, ok := g.resolve(expr.Name)
 		if !ok {
 			return fmt.Errorf("unknown variable %q", expr.Name)

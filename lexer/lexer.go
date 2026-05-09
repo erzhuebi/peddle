@@ -1,6 +1,9 @@
 package lexer
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
 
 type Lexer struct {
 	input        string
@@ -78,14 +81,22 @@ func (l *Lexer) NextToken() Token {
 		tok = l.newToken(ASTERISK, string(l.ch), line, column)
 	case '/':
 		tok = l.newToken(SLASH, string(l.ch), line, column)
-	case '%':
-		tok = l.newToken(PERCENT, string(l.ch), line, column)
 	case '&':
 		tok = l.newToken(AMP, string(l.ch), line, column)
 	case '|':
 		tok = l.newToken(PIPE, string(l.ch), line, column)
 	case '^':
 		tok = l.newToken(CARET, string(l.ch), line, column)
+	case '$':
+		lit := l.readDollarHexNumber()
+		return Token{Type: NUMBER, Literal: lit, Line: line, Column: column}
+
+	case '%':
+		if l.peekChar() == '0' || l.peekChar() == '1' {
+			lit := l.readBinaryNumber()
+			return Token{Type: NUMBER, Literal: lit, Line: line, Column: column}
+		}
+		tok = l.newToken(PERCENT, string(l.ch), line, column)
 
 	case '-':
 		if l.peekChar() == '>' {
@@ -180,6 +191,15 @@ func (l *Lexer) NextToken() Token {
 	return tok
 }
 
+func (l *Lexer) newToken(t TokenType, lit string, line int, column int) Token {
+	return Token{
+		Type:    t,
+		Literal: lit,
+		Line:    line,
+		Column:  column,
+	}
+}
+
 func (l *Lexer) skipWhitespace() {
 	for {
 		for l.ch == ' ' || l.ch == '\t' || l.ch == '\n' || l.ch == '\r' {
@@ -205,15 +225,6 @@ func (l *Lexer) skipComment() {
 	}
 }
 
-func (l *Lexer) newToken(t TokenType, lit string, line int, column int) Token {
-	return Token{
-		Type:    t,
-		Literal: lit,
-		Line:    line,
-		Column:  column,
-	}
-}
-
 func (l *Lexer) peekChar() byte {
 	if l.readPosition >= len(l.input) {
 		return 0
@@ -232,13 +243,74 @@ func (l *Lexer) readIdentifier() string {
 }
 
 func (l *Lexer) readNumber() string {
-	pos := l.position
+	if l.ch == '0' && (l.peekChar() == 'x' || l.peekChar() == 'X') {
+		l.readChar()
+		l.readChar()
 
-	for isDigit(l.ch) {
+		var hex strings.Builder
+		for isHexDigit(l.ch) || l.ch == '_' {
+			if l.ch != '_' {
+				hex.WriteByte(l.ch)
+			}
+			l.readChar()
+		}
+
+		n, err := strconv.ParseInt(hex.String(), 16, 64)
+		if err != nil {
+			return "0"
+		}
+		return strconv.FormatInt(n, 10)
+	}
+
+	var dec strings.Builder
+	for isDigit(l.ch) || l.ch == '_' {
+		if l.ch != '_' {
+			dec.WriteByte(l.ch)
+		}
 		l.readChar()
 	}
 
-	return l.input[pos:l.position]
+	n, err := strconv.ParseInt(dec.String(), 10, 64)
+	if err != nil {
+		return "0"
+	}
+	return strconv.FormatInt(n, 10)
+}
+
+func (l *Lexer) readDollarHexNumber() string {
+	l.readChar()
+
+	var hex strings.Builder
+	for isHexDigit(l.ch) || l.ch == '_' {
+		if l.ch != '_' {
+			hex.WriteByte(l.ch)
+		}
+		l.readChar()
+	}
+
+	n, err := strconv.ParseInt(hex.String(), 16, 64)
+	if err != nil {
+		return "0"
+	}
+	return strconv.FormatInt(n, 10)
+}
+
+func (l *Lexer) readBinaryNumber() string {
+	l.readChar()
+
+	var bin strings.Builder
+	for l.ch == '0' || l.ch == '1' || l.ch == '_' {
+		if l.ch != '_' {
+			bin.WriteByte(l.ch)
+		}
+		l.readChar()
+	}
+
+	n, err := strconv.ParseInt(bin.String(), 2, 64)
+	if err != nil {
+		return "0"
+	}
+	return strconv.FormatInt(n, 10)
 }
 
 func (l *Lexer) readString() string {
@@ -291,4 +363,10 @@ func isLetter(ch byte) bool {
 
 func isDigit(ch byte) bool {
 	return '0' <= ch && ch <= '9'
+}
+
+func isHexDigit(ch byte) bool {
+	return isDigit(ch) ||
+		('a' <= ch && ch <= 'f') ||
+		('A' <= ch && ch <= 'F')
 }

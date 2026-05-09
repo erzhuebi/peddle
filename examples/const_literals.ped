@@ -1,0 +1,47 @@
+const BORDER = $d020
+const BG = 0xd021
+const WHITE = $01
+const RED = $02
+const CYAN = $03
+const PURPLE = $04
+const GREEN = $05
+const BLUE = $06
+const YELLOW = $07
+
+const MASK_HIGH = %1111_0000
+const MASK_LOW = %0000_1111
+const C_STYLE_HEX = 0xff
+const DEC_GROUPED = 1_000
+
+fn main() {
+    var border: byte
+    var bg: byte
+    var x: int
+    var y: int
+
+    # constants with C64-style hex
+    border = GREEN
+    bg = BLUE
+
+    # constants with binary and underscores
+    border = MASK_HIGH >> 4
+    border = border & MASK_LOW
+
+    # constants with C-style hex
+    bg = C_STYLE_HEX & YELLOW
+
+    # decimal underscore literal
+    x = DEC_GROUPED
+
+    # mix constants with math operators
+    y = x / 10
+    y = y + MASK_HIGH
+    y = y % 256
+
+    bg = y
+
+    poke(BORDER, border)
+    poke(BG, bg)
+
+    print("CONST LITERALS OK")
+}

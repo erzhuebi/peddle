@@ -1078,3 +1078,71 @@ fn main() {
 	requireReferencedLabelsDefined(t, asm)
 	requireASMAssemblesWith64tass(t, asm)
 }
+
+func TestCodegenConstantsAndNumericLiterals(t *testing.T) {
+	input := `
+const BORDER = $d020
+const BG = 0xd021
+const MASK = %1111_0000
+const BIG = 1_000
+
+fn main() {
+    var b: byte
+    var x: int
+
+    b = MASK
+    x = BIG
+
+    poke(BORDER, b)
+    poke(BG, x)
+}
+`
+
+	asm := compileSource(t, input)
+
+	requireASM(t, asm,
+		"lda #240",
+		"sta main_b",
+		"lda #<1000",
+		"sta ZP_TMP0",
+		"lda #>1000",
+		"sta ZP_TMP1",
+		"sta $d020",
+		"sta $d021",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
+func TestCodegenConstantsInExpressions(t *testing.T) {
+	input := `
+const A = 10
+const B = %0000_1111
+const C = 0xff
+
+fn main() {
+    var x: int
+    var b: byte
+
+    x = A * 10 + B
+    b = C & B
+}
+`
+
+	asm := compileSource(t, input)
+
+	requireASM(t, asm,
+		"lda #<10",
+		"lda #15",
+		"lda #255",
+		"and ZP_TMP0",
+	)
+
+	requireNoASM(t, asm,
+		"unknown variable",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}

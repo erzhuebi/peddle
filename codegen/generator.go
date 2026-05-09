@@ -2,6 +2,7 @@ package codegen
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"peddle/ast"
@@ -30,6 +31,7 @@ type Generator struct {
 
 	options Options
 
+	constants map[string]int
 	functions map[string]*ast.FunctionDecl
 	structs   map[string]*ast.StructDecl
 	frames    map[string]*Frame
@@ -49,12 +51,12 @@ type Generator struct {
 	usedAppendIntRuntime    bool
 	usedMulByteRuntime      bool
 	usedMulIntRuntime       bool
+	usedDivModByteRuntime   bool
+	usedDivModIntRuntime    bool
 	usedShlByteRuntime      bool
 	usedShrByteRuntime      bool
 	usedShlIntRuntime       bool
 	usedShrIntRuntime       bool
-	usedDivModByteRuntime   bool
-	usedDivModIntRuntime    bool
 	usedStringCopyRuntime   bool
 	usedStringAppendRuntime bool
 
@@ -89,6 +91,7 @@ func NewWithOptions(options Options) *Generator {
 
 	return &Generator{
 		options:   options,
+		constants: map[string]int{},
 		functions: map[string]*ast.FunctionDecl{},
 		structs:   map[string]*ast.StructDecl{},
 		frames:    map[string]*Frame{},
@@ -96,6 +99,14 @@ func NewWithOptions(options Options) *Generator {
 }
 
 func (g *Generator) Generate(p *ast.Program) (string, error) {
+	for _, c := range p.Consts {
+		n, err := strconv.Atoi(c.Value)
+		if err != nil {
+			return "", fmt.Errorf("invalid const %q value %q", c.Name, c.Value)
+		}
+		g.constants[c.Name] = n
+	}
+
 	for _, s := range p.Structs {
 		g.structs[s.Name] = s
 	}

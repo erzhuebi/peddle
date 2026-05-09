@@ -7,21 +7,39 @@ import (
 )
 
 type Checker struct {
+	constants map[string]*ast.ConstDecl
 	functions map[string]*ast.FunctionDecl
 	structs   map[string]*ast.StructDecl
 }
 
 func New() *Checker {
 	return &Checker{
+		constants: map[string]*ast.ConstDecl{},
 		functions: map[string]*ast.FunctionDecl{},
 		structs:   map[string]*ast.StructDecl{},
 	}
 }
 
 func (c *Checker) Check(p *ast.Program) error {
+	for _, cn := range p.Consts {
+		if _, exists := c.constants[cn.Name]; exists {
+			return fmt.Errorf("duplicate const %q", cn.Name)
+		}
+		if _, exists := c.functions[cn.Name]; exists {
+			return fmt.Errorf("const %q conflicts with function", cn.Name)
+		}
+		if _, exists := c.structs[cn.Name]; exists {
+			return fmt.Errorf("const %q conflicts with struct", cn.Name)
+		}
+		c.constants[cn.Name] = cn
+	}
+
 	for _, s := range p.Structs {
 		if _, exists := c.structs[s.Name]; exists {
 			return fmt.Errorf("duplicate struct %q", s.Name)
+		}
+		if _, exists := c.constants[s.Name]; exists {
+			return fmt.Errorf("struct %q conflicts with const", s.Name)
 		}
 		c.structs[s.Name] = s
 	}
@@ -29,6 +47,9 @@ func (c *Checker) Check(p *ast.Program) error {
 	for _, fn := range p.Functions {
 		if _, exists := c.functions[fn.Name]; exists {
 			return fmt.Errorf("duplicate function %q", fn.Name)
+		}
+		if _, exists := c.constants[fn.Name]; exists {
+			return fmt.Errorf("function %q conflicts with const", fn.Name)
 		}
 		c.functions[fn.Name] = fn
 	}
@@ -44,6 +65,145 @@ func (c *Checker) Check(p *ast.Program) error {
 	}
 
 	return nil
+}
+
+func (c *Checker) checkExpr(scope map[string]ast.Type, e ast.Expr) (ast.Type, error) {
+	switch expr := e.(type) {
+	case *ast.IdentExpr:
+		if _, ok := c.constants[expr.Name]; ok {
+			return ast.Type{Name: "int"}, nil
+		}
+
+		t, ok := scope[expr.Name]
+		if !ok {
+			return ast.Type{}, fmt.Errorf("unknown variable %q", expr.Name)
+		}
+		return t, nil
+
+	case *ast.IndexExpr:
+		t, ok := scope[expr.Name]
+		if !ok {
+			return ast.Type{}, fmt.Errorf("unknown variable %q", expr.Name)
+		}
+		if !t.IsArray {
+			return ast.Type{}, fmt.Errorf("%q is not an array", expr.Name)
+		}
+
+		idxType, err := c.checkExpr(scope, expr.Index)
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if idxType.Name != "byte" && idxType.Name != "int" {
+			return ast.Type{}, fmt.Errorf("array index must be byte or int")
+		}
+
+		return ast.Type{Name: t.Name}, nil
+
+	case *ast.IndexFieldExpr:
+		t, ok := scope[expr.Name]
+		if !ok {
+			return ast.Type{}, fmt.Errorf("unknown variable %q", expr.Name)
+		}
+		if !t.IsArray {
+			return ast.Type{}, fmt.Errorf("%q is not an array", expr.Name)
+		}
+
+		idxType, err := c.checkExpr(scope, expr.Index)
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if idxType.Name != "byte" && idxType.Name != "int" {
+			return ast.Type{}, fmt.Errorf("array index must be byte or int")
+		}
+
+		elemType := ast.Type{Name: t.Name}
+		return c.fieldType(elemType, expr.Field)
+
+	case *ast.FieldExpr:
+		baseType, ok := scope[expr.Base]
+		if !ok {
+			return ast.Type{}, fmt.Errorf("unknown variable %q", expr.Base)
+		}
+		return c.fieldType(baseType, expr.Field)
+
+	case *ast.NumberExpr:
+		return ast.Type{Name: "int"}, nil
+
+	case *ast.StringExpr:
+		return ast.Type{Name: "char", IsArray: true, ArrayLen: len(expr.Value)}, nil
+
+	case *ast.UnaryExpr:
+		t, err := c.checkExpr(scope, expr.Expr)
+		if err != nil {
+			return ast.Type{}, err
+		}
+
+		switch expr.Op {
+		case "-":
+			if !isNumeric(t) {
+				return ast.Type{}, fmt.Errorf("unary - requires numeric operand")
+			}
+			if t.Name == "int" {
+				return ast.Type{Name: "int"}, nil
+			}
+			return ast.Type{Name: "byte"}, nil
+
+		case "!":
+			if !isNumeric(t) {
+				return ast.Type{}, fmt.Errorf("unary ! requires numeric or bool operand")
+			}
+			return ast.Type{Name: "bool"}, nil
+
+		default:
+			return ast.Type{}, fmt.Errorf("unsupported unary operator %q", expr.Op)
+		}
+
+	case *ast.BinaryExpr:
+		left, err := c.checkExpr(scope, expr.Left)
+		if err != nil {
+			return ast.Type{}, err
+		}
+
+		right, err := c.checkExpr(scope, expr.Right)
+		if err != nil {
+			return ast.Type{}, err
+		}
+
+		switch expr.Op {
+		case "+", "-", "*", "/", "%", "<<", ">>":
+			if !isNumeric(left) || !isNumeric(right) {
+				return ast.Type{}, fmt.Errorf("operator %s requires numeric operands", expr.Op)
+			}
+			if left.Name == "int" || right.Name == "int" {
+				return ast.Type{Name: "int"}, nil
+			}
+			return ast.Type{Name: "byte"}, nil
+
+		case "&", "|", "^":
+			if !isNumeric(left) || !isNumeric(right) {
+				return ast.Type{}, fmt.Errorf("operator %s requires numeric operands", expr.Op)
+			}
+			if left.Name == "int" || right.Name == "int" {
+				return ast.Type{Name: "int"}, nil
+			}
+			return ast.Type{Name: "byte"}, nil
+
+		case "==", "!=", "<", "<=", ">", ">=":
+			if !compatibleComparable(left, right) {
+				return ast.Type{}, fmt.Errorf("cannot compare %s and %s", left.String(), right.String())
+			}
+			return ast.Type{Name: "bool"}, nil
+
+		default:
+			return ast.Type{}, fmt.Errorf("unsupported operator %q", expr.Op)
+		}
+
+	case *ast.CallExpr:
+		return c.checkCall(scope, expr.Name, expr.Args)
+
+	default:
+		return ast.Type{}, fmt.Errorf("unsupported expression")
+	}
 }
 
 func (c *Checker) checkFunction(fn *ast.FunctionDecl) error {
@@ -239,140 +399,6 @@ func (c *Checker) checkLValue(scope map[string]ast.Type, lv ast.LValue) (ast.Typ
 
 	default:
 		return ast.Type{}, fmt.Errorf("unsupported assignment target")
-	}
-}
-
-func (c *Checker) checkExpr(scope map[string]ast.Type, e ast.Expr) (ast.Type, error) {
-	switch expr := e.(type) {
-	case *ast.IdentExpr:
-		t, ok := scope[expr.Name]
-		if !ok {
-			return ast.Type{}, fmt.Errorf("unknown variable %q", expr.Name)
-		}
-		return t, nil
-
-	case *ast.IndexExpr:
-		t, ok := scope[expr.Name]
-		if !ok {
-			return ast.Type{}, fmt.Errorf("unknown variable %q", expr.Name)
-		}
-		if !t.IsArray {
-			return ast.Type{}, fmt.Errorf("%q is not an array", expr.Name)
-		}
-
-		idxType, err := c.checkExpr(scope, expr.Index)
-		if err != nil {
-			return ast.Type{}, err
-		}
-		if idxType.Name != "byte" && idxType.Name != "int" {
-			return ast.Type{}, fmt.Errorf("array index must be byte or int")
-		}
-
-		return ast.Type{Name: t.Name}, nil
-
-	case *ast.IndexFieldExpr:
-		t, ok := scope[expr.Name]
-		if !ok {
-			return ast.Type{}, fmt.Errorf("unknown variable %q", expr.Name)
-		}
-		if !t.IsArray {
-			return ast.Type{}, fmt.Errorf("%q is not an array", expr.Name)
-		}
-
-		idxType, err := c.checkExpr(scope, expr.Index)
-		if err != nil {
-			return ast.Type{}, err
-		}
-		if idxType.Name != "byte" && idxType.Name != "int" {
-			return ast.Type{}, fmt.Errorf("array index must be byte or int")
-		}
-
-		elemType := ast.Type{Name: t.Name}
-		return c.fieldType(elemType, expr.Field)
-
-	case *ast.FieldExpr:
-		baseType, ok := scope[expr.Base]
-		if !ok {
-			return ast.Type{}, fmt.Errorf("unknown variable %q", expr.Base)
-		}
-		return c.fieldType(baseType, expr.Field)
-
-	case *ast.NumberExpr:
-		return ast.Type{Name: "int"}, nil
-
-	case *ast.StringExpr:
-		return ast.Type{Name: "char", IsArray: true, ArrayLen: len(expr.Value)}, nil
-
-	case *ast.UnaryExpr:
-		t, err := c.checkExpr(scope, expr.Expr)
-		if err != nil {
-			return ast.Type{}, err
-		}
-
-		switch expr.Op {
-		case "-":
-			if !isNumeric(t) {
-				return ast.Type{}, fmt.Errorf("unary - requires numeric operand")
-			}
-			if t.Name == "int" {
-				return ast.Type{Name: "int"}, nil
-			}
-			return ast.Type{Name: "byte"}, nil
-
-		case "!":
-			if !isNumeric(t) {
-				return ast.Type{}, fmt.Errorf("unary ! requires numeric or bool operand")
-			}
-			return ast.Type{Name: "bool"}, nil
-
-		default:
-			return ast.Type{}, fmt.Errorf("unsupported unary operator %q", expr.Op)
-		}
-
-	case *ast.BinaryExpr:
-		left, err := c.checkExpr(scope, expr.Left)
-		if err != nil {
-			return ast.Type{}, err
-		}
-
-		right, err := c.checkExpr(scope, expr.Right)
-		if err != nil {
-			return ast.Type{}, err
-		}
-
-		switch expr.Op {
-		case "+", "-", "*", "/", "%", "<<", ">>":
-			if !isNumeric(left) || !isNumeric(right) {
-				return ast.Type{}, fmt.Errorf("operator %s requires numeric operands", expr.Op)
-			}
-			if left.Name == "int" || right.Name == "int" {
-				return ast.Type{Name: "int"}, nil
-			}
-			return ast.Type{Name: "byte"}, nil
-
-		case "&", "|", "^":
-			if !isNumeric(left) || !isNumeric(right) {
-				return ast.Type{}, fmt.Errorf("operator %s requires numeric operands", expr.Op)
-			}
-			if left.Name == "int" || right.Name == "int" {
-				return ast.Type{Name: "int"}, nil
-			}
-			return ast.Type{Name: "byte"}, nil
-
-		case "==", "!=", "<", "<=", ">", ">=":
-			if !compatibleComparable(left, right) {
-				return ast.Type{}, fmt.Errorf("cannot compare %s and %s", left.String(), right.String())
-			}
-			return ast.Type{Name: "bool"}, nil
-
-		default:
-			return ast.Type{}, fmt.Errorf("unsupported operator %q", expr.Op)
-		}
-	case *ast.CallExpr:
-		return c.checkCall(scope, expr.Name, expr.Args)
-
-	default:
-		return ast.Type{}, fmt.Errorf("unsupported expression")
 	}
 }
 

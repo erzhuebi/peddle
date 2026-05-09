@@ -133,3 +133,65 @@ a / b % c # trailing comment
 		}
 	}
 }
+
+func TestLexerNumericLiteralsHexBinaryUnderscore(t *testing.T) {
+	input := `$d020 0xd021 0Xff %1111_0000 1_000 10 % 3`
+
+	tests := []struct {
+		expectedType    TokenType
+		expectedLiteral string
+	}{
+		{NUMBER, "53280"},
+		{NUMBER, "53281"},
+		{NUMBER, "255"},
+		{NUMBER, "240"},
+		{NUMBER, "1000"},
+		{NUMBER, "10"},
+		{PERCENT, "%"},
+		{NUMBER, "3"},
+		{EOF, ""},
+	}
+
+	l := New(input)
+
+	for i, tt := range tests {
+		tok := l.NextToken()
+
+		if tok.Type != tt.expectedType {
+			t.Fatalf("tests[%d] token type wrong. expected=%q got=%q", i, tt.expectedType, tok.Type)
+		}
+
+		if tok.Literal != tt.expectedLiteral {
+			t.Fatalf("tests[%d] literal wrong. expected=%q got=%q", i, tt.expectedLiteral, tok.Literal)
+		}
+	}
+}
+
+func TestLexerConstKeyword(t *testing.T) {
+	input := `const BORDER = $d020`
+
+	tests := []struct {
+		expectedType    TokenType
+		expectedLiteral string
+	}{
+		{CONST, "const"},
+		{IDENT, "BORDER"},
+		{ASSIGN, "="},
+		{NUMBER, "53280"},
+		{EOF, ""},
+	}
+
+	l := New(input)
+
+	for i, tt := range tests {
+		tok := l.NextToken()
+
+		if tok.Type != tt.expectedType {
+			t.Fatalf("tests[%d] token type wrong. expected=%q got=%q", i, tt.expectedType, tok.Type)
+		}
+
+		if tok.Literal != tt.expectedLiteral {
+			t.Fatalf("tests[%d] literal wrong. expected=%q got=%q", i, tt.expectedLiteral, tok.Literal)
+		}
+	}
+}
