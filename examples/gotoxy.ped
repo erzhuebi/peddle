@@ -1,0 +1,18 @@
+fn main() {
+    cls()
+
+    border(6)
+    background(0)
+    textcolor(1)
+
+    putstr(0, 0, "DIRECT SCREEN")
+    putstrcolor(0, 1, "COLOR DIRECT", 2)
+
+    gotoxy(0, 5)
+    print("KERNAL PRINT AT 0,5\n")
+
+    gotoxy(10, 8)
+    print("AT 10,8")
+
+    gotoxy(0, 24)
+}

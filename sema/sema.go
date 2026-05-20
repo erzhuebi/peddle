@@ -467,6 +467,24 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 
 		return ast.Type{}, nil
 
+	case "gotoxy":
+		if len(args) != 2 {
+			return ast.Type{}, fmt.Errorf("gotoxy expects two arguments")
+		}
+
+		for _, arg := range args {
+			t, err := c.checkExpr(scope, arg)
+			if err != nil {
+				return ast.Type{}, err
+			}
+
+			if !isNumeric(t) {
+				return ast.Type{}, fmt.Errorf("gotoxy arguments must be numeric")
+			}
+		}
+
+		return ast.Type{}, nil
+
 	case "putscreen", "putchar", "putcolor":
 		if len(args) != 3 {
 			return ast.Type{}, fmt.Errorf("%s expects three arguments", name)
@@ -484,6 +502,7 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 		}
 
 		return ast.Type{}, nil
+
 	case "putstr":
 		if len(args) != 3 {
 			return ast.Type{}, fmt.Errorf("putstr expects three arguments")
@@ -545,6 +564,7 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 		}
 
 		return ast.Type{}, nil
+
 	case "len", "size":
 		if len(args) != 1 {
 			return ast.Type{}, fmt.Errorf("%s expects one argument", name)
@@ -690,7 +710,6 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 
 	return fn.ReturnType, nil
 }
-
 func (c *Checker) fieldType(base ast.Type, field string) (ast.Type, error) {
 	if base.IsArray {
 		return ast.Type{}, fmt.Errorf("cannot access field %q on array type %s", field, base.String())

@@ -47,6 +47,9 @@ func (g *Generator) genCall(name string, args []ast.Expr) (ast.Type, error) {
 	case "textcolor":
 		return g.genTextColor(args)
 
+	case "gotoxy":
+		return g.genGotoXY(args)
+
 	case "putscreen":
 		return g.genPutScreen(args)
 

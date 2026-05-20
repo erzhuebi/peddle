@@ -192,7 +192,44 @@ func (g *Generator) genBackground(args []ast.Expr) (ast.Type, error) {
 func (g *Generator) genTextColor(args []ast.Expr) (ast.Type, error) {
 	return g.genStoreByteBuiltin("textcolor", args, 0x0286)
 }
+func (g *Generator) genGotoXY(args []ast.Expr) (ast.Type, error) {
+	if len(args) != 2 {
+		return ast.Type{}, fmt.Errorf("gotoxy expects two arguments")
+	}
 
+	if err := g.genExprTo(args[0], ast.Type{Name: "byte"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    sta peddle_tmp_int0") // x / column
+
+	if err := g.genExprTo(args[1], ast.Type{Name: "byte"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    sta peddle_tmp_int0+1") // y / row
+
+	done := g.newLabel()
+
+	// Clip invalid coordinates.
+	g.emit("    lda peddle_tmp_int0")
+	g.emit("    cmp #40")
+	g.emit(fmt.Sprintf("    bcs %s", done))
+
+	g.emit("    lda peddle_tmp_int0+1")
+	g.emit("    cmp #25")
+	g.emit(fmt.Sprintf("    bcs %s", done))
+
+	// KERNAL PLOT ($fff0), carry clear = set cursor position.
+	// X register = row, Y register = column.
+	g.emit("    clc")
+	g.emit("    ldx peddle_tmp_int0+1")
+	g.emit("    ldy peddle_tmp_int0")
+	g.emit("    jsr $fff0")
+
+	g.emit(done + ":")
+
+	g.usedTmp16 = true
+	return ast.Type{}, nil
+}
 func (g *Generator) genStoreByteBuiltin(name string, args []ast.Expr, addr int) (ast.Type, error) {
 	if len(args) != 1 {
 		return ast.Type{}, fmt.Errorf("%s expects one argument", name)
