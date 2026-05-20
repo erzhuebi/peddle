@@ -58,7 +58,7 @@ peddlec --run -o game.asm game.ped
 # Your First Program
 
 ```peddle
-fn main(){
+fn main() {
     print("HELLO WORLD")
 }
 ```
@@ -72,7 +72,7 @@ Peddle supports single-line comments using `#`.
 ```peddle
 # this is a comment
 
-fn main(){
+fn main() {
     var x int
 
     x = 1 # trailing comment
@@ -129,6 +129,44 @@ x = 10 % 3
 
 ---
 
+# Character Literals
+
+Peddle supports single-character literals using single quotes.
+
+```peddle
+var ch char
+
+ch = 'A'
+ch = ' '
+ch = '*'
+```
+
+Character literals have type `char`.
+
+Escape sequences are supported:
+
+| Literal | Value | Meaning |
+|---|---:|---|
+| `'\n'` | 13 | C64 carriage return / newline |
+| `'\r'` | 13 | C64 carriage return / newline |
+| `'\0'` | 0 | zero byte |
+| `'\''` | 39 | single quote |
+| `'\\'` | 92 | backslash |
+
+On the C64, the normal KERNAL newline is carriage return byte `13`. Therefore both `'\n'` and `'\r'` compile to `13`.
+
+Example:
+
+```peddle
+fn main() {
+    putchar(0, 0, 'P')
+    putchar(1, 0, 'E')
+    putchar(2, 0, 'D')
+}
+```
+
+---
+
 # Constants
 
 Constants are top-level numeric values.
@@ -148,7 +186,7 @@ const BORDER = $d020
 const BG = $d021
 const BLUE = 6
 
-fn main(){
+fn main() {
     poke(BORDER, BLUE)
     poke(BG, 0)
 }
@@ -423,7 +461,7 @@ fn add(a int, b int) int {
     return a + b
 }
 
-fn main(){
+fn main() {
     var result int
 
     result = add(10, 20)
@@ -608,10 +646,34 @@ Strings are:
 
 ---
 
+## Escape Sequences
+
+String literals support common escape sequences.
+
+| Escape | Value | Meaning |
+|---|---:|---|
+| `\n` | 13 | C64 carriage return / newline |
+| `\r` | 13 | C64 carriage return / newline |
+| `\0` | 0 | zero byte |
+| `\"` | 34 | double quote |
+| `\\` | 92 | backslash |
+
+For C64 KERNAL output, newline means carriage return byte `13`.
+
+```peddle
+fn main() {
+    print("LINE 1\n")
+    print("LINE 2\n")
+    print("DONE")
+}
+```
+
+---
+
 # String Example
 
 ```peddle
-fn main(){
+fn main() {
     var title char[32]
 
     copy(title, "COMMODORE")
@@ -636,6 +698,21 @@ print("READY")
 ```peddle
 print(title)
 ```
+
+---
+
+## Newlines
+
+`print()` uses KERNAL-style output. In string literals, `\n` and `\r` are encoded as C64 carriage return byte `13`.
+
+```peddle
+fn main() {
+    print("HELLO\n")
+    print("WORLD")
+}
+```
+
+This prints `HELLO`, moves to the next line, then prints `WORLD`.
 
 ---
 
@@ -735,7 +812,7 @@ append(players[0].name, "!")
 
 | Function | Description |
 |---|---|
-| `print(x)` | print string |
+| `print(x)` | print string using KERNAL-style output |
 | `peek(addr)` | read memory |
 | `poke(addr, value)` | write memory |
 | `len(array)` | runtime length |
@@ -744,6 +821,182 @@ append(players[0].name, "!")
 | `copy(dst, src)` | copy arrays/strings |
 | `fill(array, value)` | fill array |
 | `clear(array)` | clear runtime length |
+| `cls()` | clear screen RAM and reset KERNAL text cursor |
+| `border(color)` | set border color using `$d020` |
+| `background(color)` | set background color using `$d021` |
+| `textcolor(color)` | set KERNAL text color using `$0286` |
+| `putchar(x, y, ch)` | write a character to screen RAM at position |
+| `putscreen(x, y, code)` | write raw C64 screen code to screen RAM |
+| `putcolor(x, y, color)` | write color RAM value at position |
+
+---
+
+# C64 Screen Builtins
+
+Peddle provides direct C64 screen and color helpers for text-mode screen programming.
+
+---
+
+# cls()
+
+Clear the visible screen and reset the KERNAL text cursor to the top-left position.
+
+```peddle
+fn main() {
+    cls()
+    print("READY")
+}
+```
+
+`cls()` clears screen RAM from `$0400` to `$07e7` with space characters and resets the KERNAL cursor using the KERNAL `PLOT` routine.
+
+This means `print()` starts at the top-left after `cls()`.
+
+---
+
+# border()
+
+Set the C64 border color.
+
+```peddle
+border(6)
+```
+
+This writes to `$d020`.
+
+---
+
+# background()
+
+Set the C64 background color.
+
+```peddle
+background(0)
+```
+
+This writes to `$d021`.
+
+---
+
+# textcolor()
+
+Set the KERNAL text color used by `print()`.
+
+```peddle
+textcolor(1)
+print("WHITE TEXT")
+```
+
+This writes to `$0286`.
+
+`textcolor()` affects KERNAL-style `print()` output. It does not automatically affect direct screen RAM writes such as `putchar()` or `putscreen()`.
+
+---
+
+# putchar()
+
+Write a character at a fixed screen position.
+
+```peddle
+putchar(0, 0, 'P')
+putchar(1, 0, 'E')
+putchar(2, 0, 'D')
+```
+
+`putchar(x, y, ch)` writes to screen RAM at:
+
+```text
+$0400 + y * 40 + x
+```
+
+`putchar()` accepts normal character values and converts letters to C64 screen codes before writing them.
+
+For example:
+
+```peddle
+putchar(0, 0, 'P')
+putchar(1, 0, 80)
+```
+
+Both write the letter `P`.
+
+Currently the conversion handles:
+
+- `A`..`Z` to C64 screen codes `1`..`26`
+- `a`..`z` to C64 screen codes `1`..`26`
+- all other values unchanged
+
+So space and digits work naturally:
+
+```peddle
+putchar(0, 0, ' ')
+putchar(1, 0, '1')
+```
+
+---
+
+# putscreen()
+
+Write a raw C64 screen code at a fixed screen position.
+
+```peddle
+putscreen(0, 0, 16)
+putscreen(1, 0, 5)
+putscreen(2, 0, 4)
+```
+
+`putscreen()` does no character conversion.
+
+Use it when you already know the C64 screen code you want to write.
+
+---
+
+# putcolor()
+
+Write a color value to color RAM at a fixed screen position.
+
+```peddle
+putcolor(0, 0, 2)
+putcolor(1, 0, 3)
+```
+
+`putcolor(x, y, color)` writes to color RAM at:
+
+```text
+$d800 + y * 40 + x
+```
+
+---
+
+# Direct Screen Example
+
+```peddle
+fn main() {
+    cls()
+
+    border(6)
+    background(0)
+    textcolor(1)
+
+    print("LINE 1\n")
+    print("LINE 2\n")
+    print("LINE 3\n")
+
+    putchar(0, 5, 'P')
+    putchar(1, 5, 'E')
+    putchar(2, 5, 'D')
+    putchar(3, 5, 'D')
+    putchar(4, 5, 'L')
+    putchar(5, 5, 'E')
+
+    putcolor(0, 5, 2)
+    putcolor(1, 5, 3)
+    putcolor(2, 5, 4)
+    putcolor(3, 5, 5)
+    putcolor(4, 5, 6)
+    putcolor(5, 5, 7)
+}
+```
 
 ---
 
@@ -762,7 +1015,7 @@ Constants and hex literals work well for hardware addresses.
 ```peddle
 const BORDER = $d020
 
-fn main(){
+fn main() {
     var color byte
 
     color = peek(BORDER)
@@ -1052,6 +1305,10 @@ Implemented:
 - runtime array length
 - append/copy/fill/clear
 - strings
+- putchar/putscreen/putcolor
+- cls/border/background/textcolor
+- string escape sequences including C64 newline/carriage return
+- character literals
 - structs
 - arrays of structs
 - struct string fields
@@ -1076,6 +1333,7 @@ Not implemented yet:
 - constant expressions
 - typed constants
 - local constants
+- positioned string output helpers such as `putstr()`
 
 ---
 
