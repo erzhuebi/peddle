@@ -108,6 +108,7 @@ func (g *Generator) genPoke(args []ast.Expr) (ast.Type, error) {
 	g.usedTmp16 = true
 	return ast.Type{}, nil
 }
+
 func (g *Generator) genPeek(args []ast.Expr) (ast.Type, error) {
 	if len(args) != 1 {
 		return ast.Type{}, fmt.Errorf("peek expects one argument")
@@ -192,6 +193,7 @@ func (g *Generator) genBackground(args []ast.Expr) (ast.Type, error) {
 func (g *Generator) genTextColor(args []ast.Expr) (ast.Type, error) {
 	return g.genStoreByteBuiltin("textcolor", args, 0x0286)
 }
+
 func (g *Generator) genGotoXY(args []ast.Expr) (ast.Type, error) {
 	if len(args) != 2 {
 		return ast.Type{}, fmt.Errorf("gotoxy expects two arguments")
@@ -230,6 +232,7 @@ func (g *Generator) genGotoXY(args []ast.Expr) (ast.Type, error) {
 	g.usedTmp16 = true
 	return ast.Type{}, nil
 }
+
 func (g *Generator) genStoreByteBuiltin(name string, args []ast.Expr, addr int) (ast.Type, error) {
 	if len(args) != 1 {
 		return ast.Type{}, fmt.Errorf("%s expects one argument", name)
@@ -493,309 +496,6 @@ func (g *Generator) genPutStrColor(args []ast.Expr) (ast.Type, error) {
 	g.usedPutStrColorRuntime = true
 
 	return ast.Type{}, nil
-}
-
-func (g *Generator) genPutStringArray(xExpr ast.Expr, yExpr ast.Expr, textExpr ast.Expr, textType ast.Type, colorExpr ast.Expr) (ast.Type, error) {
-	if textType.ArrayLen > 252 {
-		return ast.Type{}, fmt.Errorf("putstr char array currently supports capacity up to 252")
-	}
-
-	if err := g.genExprTo(xExpr, ast.Type{Name: "byte"}); err != nil {
-		return ast.Type{}, err
-	}
-	g.emit("    sta peddle_tmp_int0") // start x
-	g.emit("    sta ZP_TMP0")         // current x
-
-	if err := g.genExprTo(yExpr, ast.Type{Name: "byte"}); err != nil {
-		return ast.Type{}, err
-	}
-	g.emit("    sta peddle_tmp_int0+1") // current y
-
-	if colorExpr != nil {
-		if err := g.genExprTo(colorExpr, ast.Type{Name: "byte"}); err != nil {
-			return ast.Type{}, err
-		}
-		g.emit("    sta ZP_TMP1") // color
-	}
-
-	done := g.newLabel()
-
-	// If starting coordinates are outside the screen, clip the whole string.
-	g.emit("    lda peddle_tmp_int0")
-	g.emit("    cmp #40")
-	g.emitJumpIfCarrySet(done)
-
-	g.emit("    lda peddle_tmp_int0+1")
-	g.emit("    cmp #25")
-	g.emitJumpIfCarrySet(done)
-
-	if err := g.genArrayAddress(textExpr); err != nil {
-		return ast.Type{}, err
-	}
-
-	// Keep char array header pointer in ZP_PTR1.
-	// Header layout:
-	// +0 capacity low
-	// +1 capacity high
-	// +2 length low
-	// +3 length high
-	// +4 data
-	g.emit("    lda ZP_PTR0_LO")
-	g.emit("    sta ZP_PTR1_LO")
-	g.emit("    lda ZP_PTR0_HI")
-	g.emit("    sta ZP_PTR1_HI")
-
-	for i := 0; i < textType.ArrayLen; i++ {
-		hasChar := g.newLabel()
-
-		// If runtime length has high byte set, this index is definitely present.
-		g.emit("    ldy #3")
-		g.emit("    lda (ZP_PTR1_LO), y")
-		g.emit(fmt.Sprintf("    bne %s", hasChar))
-
-		// Otherwise require length >= i + 1.
-		g.emit("    ldy #2")
-		g.emit("    lda (ZP_PTR1_LO), y")
-		g.emit(fmt.Sprintf("    cmp #%d", i+1))
-		g.emitJumpIfCarryClear(done)
-
-		g.emit(hasChar + ":")
-
-		g.emitPutArrayCharAtCurrentScreenPosition(done, i)
-
-		if colorExpr != nil {
-			g.emitPutCurrentColorAtCurrentScreenPosition(done)
-		}
-
-		g.emitAdvanceCurrentScreenPosition(done)
-	}
-
-	g.emit(done + ":")
-
-	g.usedTmp16 = true
-	return ast.Type{}, nil
-}
-
-func (g *Generator) emitPutArrayCharAtCurrentScreenPosition(done string, index int) {
-	addRow := g.newLabel()
-	rowDone := g.newLabel()
-	checkLower := g.newLabel()
-	converted := g.newLabel()
-
-	g.emit("    lda ZP_TMP0")
-	g.emit("    cmp #40")
-	g.emitJumpIfCarrySet(done)
-
-	g.emit("    lda peddle_tmp_int0+1")
-	g.emit("    cmp #25")
-	g.emitJumpIfCarrySet(done)
-
-	g.emit("    lda #<$0400")
-	g.emit("    sta ZP_PTR0_LO")
-	g.emit("    lda #>$0400")
-	g.emit("    sta ZP_PTR0_HI")
-
-	g.emit("    ldx peddle_tmp_int0+1")
-	g.emit(addRow + ":")
-	g.emit(fmt.Sprintf("    beq %s", rowDone))
-	g.emit("    lda ZP_PTR0_LO")
-	g.emit("    clc")
-	g.emit("    adc #40")
-	g.emit("    sta ZP_PTR0_LO")
-	g.emit("    lda ZP_PTR0_HI")
-	g.emit("    adc #0")
-	g.emit("    sta ZP_PTR0_HI")
-	g.emit("    dex")
-	g.emit(fmt.Sprintf("    jmp %s", addRow))
-
-	g.emit(rowDone + ":")
-
-	// Load source char from char[] data area.
-	g.emit(fmt.Sprintf("    ldy #%d", index+4))
-	g.emit("    lda (ZP_PTR1_LO), y")
-
-	// Convert normal character code in A to C64 screen code.
-	g.emit("    cmp #65")
-	g.emit(fmt.Sprintf("    bcc %s", checkLower))
-	g.emit("    cmp #91")
-	g.emit(fmt.Sprintf("    bcs %s", checkLower))
-	g.emit("    sec")
-	g.emit("    sbc #64")
-	g.emit(fmt.Sprintf("    jmp %s", converted))
-
-	g.emit(checkLower + ":")
-	g.emit("    cmp #97")
-	g.emit(fmt.Sprintf("    bcc %s", converted))
-	g.emit("    cmp #123")
-	g.emit(fmt.Sprintf("    bcs %s", converted))
-	g.emit("    sec")
-	g.emit("    sbc #96")
-
-	g.emit(converted + ":")
-	g.emit("    ldy ZP_TMP0")
-	g.emit("    sta (ZP_PTR0_LO), y")
-}
-
-func (g *Generator) genPutStringLiteral(xExpr ast.Expr, yExpr ast.Expr, value string, colorExpr ast.Expr) (ast.Type, error) {
-	if err := g.genExprTo(xExpr, ast.Type{Name: "byte"}); err != nil {
-		return ast.Type{}, err
-	}
-	g.emit("    sta peddle_tmp_int0") // start x
-	g.emit("    sta ZP_TMP0")         // current x
-
-	if err := g.genExprTo(yExpr, ast.Type{Name: "byte"}); err != nil {
-		return ast.Type{}, err
-	}
-	g.emit("    sta peddle_tmp_int0+1") // current y
-
-	if colorExpr != nil {
-		if err := g.genExprTo(colorExpr, ast.Type{Name: "byte"}); err != nil {
-			return ast.Type{}, err
-		}
-		g.emit("    sta ZP_TMP1") // color
-	}
-
-	done := g.newLabel()
-
-	// If starting coordinates are outside the screen, clip the whole string.
-	g.emit("    lda peddle_tmp_int0")
-	g.emit("    cmp #40")
-	g.emitJumpIfCarrySet(done)
-
-	g.emit("    lda peddle_tmp_int0+1")
-	g.emit("    cmp #25")
-	g.emitJumpIfCarrySet(done)
-
-	for i := 0; i < len(value); i++ {
-		ch := value[i]
-
-		if ch == 13 {
-			g.emit("    lda peddle_tmp_int0")
-			g.emit("    sta ZP_TMP0")
-			g.emit("    inc peddle_tmp_int0+1")
-			g.emit("    lda peddle_tmp_int0+1")
-			g.emit("    cmp #25")
-			g.emitJumpIfCarrySet(done)
-			continue
-		}
-
-		screenCode := peddleScreenCode(ch)
-
-		g.emitPutLiteralAtCurrentScreenPosition(done, 0x0400, screenCode)
-
-		if colorExpr != nil {
-			g.emitPutCurrentColorAtCurrentScreenPosition(done)
-		}
-
-		g.emitAdvanceCurrentScreenPosition(done)
-	}
-
-	g.emit(done + ":")
-
-	g.usedTmp16 = true
-	return ast.Type{}, nil
-}
-
-func (g *Generator) emitPutLiteralAtCurrentScreenPosition(done string, base int, value byte) {
-	addRow := g.newLabel()
-	rowDone := g.newLabel()
-
-	g.emit("    lda ZP_TMP0")
-	g.emit("    cmp #40")
-	g.emitJumpIfCarrySet(done)
-
-	g.emit("    lda peddle_tmp_int0+1")
-	g.emit("    cmp #25")
-	g.emitJumpIfCarrySet(done)
-
-	g.emit(fmt.Sprintf("    lda #<$%04x", base&0xffff))
-	g.emit("    sta ZP_PTR0_LO")
-	g.emit(fmt.Sprintf("    lda #>$%04x", base&0xffff))
-	g.emit("    sta ZP_PTR0_HI")
-
-	g.emit("    ldx peddle_tmp_int0+1")
-	g.emit(addRow + ":")
-	g.emit(fmt.Sprintf("    beq %s", rowDone))
-	g.emit("    lda ZP_PTR0_LO")
-	g.emit("    clc")
-	g.emit("    adc #40")
-	g.emit("    sta ZP_PTR0_LO")
-	g.emit("    lda ZP_PTR0_HI")
-	g.emit("    adc #0")
-	g.emit("    sta ZP_PTR0_HI")
-	g.emit("    dex")
-	g.emit(fmt.Sprintf("    jmp %s", addRow))
-
-	g.emit(rowDone + ":")
-	g.emit("    ldy ZP_TMP0")
-	g.emit(fmt.Sprintf("    lda #%d", int(value)))
-	g.emit("    sta (ZP_PTR0_LO), y")
-}
-
-func (g *Generator) emitPutCurrentColorAtCurrentScreenPosition(done string) {
-	addRow := g.newLabel()
-	rowDone := g.newLabel()
-
-	g.emit("    lda ZP_TMP0")
-	g.emit("    cmp #40")
-	g.emitJumpIfCarrySet(done)
-
-	g.emit("    lda peddle_tmp_int0+1")
-	g.emit("    cmp #25")
-	g.emitJumpIfCarrySet(done)
-
-	g.emit("    lda #<$d800")
-	g.emit("    sta ZP_PTR0_LO")
-	g.emit("    lda #>$d800")
-	g.emit("    sta ZP_PTR0_HI")
-
-	g.emit("    ldx peddle_tmp_int0+1")
-	g.emit(addRow + ":")
-	g.emit(fmt.Sprintf("    beq %s", rowDone))
-	g.emit("    lda ZP_PTR0_LO")
-	g.emit("    clc")
-	g.emit("    adc #40")
-	g.emit("    sta ZP_PTR0_LO")
-	g.emit("    lda ZP_PTR0_HI")
-	g.emit("    adc #0")
-	g.emit("    sta ZP_PTR0_HI")
-	g.emit("    dex")
-	g.emit(fmt.Sprintf("    jmp %s", addRow))
-
-	g.emit(rowDone + ":")
-	g.emit("    ldy ZP_TMP0")
-	g.emit("    lda ZP_TMP1")
-	g.emit("    sta (ZP_PTR0_LO), y")
-}
-
-func (g *Generator) emitAdvanceCurrentScreenPosition(done string) {
-	noWrap := g.newLabel()
-
-	g.emit("    inc ZP_TMP0")
-	g.emit("    lda ZP_TMP0")
-	g.emit("    cmp #40")
-	g.emit(fmt.Sprintf("    bcc %s", noWrap))
-
-	g.emit("    lda #0")
-	g.emit("    sta ZP_TMP0")
-	g.emit("    inc peddle_tmp_int0+1")
-	g.emit("    lda peddle_tmp_int0+1")
-	g.emit("    cmp #25")
-	g.emitJumpIfCarrySet(done)
-
-	g.emit(noWrap + ":")
-}
-
-func peddleScreenCode(ch byte) byte {
-	if ch >= 'A' && ch <= 'Z' {
-		return ch - 64
-	}
-
-	if ch >= 'a' && ch <= 'z' {
-		return ch - 96
-	}
-
-	return ch
 }
 
 func (g *Generator) genLen(args []ast.Expr) (ast.Type, error) {
@@ -1599,22 +1299,6 @@ func (g *Generator) genLengthTimesElemSizeToCounter(elemSize int) {
 	}
 
 	g.usedTmp16 = true
-}
-
-func (g *Generator) emitJumpIfCarryClear(label string) {
-	skip := g.newLabel()
-
-	g.emit(fmt.Sprintf("    bcs %s", skip))
-	g.emit(fmt.Sprintf("    jmp %s", label))
-	g.emit(skip + ":")
-}
-
-func (g *Generator) emitJumpIfCarrySet(label string) {
-	skip := g.newLabel()
-
-	g.emit(fmt.Sprintf("    bcc %s", skip))
-	g.emit(fmt.Sprintf("    jmp %s", label))
-	g.emit(skip + ":")
 }
 
 func (g *Generator) emitPutStrRuntime() {
