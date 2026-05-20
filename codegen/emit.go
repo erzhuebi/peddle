@@ -54,7 +54,9 @@ func (g *Generator) emitRuntime() {
 		g.usedShlIntRuntime ||
 		g.usedShrIntRuntime ||
 		g.usedStringCopyRuntime ||
-		g.usedStringAppendRuntime
+		g.usedStringAppendRuntime ||
+		g.usedPutStrRuntime ||
+		g.usedPutStrColorRuntime
 
 	if needsTmp16 {
 		g.emit("peddle_tmp_int0:")
@@ -639,6 +641,8 @@ peddle_string_append_literal_done:
     rts
 `)
 	}
+
+	g.emitPutStrRuntime()
 }
 
 func (g *Generator) emitLiterals() {

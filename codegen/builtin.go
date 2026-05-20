@@ -352,12 +352,70 @@ func (g *Generator) genPutStr(args []ast.Expr) (ast.Type, error) {
 		return ast.Type{}, fmt.Errorf("putstr expects three arguments")
 	}
 
-	text, ok := args[2].(*ast.StringExpr)
-	if !ok {
-		return ast.Type{}, fmt.Errorf("putstr currently expects a string literal")
+	if err := g.genExprTo(args[0], ast.Type{Name: "byte"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    sta peddle_putstr_x")
+
+	if err := g.genExprTo(args[1], ast.Type{Name: "byte"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    sta peddle_putstr_y")
+
+	switch text := args[2].(type) {
+	case *ast.StringExpr:
+		label := g.addLiteral(text.Value)
+
+		g.emit(fmt.Sprintf("    lda #<%s", label))
+		g.emit("    sta ZP_PTR1_LO")
+		g.emit(fmt.Sprintf("    lda #>%s", label))
+		g.emit("    sta ZP_PTR1_HI")
+
+		g.emit(fmt.Sprintf("    lda #<%d", len(text.Value)))
+		g.emit("    sta peddle_tmp_int0")
+		g.emit(fmt.Sprintf("    lda #>%d", len(text.Value)))
+		g.emit("    sta peddle_tmp_int0+1")
+
+	case *ast.IdentExpr, *ast.FieldExpr, *ast.IndexFieldExpr:
+		arrayType, err := g.arrayExprType(args[2])
+		if err != nil {
+			return ast.Type{}, err
+		}
+
+		if !(arrayType.IsArray && arrayType.Name == "char") {
+			return ast.Type{}, fmt.Errorf("putstr expects string literal or char array")
+		}
+
+		if err := g.genArrayAddress(args[2]); err != nil {
+			return ast.Type{}, err
+		}
+
+		// Read runtime length from array header.
+		g.emit("    ldy #2")
+		g.emit("    lda (ZP_PTR0_LO), y")
+		g.emit("    sta peddle_tmp_int0")
+		g.emit("    iny")
+		g.emit("    lda (ZP_PTR0_LO), y")
+		g.emit("    sta peddle_tmp_int0+1")
+
+		// Point ZP_PTR1 at array data, after 4-byte header.
+		g.emit("    lda ZP_PTR0_LO")
+		g.emit("    clc")
+		g.emit("    adc #4")
+		g.emit("    sta ZP_PTR1_LO")
+		g.emit("    lda ZP_PTR0_HI")
+		g.emit("    adc #0")
+		g.emit("    sta ZP_PTR1_HI")
+
+	default:
+		return ast.Type{}, fmt.Errorf("putstr expects string literal or char array")
 	}
 
-	return g.genPutStringLiteral(args[0], args[1], text.Value, nil)
+	g.emit("    jsr peddle_putstr")
+	g.usedTmp16 = true
+	g.usedPutStrRuntime = true
+
+	return ast.Type{}, nil
 }
 
 func (g *Generator) genPutStrColor(args []ast.Expr) (ast.Type, error) {
@@ -365,12 +423,217 @@ func (g *Generator) genPutStrColor(args []ast.Expr) (ast.Type, error) {
 		return ast.Type{}, fmt.Errorf("putstrcolor expects four arguments")
 	}
 
-	text, ok := args[2].(*ast.StringExpr)
-	if !ok {
-		return ast.Type{}, fmt.Errorf("putstrcolor currently expects a string literal")
+	if err := g.genExprTo(args[0], ast.Type{Name: "byte"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    sta peddle_putstr_x")
+
+	if err := g.genExprTo(args[1], ast.Type{Name: "byte"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    sta peddle_putstr_y")
+
+	switch text := args[2].(type) {
+	case *ast.StringExpr:
+		label := g.addLiteral(text.Value)
+
+		g.emit(fmt.Sprintf("    lda #<%s", label))
+		g.emit("    sta ZP_PTR1_LO")
+		g.emit(fmt.Sprintf("    lda #>%s", label))
+		g.emit("    sta ZP_PTR1_HI")
+
+		g.emit(fmt.Sprintf("    lda #<%d", len(text.Value)))
+		g.emit("    sta peddle_tmp_int0")
+		g.emit(fmt.Sprintf("    lda #>%d", len(text.Value)))
+		g.emit("    sta peddle_tmp_int0+1")
+
+	case *ast.IdentExpr, *ast.FieldExpr, *ast.IndexFieldExpr:
+		arrayType, err := g.arrayExprType(args[2])
+		if err != nil {
+			return ast.Type{}, err
+		}
+
+		if !(arrayType.IsArray && arrayType.Name == "char") {
+			return ast.Type{}, fmt.Errorf("putstrcolor expects string literal or char array")
+		}
+
+		if err := g.genArrayAddress(args[2]); err != nil {
+			return ast.Type{}, err
+		}
+
+		// Read runtime length from array header.
+		g.emit("    ldy #2")
+		g.emit("    lda (ZP_PTR0_LO), y")
+		g.emit("    sta peddle_tmp_int0")
+		g.emit("    iny")
+		g.emit("    lda (ZP_PTR0_LO), y")
+		g.emit("    sta peddle_tmp_int0+1")
+
+		// Point ZP_PTR1 at array data, after 4-byte header.
+		g.emit("    lda ZP_PTR0_LO")
+		g.emit("    clc")
+		g.emit("    adc #4")
+		g.emit("    sta ZP_PTR1_LO")
+		g.emit("    lda ZP_PTR0_HI")
+		g.emit("    adc #0")
+		g.emit("    sta ZP_PTR1_HI")
+
+	default:
+		return ast.Type{}, fmt.Errorf("putstrcolor expects string literal or char array")
 	}
 
-	return g.genPutStringLiteral(args[0], args[1], text.Value, args[3])
+	if err := g.genExprTo(args[3], ast.Type{Name: "byte"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    sta peddle_putstr_color")
+
+	g.emit("    jsr peddle_putstrcolor")
+	g.usedTmp16 = true
+	g.usedPutStrRuntime = true
+	g.usedPutStrColorRuntime = true
+
+	return ast.Type{}, nil
+}
+
+func (g *Generator) genPutStringArray(xExpr ast.Expr, yExpr ast.Expr, textExpr ast.Expr, textType ast.Type, colorExpr ast.Expr) (ast.Type, error) {
+	if textType.ArrayLen > 252 {
+		return ast.Type{}, fmt.Errorf("putstr char array currently supports capacity up to 252")
+	}
+
+	if err := g.genExprTo(xExpr, ast.Type{Name: "byte"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    sta peddle_tmp_int0") // start x
+	g.emit("    sta ZP_TMP0")         // current x
+
+	if err := g.genExprTo(yExpr, ast.Type{Name: "byte"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    sta peddle_tmp_int0+1") // current y
+
+	if colorExpr != nil {
+		if err := g.genExprTo(colorExpr, ast.Type{Name: "byte"}); err != nil {
+			return ast.Type{}, err
+		}
+		g.emit("    sta ZP_TMP1") // color
+	}
+
+	done := g.newLabel()
+
+	// If starting coordinates are outside the screen, clip the whole string.
+	g.emit("    lda peddle_tmp_int0")
+	g.emit("    cmp #40")
+	g.emitJumpIfCarrySet(done)
+
+	g.emit("    lda peddle_tmp_int0+1")
+	g.emit("    cmp #25")
+	g.emitJumpIfCarrySet(done)
+
+	if err := g.genArrayAddress(textExpr); err != nil {
+		return ast.Type{}, err
+	}
+
+	// Keep char array header pointer in ZP_PTR1.
+	// Header layout:
+	// +0 capacity low
+	// +1 capacity high
+	// +2 length low
+	// +3 length high
+	// +4 data
+	g.emit("    lda ZP_PTR0_LO")
+	g.emit("    sta ZP_PTR1_LO")
+	g.emit("    lda ZP_PTR0_HI")
+	g.emit("    sta ZP_PTR1_HI")
+
+	for i := 0; i < textType.ArrayLen; i++ {
+		hasChar := g.newLabel()
+
+		// If runtime length has high byte set, this index is definitely present.
+		g.emit("    ldy #3")
+		g.emit("    lda (ZP_PTR1_LO), y")
+		g.emit(fmt.Sprintf("    bne %s", hasChar))
+
+		// Otherwise require length >= i + 1.
+		g.emit("    ldy #2")
+		g.emit("    lda (ZP_PTR1_LO), y")
+		g.emit(fmt.Sprintf("    cmp #%d", i+1))
+		g.emitJumpIfCarryClear(done)
+
+		g.emit(hasChar + ":")
+
+		g.emitPutArrayCharAtCurrentScreenPosition(done, i)
+
+		if colorExpr != nil {
+			g.emitPutCurrentColorAtCurrentScreenPosition(done)
+		}
+
+		g.emitAdvanceCurrentScreenPosition(done)
+	}
+
+	g.emit(done + ":")
+
+	g.usedTmp16 = true
+	return ast.Type{}, nil
+}
+
+func (g *Generator) emitPutArrayCharAtCurrentScreenPosition(done string, index int) {
+	addRow := g.newLabel()
+	rowDone := g.newLabel()
+	checkLower := g.newLabel()
+	converted := g.newLabel()
+
+	g.emit("    lda ZP_TMP0")
+	g.emit("    cmp #40")
+	g.emitJumpIfCarrySet(done)
+
+	g.emit("    lda peddle_tmp_int0+1")
+	g.emit("    cmp #25")
+	g.emitJumpIfCarrySet(done)
+
+	g.emit("    lda #<$0400")
+	g.emit("    sta ZP_PTR0_LO")
+	g.emit("    lda #>$0400")
+	g.emit("    sta ZP_PTR0_HI")
+
+	g.emit("    ldx peddle_tmp_int0+1")
+	g.emit(addRow + ":")
+	g.emit(fmt.Sprintf("    beq %s", rowDone))
+	g.emit("    lda ZP_PTR0_LO")
+	g.emit("    clc")
+	g.emit("    adc #40")
+	g.emit("    sta ZP_PTR0_LO")
+	g.emit("    lda ZP_PTR0_HI")
+	g.emit("    adc #0")
+	g.emit("    sta ZP_PTR0_HI")
+	g.emit("    dex")
+	g.emit(fmt.Sprintf("    jmp %s", addRow))
+
+	g.emit(rowDone + ":")
+
+	// Load source char from char[] data area.
+	g.emit(fmt.Sprintf("    ldy #%d", index+4))
+	g.emit("    lda (ZP_PTR1_LO), y")
+
+	// Convert normal character code in A to C64 screen code.
+	g.emit("    cmp #65")
+	g.emit(fmt.Sprintf("    bcc %s", checkLower))
+	g.emit("    cmp #91")
+	g.emit(fmt.Sprintf("    bcs %s", checkLower))
+	g.emit("    sec")
+	g.emit("    sbc #64")
+	g.emit(fmt.Sprintf("    jmp %s", converted))
+
+	g.emit(checkLower + ":")
+	g.emit("    cmp #97")
+	g.emit(fmt.Sprintf("    bcc %s", converted))
+	g.emit("    cmp #123")
+	g.emit(fmt.Sprintf("    bcs %s", converted))
+	g.emit("    sec")
+	g.emit("    sbc #96")
+
+	g.emit(converted + ":")
+	g.emit("    ldy ZP_TMP0")
+	g.emit("    sta (ZP_PTR0_LO), y")
 }
 
 func (g *Generator) genPutStringLiteral(xExpr ast.Expr, yExpr ast.Expr, value string, colorExpr ast.Expr) (ast.Type, error) {
@@ -1338,10 +1601,227 @@ func (g *Generator) genLengthTimesElemSizeToCounter(elemSize int) {
 	g.usedTmp16 = true
 }
 
+func (g *Generator) emitJumpIfCarryClear(label string) {
+	skip := g.newLabel()
+
+	g.emit(fmt.Sprintf("    bcs %s", skip))
+	g.emit(fmt.Sprintf("    jmp %s", label))
+	g.emit(skip + ":")
+}
+
 func (g *Generator) emitJumpIfCarrySet(label string) {
 	skip := g.newLabel()
 
 	g.emit(fmt.Sprintf("    bcc %s", skip))
 	g.emit(fmt.Sprintf("    jmp %s", label))
 	g.emit(skip + ":")
+}
+
+func (g *Generator) emitPutStrRuntime() {
+	if !g.usedPutStrRuntime && !g.usedPutStrColorRuntime {
+		return
+	}
+
+	g.emit("")
+	g.emit("; putstr runtime")
+	g.emit("peddle_putstr_x:")
+	g.emit("    .byte 0")
+	g.emit("peddle_putstr_y:")
+	g.emit("    .byte 0")
+	g.emit("peddle_putstr_start_x:")
+	g.emit("    .byte 0")
+	g.emit("peddle_putstr_color:")
+	g.emit("    .byte 0")
+	g.emit("peddle_putstr_write_color:")
+	g.emit("    .byte 0")
+	g.emit("peddle_putstr_char:")
+	g.emit("    .byte 0")
+
+	g.emit("")
+	g.emit("peddle_putstr:")
+	g.emit("    lda #0")
+	g.emit("    sta peddle_putstr_write_color")
+	g.emit("    jmp peddle_putstr_common")
+
+	if g.usedPutStrColorRuntime {
+		g.emit("")
+		g.emit("peddle_putstrcolor:")
+		g.emit("    lda #1")
+		g.emit("    sta peddle_putstr_write_color")
+		g.emit("    jmp peddle_putstr_common")
+	}
+
+	g.emit("")
+	g.emit("peddle_putstr_common:")
+	g.emit("    lda peddle_putstr_x")
+	g.emit("    sta peddle_putstr_start_x")
+	g.emit("    sta ZP_TMP0")
+	g.emit("    lda peddle_putstr_y")
+	g.emit("    sta ZP_TMP1")
+
+	// Clip invalid start x.
+	g.emit("    lda ZP_TMP0")
+	g.emit("    cmp #40")
+	g.emit("    bcc peddle_putstr_start_x_ok")
+	g.emit("    jmp peddle_putstr_done")
+	g.emit("peddle_putstr_start_x_ok:")
+
+	// Clip invalid start y.
+	g.emit("    lda ZP_TMP1")
+	g.emit("    cmp #25")
+	g.emit("    bcc peddle_putstr_start_y_ok")
+	g.emit("    jmp peddle_putstr_done")
+	g.emit("peddle_putstr_start_y_ok:")
+
+	g.emit("")
+	g.emit("peddle_putstr_loop:")
+	g.emit("    lda peddle_tmp_int0")
+	g.emit("    ora peddle_tmp_int0+1")
+	g.emit("    bne peddle_putstr_has_chars")
+	g.emit("    jmp peddle_putstr_done")
+	g.emit("peddle_putstr_has_chars:")
+
+	// Load next source character and preserve it before changing counters.
+	g.emit("    ldy #0")
+	g.emit("    lda (ZP_PTR1_LO), y")
+	g.emit("    sta peddle_putstr_char")
+
+	// Advance source pointer.
+	g.emit("    inc ZP_PTR1_LO")
+	g.emit("    bne peddle_putstr_src_no_carry")
+	g.emit("    inc ZP_PTR1_HI")
+	g.emit("peddle_putstr_src_no_carry:")
+
+	// Decrement remaining length.
+	g.emit("    lda peddle_tmp_int0")
+	g.emit("    bne peddle_putstr_dec_low")
+	g.emit("    dec peddle_tmp_int0+1")
+	g.emit("peddle_putstr_dec_low:")
+	g.emit("    dec peddle_tmp_int0")
+
+	// Newline / carriage return handling.
+	g.emit("    lda peddle_putstr_char")
+	g.emit("    cmp #13")
+	g.emit("    bne peddle_putstr_not_newline")
+	g.emit("    jmp peddle_putstr_newline")
+	g.emit("peddle_putstr_not_newline:")
+
+	// Convert character code in A to C64 screen code.
+	g.emit("    cmp #65")
+	g.emit("    bcc peddle_putstr_check_lower")
+	g.emit("    cmp #91")
+	g.emit("    bcs peddle_putstr_check_lower")
+	g.emit("    sec")
+	g.emit("    sbc #64")
+	g.emit("    jmp peddle_putstr_converted")
+
+	g.emit("peddle_putstr_check_lower:")
+	g.emit("    cmp #97")
+	g.emit("    bcc peddle_putstr_converted")
+	g.emit("    cmp #123")
+	g.emit("    bcs peddle_putstr_converted")
+	g.emit("    sec")
+	g.emit("    sbc #96")
+
+	g.emit("peddle_putstr_converted:")
+	g.emit("    sta peddle_putstr_char")
+
+	// Clip current x.
+	g.emit("    lda ZP_TMP0")
+	g.emit("    cmp #40")
+	g.emit("    bcc peddle_putstr_current_x_ok")
+	g.emit("    jmp peddle_putstr_done")
+	g.emit("peddle_putstr_current_x_ok:")
+
+	// Clip current y.
+	g.emit("    lda ZP_TMP1")
+	g.emit("    cmp #25")
+	g.emit("    bcc peddle_putstr_current_y_ok")
+	g.emit("    jmp peddle_putstr_done")
+	g.emit("peddle_putstr_current_y_ok:")
+
+	// Compute screen pointer into ZP_PTR0.
+	g.emit("    lda #<$0400")
+	g.emit("    sta ZP_PTR0_LO")
+	g.emit("    lda #>$0400")
+	g.emit("    sta ZP_PTR0_HI")
+
+	g.emit("    ldx ZP_TMP1")
+	g.emit("peddle_putstr_screen_row_loop:")
+	g.emit("    beq peddle_putstr_screen_row_done")
+	g.emit("    lda ZP_PTR0_LO")
+	g.emit("    clc")
+	g.emit("    adc #40")
+	g.emit("    sta ZP_PTR0_LO")
+	g.emit("    lda ZP_PTR0_HI")
+	g.emit("    adc #0")
+	g.emit("    sta ZP_PTR0_HI")
+	g.emit("    dex")
+	g.emit("    jmp peddle_putstr_screen_row_loop")
+
+	g.emit("peddle_putstr_screen_row_done:")
+	g.emit("    ldy ZP_TMP0")
+	g.emit("    lda peddle_putstr_char")
+	g.emit("    sta (ZP_PTR0_LO), y")
+
+	// Optional color write.
+	g.emit("    lda peddle_putstr_write_color")
+	g.emit("    beq peddle_putstr_advance")
+
+	g.emit("    lda #<$d800")
+	g.emit("    sta ZP_PTR0_LO")
+	g.emit("    lda #>$d800")
+	g.emit("    sta ZP_PTR0_HI")
+
+	g.emit("    ldx ZP_TMP1")
+	g.emit("peddle_putstr_color_row_loop:")
+	g.emit("    beq peddle_putstr_color_row_done")
+	g.emit("    lda ZP_PTR0_LO")
+	g.emit("    clc")
+	g.emit("    adc #40")
+	g.emit("    sta ZP_PTR0_LO")
+	g.emit("    lda ZP_PTR0_HI")
+	g.emit("    adc #0")
+	g.emit("    sta ZP_PTR0_HI")
+	g.emit("    dex")
+	g.emit("    jmp peddle_putstr_color_row_loop")
+
+	g.emit("peddle_putstr_color_row_done:")
+	g.emit("    ldy ZP_TMP0")
+	g.emit("    lda peddle_putstr_color")
+	g.emit("    sta (ZP_PTR0_LO), y")
+
+	// Advance current screen position.
+	g.emit("peddle_putstr_advance:")
+	g.emit("    inc ZP_TMP0")
+	g.emit("    lda ZP_TMP0")
+	g.emit("    cmp #40")
+	g.emit("    bcs peddle_putstr_wrap_line")
+	g.emit("    jmp peddle_putstr_loop")
+
+	g.emit("peddle_putstr_wrap_line:")
+	g.emit("    lda #0")
+	g.emit("    sta ZP_TMP0")
+	g.emit("    inc ZP_TMP1")
+	g.emit("    lda ZP_TMP1")
+	g.emit("    cmp #25")
+	g.emit("    bcc peddle_putstr_continue_after_wrap")
+	g.emit("    jmp peddle_putstr_done")
+	g.emit("peddle_putstr_continue_after_wrap:")
+	g.emit("    jmp peddle_putstr_loop")
+
+	// Newline: x = start_x, y++.
+	g.emit("peddle_putstr_newline:")
+	g.emit("    lda peddle_putstr_start_x")
+	g.emit("    sta ZP_TMP0")
+	g.emit("    inc ZP_TMP1")
+	g.emit("    lda ZP_TMP1")
+	g.emit("    cmp #25")
+	g.emit("    bcc peddle_putstr_continue_after_newline")
+	g.emit("    jmp peddle_putstr_done")
+	g.emit("peddle_putstr_continue_after_newline:")
+	g.emit("    jmp peddle_putstr_loop")
+
+	g.emit("peddle_putstr_done:")
+	g.emit("    rts")
 }

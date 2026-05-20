@@ -59,6 +59,8 @@ type Generator struct {
 	usedShrIntRuntime       bool
 	usedStringCopyRuntime   bool
 	usedStringAppendRuntime bool
+	usedPutStrRuntime       bool
+	usedPutStrColorRuntime  bool
 
 	memoryReport MemoryReport
 

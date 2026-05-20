@@ -524,8 +524,17 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 			return ast.Type{}, fmt.Errorf("putstr y argument must be numeric")
 		}
 
-		if _, ok := args[2].(*ast.StringExpr); !ok {
-			return ast.Type{}, fmt.Errorf("putstr currently expects a string literal")
+		if _, ok := args[2].(*ast.StringExpr); ok {
+			return ast.Type{}, nil
+		}
+
+		textType, err := c.checkExpr(scope, args[2])
+		if err != nil {
+			return ast.Type{}, err
+		}
+
+		if !(textType.IsArray && textType.Name == "char") {
+			return ast.Type{}, fmt.Errorf("putstr expects string literal or char array")
 		}
 
 		return ast.Type{}, nil
@@ -552,7 +561,14 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 		}
 
 		if _, ok := args[2].(*ast.StringExpr); !ok {
-			return ast.Type{}, fmt.Errorf("putstrcolor currently expects a string literal")
+			textType, err := c.checkExpr(scope, args[2])
+			if err != nil {
+				return ast.Type{}, err
+			}
+
+			if !(textType.IsArray && textType.Name == "char") {
+				return ast.Type{}, fmt.Errorf("putstrcolor expects string literal or char array")
+			}
 		}
 
 		colorType, err := c.checkExpr(scope, args[3])
@@ -710,6 +726,7 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 
 	return fn.ReturnType, nil
 }
+
 func (c *Checker) fieldType(base ast.Type, field string) (ast.Type, error) {
 	if base.IsArray {
 		return ast.Type{}, fmt.Errorf("cannot access field %q on array type %s", field, base.String())

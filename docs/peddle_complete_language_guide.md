@@ -825,15 +825,26 @@ append(players[0].name, "!")
 | `border(color)` | set border color using `$d020` |
 | `background(color)` | set background color using `$d021` |
 | `textcolor(color)` | set KERNAL text color using `$0286` |
+| `gotoxy(x, y)` | set KERNAL text cursor position |
 | `putchar(x, y, ch)` | write a character to screen RAM at position |
 | `putscreen(x, y, code)` | write raw C64 screen code to screen RAM |
 | `putcolor(x, y, color)` | write color RAM value at position |
+| `putstr(x, y, text)` | write a string literal directly to screen RAM |
+| `putstrcolor(x, y, text, color)` | write a string literal to screen RAM and color RAM |
 
 ---
 
 # C64 Screen Builtins
 
 Peddle provides direct C64 screen and color helpers for text-mode screen programming.
+
+Important distinction:
+
+- `print()` uses the KERNAL cursor
+- `gotoxy()` moves the KERNAL cursor
+- `textcolor()` affects KERNAL `print()`
+- `putchar()`, `putscreen()`, `putstr()`, and `putcolor()` write directly to screen/color RAM
+
 
 ---
 
@@ -893,6 +904,48 @@ This writes to `$0286`.
 
 ---
 
+# gotoxy()
+
+Set the KERNAL text cursor position.
+
+```peddle
+gotoxy(10, 8)
+print("HELLO")
+```
+
+`gotoxy(x, y)` moves the KERNAL cursor to column `x`, row `y`.
+
+It affects `print()` output.
+
+It does not affect direct screen RAM functions such as:
+
+- `putchar()`
+- `putscreen()`
+- `putstr()`
+- `putcolor()`
+
+Coordinates outside the visible screen are clipped. If `x >= 40` or `y >= 25`, `gotoxy()` does nothing.
+
+Example:
+
+```peddle
+fn main() {
+    cls()
+
+    gotoxy(0, 5)
+    print("ROW 5")
+
+    gotoxy(10, 8)
+    print("COL 10 ROW 8")
+
+    gotoxy(0, 24)
+}
+```
+
+The final `gotoxy(0, 24)` is useful when running from BASIC, because BASIC prints `READY.` at the current KERNAL cursor position after the program exits.
+
+---
+
 # putchar()
 
 Write a character at a fixed screen position.
@@ -933,6 +986,8 @@ putchar(0, 0, ' ')
 putchar(1, 0, '1')
 ```
 
+`putchar()` is clipped to the visible screen. If `x >= 40` or `y >= 25`, it does nothing.
+
 ---
 
 # putscreen()
@@ -948,6 +1003,8 @@ putscreen(2, 0, 4)
 `putscreen()` does no character conversion.
 
 Use it when you already know the C64 screen code you want to write.
+
+`putscreen()` is clipped to the visible screen. If `x >= 40` or `y >= 25`, it does nothing.
 
 ---
 
@@ -966,6 +1023,107 @@ putcolor(1, 0, 3)
 $d800 + y * 40 + x
 ```
 
+`putcolor()` is clipped to the visible screen. If `x >= 40` or `y >= 25`, it does nothing.
+
+---
+
+# putstr()
+
+Write a string literal directly to screen RAM.
+
+```peddle
+putstr(0, 0, "HELLO")
+putstr(0, 1, "PEDDLE")
+```
+
+`putstr(x, y, text)` starts at column `x`, row `y` and writes converted C64 screen codes to screen RAM.
+
+It does not use the KERNAL cursor and does not affect where `print()` will write next.
+
+`putstr()` does not change color RAM. Use `putstrcolor()` when you want to write text and color together.
+
+Currently `putstr()` supports string literals.
+
+```peddle
+putstr(0, 0, "READY")
+```
+
+Dynamic `char[]` values are not supported by `putstr()` yet.
+
+---
+
+## putstr() Character Conversion
+
+`putstr()` uses the same character-to-screen-code conversion as `putchar()`.
+
+Currently the conversion handles:
+
+- `A`..`Z` to C64 screen codes `1`..`26`
+- `a`..`z` to C64 screen codes `1`..`26`
+- all other values unchanged
+
+---
+
+## putstr() Newlines
+
+Inside `putstr()`, `\n` and `\r` move to the next row and return to the original start column.
+
+```peddle
+putstr(5, 3, "A\nB")
+```
+
+This writes:
+
+```text
+A at column 5, row 3
+B at column 5, row 4
+```
+
+---
+
+## putstr() Clipping
+
+`putstr()` never writes past the visible screen area.
+
+If the start position is outside the screen, it does nothing.
+
+If the string reaches the end of the visible screen, it stops safely.
+
+```peddle
+putstr(0, 24, "THIS TEXT IS CLIPPED AT THE END OF SCREEN")
+```
+
+Horizontal overflow continues onto the next row while still inside the visible screen.
+
+```peddle
+putstr(38, 0, "ABCD")
+```
+
+This writes `A` and `B` at columns 38 and 39, then continues with `C` and `D` at the start of the next row.
+
+---
+
+# putstrcolor()
+
+Write a string literal directly to screen RAM and also write color RAM for each character.
+
+```peddle
+putstrcolor(0, 0, "HELLO", 2)
+```
+
+`putstrcolor(x, y, text, color)` behaves like `putstr()`, but also writes `color` to color RAM for every visible character written.
+
+Newline characters only move the current position. They do not write a screen byte or a color byte.
+
+```peddle
+putstrcolor(0, 0, "RED", 2)
+putstrcolor(0, 1, "GREEN", 5)
+```
+
+Currently `putstrcolor()` supports string literals.
+
+Dynamic `char[]` values are not supported by `putstrcolor()` yet.
+
 ---
 
 # Direct Screen Example
@@ -978,23 +1136,28 @@ fn main() {
     background(0)
     textcolor(1)
 
-    print("LINE 1\n")
-    print("LINE 2\n")
-    print("LINE 3\n")
+    putstr(0, 0, "DIRECT SCREEN")
+    putstrcolor(0, 1, "COLOR DIRECT", 2)
 
-    putchar(0, 5, 'P')
-    putchar(1, 5, 'E')
-    putchar(2, 5, 'D')
-    putchar(3, 5, 'D')
-    putchar(4, 5, 'L')
-    putchar(5, 5, 'E')
+    gotoxy(0, 5)
+    print("KERNAL PRINT
+")
 
-    putcolor(0, 5, 2)
-    putcolor(1, 5, 3)
-    putcolor(2, 5, 4)
-    putcolor(3, 5, 5)
-    putcolor(4, 5, 6)
-    putcolor(5, 5, 7)
+    putchar(0, 8, 'P')
+    putchar(1, 8, 'E')
+    putchar(2, 8, 'D')
+    putchar(3, 8, 'D')
+    putchar(4, 8, 'L')
+    putchar(5, 8, 'E')
+
+    putcolor(0, 8, 2)
+    putcolor(1, 8, 3)
+    putcolor(2, 8, 4)
+    putcolor(3, 8, 5)
+    putcolor(4, 8, 6)
+    putcolor(5, 8, 7)
+
+    gotoxy(0, 24)
 }
 ```
 
@@ -1306,6 +1469,9 @@ Implemented:
 - append/copy/fill/clear
 - strings
 - putchar/putscreen/putcolor
+- safe clipping for direct screen writes
+- putstr/putstrcolor
+- gotoxy
 - cls/border/background/textcolor
 - string escape sequences including C64 newline/carriage return
 - character literals
@@ -1333,7 +1499,7 @@ Not implemented yet:
 - constant expressions
 - typed constants
 - local constants
-- positioned string output helpers such as `putstr()`
+- dynamic `char[]` arguments for `putstr()` and `putstrcolor()`
 
 ---
 
