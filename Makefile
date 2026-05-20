@@ -10,17 +10,13 @@ SRC     := examples/$(EXAMPLE).ped
 ASM_OUT := build/$(EXAMPLE).asm
 PRG_OUT := build/$(EXAMPLE).prg
 
-.PHONY: help check check-run build run example hello clean test examples
+.PHONY: help all check check-run build run example hello clean test examples
 
 # default target
-all: help
-
-test: check
-	go test ./...
-
 help:
 	@echo "Available targets:"
 	@echo ""
+	@echo "  make all                           - run tests and build peddlec compiler"
 	@echo "  make build                         - build peddlec compiler"
 	@echo "  make run EXAMPLE=hello             - compile examples/hello.ped, assemble PRG, run in VICE"
 	@echo "  make run EXAMPLE=hello OPT=size    - same, but compile with --opt=size"
@@ -37,6 +33,11 @@ help:
 	@echo "Toolchain:"
 	@echo "  macOS: brew install go 64tass vice"
 	@echo "  Linux: sudo apt install golang 64tass vice"
+
+all: test build
+
+test: check
+	go test ./...
 
 check:
 	@command -v go >/dev/null 2>&1 || { \
@@ -68,7 +69,7 @@ build: check
 	@echo "wrote $(PEDDLEC_BIN)"
 
 examples:
-	@find examples -name '*.ped' -maxdepth 1 -type f | sed 's|examples/||; s|\.ped$$||' | sort
+	@find examples -maxdepth 1 -type f -name '*.ped' | sed 's|examples/||; s|\.ped$$||' | sort
 
 example: check-run build
 	@if [ ! -f "$(SRC)" ]; then \

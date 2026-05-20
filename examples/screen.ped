@@ -1,0 +1,23 @@
+fn main() {
+    cls()
+
+    border(6)
+    background(0)
+    textcolor(1)
+
+    putchar(0, 0, 80)
+    putchar(1, 0, 69)
+    putchar(2, 0, 68)
+    putchar(3, 0, 68)
+    putchar(4, 0, 76)
+    putchar(5, 0, 69)
+
+    putcolor(0, 0, 2)
+    putcolor(1, 0, 3)
+    putcolor(2, 0, 4)
+    putcolor(3, 0, 5)
+    putcolor(4, 0, 6)
+    putcolor(5, 0, 7)
+
+    print(" SCREEN OK")
+}

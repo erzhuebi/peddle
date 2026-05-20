@@ -5,9 +5,9 @@ import "testing"
 func TestCodegenMixedByteIntExpressions(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var b: byte
-    var i: int
-    var x: int
+    var b byte
+    var i int
+    var x int
 
     b = 10
     i = 1000
@@ -29,11 +29,11 @@ fn main() {
 func TestCodegenNestedExpressionRightSide(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var a: int
-    var b: int
-    var c: int
-    var d: int
-    var x: int
+    var a int
+    var b int
+    var c int
+    var d int
+    var x int
 
     a = 10
     b = 2
@@ -54,10 +54,10 @@ fn main() {
 func TestCodegenNestedExpressionChain(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var a: int
-    var b: int
-    var c: int
-    var x: int
+    var a int
+    var b int
+    var c int
+    var x int
 
     a = 1
     b = 2
@@ -76,7 +76,7 @@ fn main() {
 func TestCodegenBooleanConditionDirect(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var done: bool
+    var done bool
 
     done = 1
 
@@ -96,7 +96,7 @@ fn main() {
 func TestCodegenIntConditionDirect(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var x: int
+    var x int
 
     x = 1
 
@@ -116,9 +116,9 @@ fn main() {
 func TestCodegenArrayIndexExpression(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var a: byte[8]
-    var i: byte
-    var x: byte
+    var a byte[8]
+    var i byte
+    var x byte
 
     i = 2
     a[i + 1] = 7
@@ -136,7 +136,7 @@ fn main() {
 
 func TestCodegenMultipleReturns(t *testing.T) {
 	asm := compileSource(t, `
-fn choose(x: int) -> int {
+fn choose(x int) int {
     if x {
         return 1
     }
@@ -145,7 +145,7 @@ fn choose(x: int) -> int {
 }
 
 fn main() {
-    var y: int
+    var y int
     y = choose(1)
 }
 `)

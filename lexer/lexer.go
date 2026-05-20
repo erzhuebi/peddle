@@ -160,6 +160,15 @@ func (l *Lexer) NextToken() Token {
 			Column:  column,
 		}
 
+	case '\'':
+		lit := l.readCharLiteral()
+		return Token{
+			Type:    CHAR,
+			Literal: lit,
+			Line:    line,
+			Column:  column,
+		}
+
 	case 0:
 		tok = l.newToken(EOF, "", line, column)
 
@@ -353,6 +362,44 @@ func (l *Lexer) readString() string {
 	}
 
 	return out.String()
+}
+
+func (l *Lexer) readCharLiteral() string {
+	var value byte
+
+	l.readChar()
+
+	if l.ch == '\\' {
+		l.readChar()
+
+		switch l.ch {
+		case 'n':
+			value = '\n'
+		case '\'':
+			value = '\''
+		case '"':
+			value = '"'
+		case '\\':
+			value = '\\'
+		case '0':
+			value = 0
+		default:
+			value = l.ch
+		}
+
+		if l.ch != 0 {
+			l.readChar()
+		}
+	} else if l.ch != 0 {
+		value = l.ch
+		l.readChar()
+	}
+
+	if l.ch == '\'' {
+		l.readChar()
+	}
+
+	return strconv.Itoa(int(value))
 }
 
 func isLetter(ch byte) bool {

@@ -5,14 +5,14 @@ import "testing"
 func TestCodegenNonArrayStructFieldReadWrite(t *testing.T) {
 	asm := compileSource(t, `
 struct Player {
-    id: byte
-    hp: int
+    id byte
+    hp int
 }
 
 fn main() {
-    var p: Player
-    var id: byte
-    var hp: int
+    var p Player
+    var id byte
+    var hp int
 
     p.id = 7
     p.hp = 120
@@ -39,13 +39,13 @@ fn main() {
 func TestCodegenStructArrayFieldInsideNonArrayStruct(t *testing.T) {
 	asm := compileSource(t, `
 struct Message {
-    text: char[16]
-    count: int
+    text char[16]
+    count int
 }
 
 fn main() {
-    var msg: Message
-    var n: int
+    var msg Message
+    var n int
 
     copy(msg.text, "HELLO")
     append(msg.text, "!")
@@ -83,13 +83,13 @@ fn main() {
 func TestCodegenStructArrayFieldAccessAssembles(t *testing.T) {
 	asm := compileSource(t, `
 struct Player {
-    id: byte
-    name: char[16]
-    hp: int
+    id byte
+    name char[16]
+    hp int
 }
 
 fn main() {
-    var p: Player
+    var p Player
 
     p.id = 1
     copy(p.name, "ADA")

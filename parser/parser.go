@@ -571,6 +571,9 @@ func (p *Parser) parseExpression(precedence int) ast.Expr {
 	case lexer.NUMBER:
 		left = &ast.NumberExpr{Value: p.cur.Literal}
 
+	case lexer.CHAR:
+		left = &ast.CharExpr{Value: p.cur.Literal}
+
 	case lexer.STRING:
 		left = &ast.StringExpr{Value: p.cur.Literal}
 

@@ -24,11 +24,11 @@ func checkSource(t *testing.T, src string) error {
 func TestSemaAllowsCoreFeatures(t *testing.T) {
 	src := `
 fn main() {
-    var b: byte
-    var i: int
-    var done: bool
-    var a: int[4]
-    var s: char[6]
+    var b byte
+    var i int
+    var done bool
+    var a int[4]
+    var s char[6]
 
     b = 42
     i = b
@@ -66,7 +66,7 @@ fn main() {
 func TestSemaRejectsStringToByte(t *testing.T) {
 	src := `
 fn main() {
-    var b: byte
+    var b byte
     b = "HELLO"
 }
 `
@@ -78,12 +78,12 @@ fn main() {
 
 func TestSemaUserFunctionCall(t *testing.T) {
 	src := `
-fn add(a: int, b: int) -> int {
+fn add(a int, b int) int {
     return a + b
 }
 
 fn main() {
-    var x: int
+    var x int
     x = add(1, 2)
 }
 `
@@ -95,12 +95,12 @@ fn main() {
 
 func TestSemaRejectsWrongArgCount(t *testing.T) {
 	src := `
-fn add(a: int, b: int) -> int {
+fn add(a int, b int) int {
     return a + b
 }
 
 fn main() {
-    var x: int
+    var x int
     x = add(1)
 }
 `
@@ -112,12 +112,12 @@ fn main() {
 
 func TestSemaRejectsWrongArgType(t *testing.T) {
 	src := `
-fn takesByteArray(a: byte[4]) {
+fn takesByteArray(a byte[4]) {
     return
 }
 
 fn main() {
-    var x: int
+    var x int
     takesByteArray(x)
 }
 `
@@ -130,7 +130,7 @@ fn main() {
 func TestSemaRejectsNonArrayIndex(t *testing.T) {
 	src := `
 fn main() {
-    var x: int
+    var x int
     x[0] = 1
 }
 `
@@ -142,7 +142,7 @@ fn main() {
 
 func TestSemaRejectsInvalidReturnValue(t *testing.T) {
 	src := `
-fn f() -> int {
+fn f() int {
     return "NO"
 }
 
@@ -158,8 +158,8 @@ fn main() {
 func TestSemaStage1Operators(t *testing.T) {
 	input := `
 fn main() {
-    var a, b: byte
-    var x, y: int
+    var a, b byte
+    var x, y int
 
     a = 3 * 4
     a = a & 15
@@ -190,8 +190,8 @@ fn main() {
 func TestSemaStage2ShiftOperators(t *testing.T) {
 	input := `
 fn main() {
-    var a, b, s: byte
-    var x, y, n: int
+    var a, b, s byte
+    var x, y, n int
 
     a = 1 << 3
     b = 128 >> 2
@@ -222,8 +222,8 @@ fn main() {
 func TestSemaStage3DivisionModuloOperators(t *testing.T) {
 	input := `
 fn main() {
-    var a, b: byte
-    var x, y: int
+    var a, b byte
+    var x, y int
 
     a = 100 / 5
     b = 100 % 7
@@ -258,8 +258,8 @@ const MASK = %1111_0000
 const BIG = 1_000
 
 fn main() {
-    var b: byte
-    var x: int
+    var b byte
+    var x int
 
     b = MASK
     x = BIG + 24

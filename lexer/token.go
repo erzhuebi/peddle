@@ -16,6 +16,7 @@ const (
 	IDENT  = "IDENT"
 	NUMBER = "NUMBER"
 	STRING = "STRING"
+	CHAR   = "CHAR"
 
 	CONST  = "CONST"
 	FN     = "FN"

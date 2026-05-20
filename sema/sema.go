@@ -129,6 +129,9 @@ func (c *Checker) checkExpr(scope map[string]ast.Type, e ast.Expr) (ast.Type, er
 	case *ast.NumberExpr:
 		return ast.Type{Name: "int"}, nil
 
+	case *ast.CharExpr:
+		return ast.Type{Name: "char"}, nil
+
 	case *ast.StringExpr:
 		return ast.Type{Name: "char", IsArray: true, ArrayLen: len(expr.Value)}, nil
 
@@ -441,6 +444,46 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 			return ast.Type{}, fmt.Errorf("peek argument must be numeric")
 		}
 		return ast.Type{Name: "byte"}, nil
+
+	case "cls":
+		if len(args) != 0 {
+			return ast.Type{}, fmt.Errorf("cls expects no arguments")
+		}
+		return ast.Type{}, nil
+
+	case "border", "background", "textcolor":
+		if len(args) != 1 {
+			return ast.Type{}, fmt.Errorf("%s expects one argument", name)
+		}
+
+		t, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+
+		if !isNumeric(t) {
+			return ast.Type{}, fmt.Errorf("%s argument must be numeric", name)
+		}
+
+		return ast.Type{}, nil
+
+	case "putscreen", "putchar", "putcolor":
+		if len(args) != 3 {
+			return ast.Type{}, fmt.Errorf("%s expects three arguments", name)
+		}
+
+		for _, arg := range args {
+			t, err := c.checkExpr(scope, arg)
+			if err != nil {
+				return ast.Type{}, err
+			}
+
+			if !isNumeric(t) {
+				return ast.Type{}, fmt.Errorf("%s arguments must be numeric", name)
+			}
+		}
+
+		return ast.Type{}, nil
 
 	case "len", "size":
 		if len(args) != 1 {

@@ -34,6 +34,27 @@ func (g *Generator) genCall(name string, args []ast.Expr) (ast.Type, error) {
 
 	case "clear":
 		return g.genClear(args)
+
+	case "cls":
+		return g.genCls(args)
+
+	case "border":
+		return g.genBorder(args)
+
+	case "background":
+		return g.genBackground(args)
+
+	case "textcolor":
+		return g.genTextColor(args)
+
+	case "putscreen":
+		return g.genPutScreen(args)
+
+	case "putchar":
+		return g.genPutChar(args)
+
+	case "putcolor":
+		return g.genPutColor(args)
 	}
 
 	fn, ok := g.functions[name]

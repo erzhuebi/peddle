@@ -67,7 +67,7 @@ fn main() {
 func TestCodegenPeekPoke(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var b: byte
+    var b byte
     b = peek(53280)
     poke(53281, b)
 }
@@ -82,9 +82,9 @@ fn main() {
 func TestCodegenIntArithmetic(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var a: int
-    var b: int
-    var c: int
+    var a int
+    var b int
+    var c int
 
     a = 1000
     b = 2000
@@ -103,8 +103,8 @@ fn main() {
 func TestCodegenSignedIntComparison(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var a: int
-    var b: int
+    var a int
+    var b int
 
     a = -1
     b = 1
@@ -125,8 +125,8 @@ fn main() {
 func TestCodegenIntArrayReadWrite(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var a: int[4]
-    var x: int
+    var a int[4]
+    var x int
 
     a[0] = 1234
     x = a[0]
@@ -144,7 +144,7 @@ fn main() {
 func TestCodegenStringAssignment(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var s: char[6]
+    var s char[6]
 
     s = "HELLO"
     print(s)
@@ -164,8 +164,8 @@ fn main() {
 func TestCodegenUnaryOperators(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var x: int
-    var b: bool
+    var x int
+    var b bool
 
     x = -1
     b = !b
@@ -182,12 +182,12 @@ fn main() {
 
 func TestCodegenUserFunctionCallAndReturn(t *testing.T) {
 	asm := compileSource(t, `
-fn add(a: int, b: int) -> int {
+fn add(a int, b int) int {
     return a + b
 }
 
 fn main() {
-    var x: int
+    var x int
 
     x = add(1, 2)
 }
@@ -205,8 +205,8 @@ fn main() {
 func TestCodegenIfElse(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var a: int
-    var b: int
+    var a int
+    var b int
 
     a = 1
     b = 2
@@ -229,7 +229,7 @@ fn main() {
 func TestCodegenWhileLoop(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var i: byte
+    var i byte
 
     i = 0
 
@@ -249,8 +249,8 @@ fn main() {
 func TestCodegenByteIntConversions(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var b: byte
-    var i: int
+    var b byte
+    var i int
 
     b = 10
     i = b
@@ -268,9 +268,9 @@ fn main() {
 func TestCodegenArrayIndexVariable(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var a: byte[4]
-    var i: byte
-    var x: byte
+    var a byte[4]
+    var i byte
+    var x byte
 
     i = 2
     a[i] = 7
@@ -289,9 +289,9 @@ fn main() {
 func TestCodegenNestedExpressionSimple(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var a: int
-    var b: int
-    var c: int
+    var a int
+    var b int
+    var c int
 
     a = 1
     b = 2
@@ -308,8 +308,8 @@ fn main() {
 func TestCodegenArraySizeReturnsCapacity(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var a: int[10]
-    var n: int
+    var a int[10]
+    var n int
 
     n = size(a)
 }
@@ -329,8 +329,8 @@ fn main() {
 func TestCodegenArrayLenReadsRuntimeLength(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var a: byte[10]
-    var n: int
+    var a byte[10]
+    var n int
 
     n = len(a)
 }
@@ -351,8 +351,8 @@ fn main() {
 func TestCodegenArrayIndexWriteUpdatesLength(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var a: byte[10]
-    var n: int
+    var a byte[10]
+    var n int
 
     a[5] = 1
     n = len(a)
@@ -375,7 +375,7 @@ fn main() {
 func TestCodegenAppendByteArray(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var a: byte[10]
+    var a byte[10]
 
     append(a, 1)
 }
@@ -395,7 +395,7 @@ fn main() {
 func TestCodegenAppendIntArray(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var a: int[10]
+    var a int[10]
 
     append(a, 1000)
 }
@@ -417,8 +417,8 @@ fn main() {
 func TestCodegenCopyByteArray(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var x: byte[10]
-    var y: byte[10]
+    var x byte[10]
+    var y byte[10]
 
     append(x, 1)
     append(x, 2)
@@ -442,7 +442,7 @@ fn main() {
 func TestCodegenFillByteArray(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var a: byte[10]
+    var a byte[10]
 
     fill(a, 1)
 }
@@ -463,7 +463,7 @@ fn main() {
 func TestCodegenFillIntArray(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var a: int[10]
+    var a int[10]
 
     fill(a, 1)
 }
@@ -484,7 +484,7 @@ fn main() {
 func TestCodegenCopyStringLiteral(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var s: char[10]
+    var s char[10]
 
     copy(s, "ABC")
     print(s)
@@ -504,7 +504,7 @@ fn main() {
 func TestCodegenClearArray(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var a: byte[10]
+    var a byte[10]
 
     append(a, 1)
     clear(a)
@@ -526,7 +526,7 @@ fn main() {
 func TestCodegenAppendStringLiteral(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var s: char[10]
+    var s char[10]
 
     copy(s, "ABC")
     append(s, "D")
@@ -546,7 +546,7 @@ fn main() {
 func TestCodegenDoesNotEmitUnusedPrintRuntime(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var x: byte
+    var x byte
 
     x = 1
 }
@@ -563,9 +563,9 @@ fn main() {
 func TestCodegenNonPrintBuiltinsDoNotEmitPrintRuntime(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var a: byte[10]
-    var n: int
-    var b: byte
+    var a byte[10]
+    var n int
+    var b byte
 
     append(a, 1)
     clear(a)
@@ -608,9 +608,9 @@ fn main() {
 func TestCodegenOptSpeedDoesNotEmitSizeRuntimeHelpers(t *testing.T) {
 	asm := compileSourceWithOptions(t, `
 fn main() {
-    var a: byte[10]
-    var b: byte[10]
-    var s: char[10]
+    var a byte[10]
+    var b byte[10]
+    var s char[10]
 
     append(a, 1)
     fill(a, 2)
@@ -639,9 +639,9 @@ fn main() {
 func TestCodegenOptSizeEmitsRuntimeHelpersForLargeBuiltins(t *testing.T) {
 	asm := compileSourceWithOptions(t, `
 fn main() {
-    var a: byte[10]
-    var b: byte[10]
-    var s: char[10]
+    var a byte[10]
+    var b byte[10]
+    var s char[10]
 
     append(a, 1)
     fill(a, 2)
@@ -668,8 +668,8 @@ fn main() {
 func TestCodegenStage1OperatorsSpeedMode(t *testing.T) {
 	input := `
 fn main() {
-    var a, b: byte
-    var x, y: int
+    var a, b byte
+    var x, y int
 
     a = 3 * 4
     b = a & 15
@@ -705,8 +705,8 @@ fn main() {
 func TestCodegenStage1OperatorsSizeModeUsesMulRuntime(t *testing.T) {
 	input := `
 fn main() {
-    var a: byte
-    var x: int
+    var a byte
+    var x int
 
     a = 3 * 4
     x = 300 * 4
@@ -730,8 +730,8 @@ fn main() {
 func TestCodegenStage1BitwiseOperatorsRemainInlineInSizeMode(t *testing.T) {
 	input := `
 fn main() {
-    var a, b: byte
-    var x, y: int
+    var a, b byte
+    var x, y int
 
     b = a & 15
     b = b | 64
@@ -766,8 +766,8 @@ fn main() {
 func TestCodegenStage2ConstantShiftsAreInlineInSpeedMode(t *testing.T) {
 	input := `
 fn main() {
-    var a, b: byte
-    var x, y: int
+    var a, b byte
+    var x, y int
 
     a = 1 << 3
     b = 128 >> 2
@@ -804,8 +804,8 @@ fn main() {
 func TestCodegenStage2ConstantShiftsAreInlineInSizeMode(t *testing.T) {
 	input := `
 fn main() {
-    var a, b: byte
-    var x, y: int
+    var a, b byte
+    var x, y int
 
     a = 1 << 3
     b = 128 >> 2
@@ -846,8 +846,8 @@ fn main() {
 func TestCodegenStage2VariableShiftsInlineInSpeedMode(t *testing.T) {
 	input := `
 fn main() {
-    var a, b, s: byte
-    var x, y, n: int
+    var a, b, s byte
+    var x, y, n int
 
     a = 8
     s = 1
@@ -889,8 +889,8 @@ fn main() {
 func TestCodegenStage2VariableShiftsUseRuntimeInSizeMode(t *testing.T) {
 	input := `
 fn main() {
-    var a, b, s: byte
-    var x, y, n: int
+    var a, b, s byte
+    var x, y, n int
 
     a = 8
     s = 1
@@ -926,10 +926,10 @@ fn main() {
 func TestCodegenStage3DivisionAndModuloSpeedMode(t *testing.T) {
 	input := `
 fn main() {
-    var a: byte
-    var b: byte
-    var x: int
-    var y: int
+    var a byte
+    var b byte
+    var x int
+    var y int
 
     a = 100 / 5
     b = 100 % 7
@@ -966,10 +966,10 @@ fn main() {
 func TestCodegenStage3DivisionAndModuloSizeMode(t *testing.T) {
 	input := `
 fn main() {
-    var a: byte
-    var b: byte
-    var x: int
-    var y: int
+    var a byte
+    var b byte
+    var x int
+    var y int
 
     a = 100 / 5
     b = 100 % 7
@@ -997,8 +997,8 @@ fn main() {
 func TestCodegenStage3ModuloUsesRemainderRegister(t *testing.T) {
 	input := `
 fn main() {
-    var a: byte
-    var x: int
+    var a byte
+    var x int
 
     a = 13 % 5
     x = 1000 % 256
@@ -1021,8 +1021,8 @@ fn main() {
 func TestCodegenStage3DivisionByZeroSpeedModeIsInline(t *testing.T) {
 	input := `
 fn main() {
-    var a: byte
-    var x: int
+    var a byte
+    var x int
 
     a = 10 / 0
     x = 100 / 0
@@ -1054,8 +1054,8 @@ fn main() {
 func TestCodegenStage3DivisionByZeroSizeModeRuntimeExists(t *testing.T) {
 	input := `
 fn main() {
-    var a: byte
-    var x: int
+    var a byte
+    var x int
 
     a = 10 / 0
     x = 100 / 0
@@ -1087,8 +1087,8 @@ const MASK = %1111_0000
 const BIG = 1_000
 
 fn main() {
-    var b: byte
-    var x: int
+    var b byte
+    var x int
 
     b = MASK
     x = BIG
@@ -1122,8 +1122,8 @@ const B = %0000_1111
 const C = 0xff
 
 fn main() {
-    var x: int
-    var b: byte
+    var x int
+    var b byte
 
     x = A * 10 + B
     b = C & B

@@ -5,13 +5,13 @@ import "testing"
 func TestCodegenStructFieldByteReadWrite(t *testing.T) {
 	asm := compileSource(t, `
 struct Player {
-    x: byte
-    y: byte
+    x byte
+    y byte
 }
 
 fn main() {
-    var p: Player
-    var x: byte
+    var p Player
+    var x byte
 
     p.x = 10
     p.y = 20
@@ -32,13 +32,13 @@ fn main() {
 func TestCodegenStructFieldIntReadWrite(t *testing.T) {
 	asm := compileSource(t, `
 struct Player {
-    x: byte
-    hp: int
+    x byte
+    hp int
 }
 
 fn main() {
-    var p: Player
-    var hp: int
+    var p Player
+    var hp int
 
     p.x = 10
     p.hp = 1000
@@ -63,12 +63,12 @@ fn main() {
 func TestCodegenStructFieldUsedInExpression(t *testing.T) {
 	asm := compileSource(t, `
 struct Player {
-    hp: int
+    hp int
 }
 
 fn main() {
-    var p: Player
-    var x: int
+    var p Player
+    var x int
 
     p.hp = 100
     x = p.hp + 23
@@ -89,15 +89,15 @@ fn main() {
 func TestCodegenStructArrayFieldByteReadWrite(t *testing.T) {
 	asm := compileSource(t, `
 struct Player {
-    x: byte
-    y: byte
-    hp: int
+    x byte
+    y byte
+    hp int
 }
 
 fn main() {
-    var players: Player[10]
-    var i: byte
-    var x: byte
+    var players Player[10]
+    var i byte
+    var x byte
 
     i = 3
     players[i].x = 42
@@ -125,14 +125,14 @@ fn main() {
 func TestCodegenStructArrayFieldIntWithOffsetReadWrite(t *testing.T) {
 	asm := compileSource(t, `
 struct Player {
-    x: byte
-    hp: int
+    x byte
+    hp int
 }
 
 fn main() {
-    var players: Player[10]
-    var i: byte
-    var hp: int
+    var players Player[10]
+    var i byte
+    var hp int
 
     i = 2
     players[i].hp = 1000
@@ -161,11 +161,11 @@ fn main() {
 func TestCodegenStructCharArrayFieldStringAssignment(t *testing.T) {
 	asm := compileSource(t, `
 struct Player {
-    name: char[16]
+    name char[16]
 }
 
 fn main() {
-    var p: Player
+    var p Player
 
     p.name = "player00"
 }
@@ -188,14 +188,14 @@ fn main() {
 func TestCodegenStructArrayCharArrayFieldStringAssignment(t *testing.T) {
 	asm := compileSource(t, `
 struct Player {
-    id: byte
-    name: char[16]
-    hp: int
+    id byte
+    name char[16]
+    hp int
 }
 
 fn main() {
-    var players: Player[100]
-    var i: byte
+    var players Player[100]
+    var i byte
 
     i = 7
     players[i].name = "player07"

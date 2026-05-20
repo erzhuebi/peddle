@@ -161,6 +161,12 @@ type NumberExpr struct {
 
 func (*NumberExpr) exprNode() {}
 
+type CharExpr struct {
+	Value string
+}
+
+func (*CharExpr) exprNode() {}
+
 type StringExpr struct {
 	Value string
 }

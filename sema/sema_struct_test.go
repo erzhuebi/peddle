@@ -5,13 +5,13 @@ import "testing"
 func TestSemaAllowsStructFieldAccess(t *testing.T) {
 	src := `
 struct Player {
-    x: byte
-    hp: int
+    x byte
+    hp int
 }
 
 fn main() {
-    var p: Player
-    var hp: int
+    var p Player
+    var hp int
 
     p.x = 10
     p.hp = 100
@@ -27,11 +27,11 @@ fn main() {
 func TestSemaRejectsUnknownStructField(t *testing.T) {
 	src := `
 struct Player {
-    x: byte
+    x byte
 }
 
 fn main() {
-    var p: Player
+    var p Player
 
     p.y = 10
 }
@@ -45,7 +45,7 @@ fn main() {
 func TestSemaRejectsFieldAccessOnNonStruct(t *testing.T) {
 	src := `
 fn main() {
-    var x: int
+    var x int
 
     x.y = 10
 }

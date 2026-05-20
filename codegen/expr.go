@@ -27,6 +27,24 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 		g.emit(fmt.Sprintf("    lda #%d", n&0xff))
 		return nil
 
+	case *ast.CharExpr:
+		n, err := strconv.Atoi(expr.Value)
+		if err != nil {
+			return err
+		}
+
+		if target.Name == "int" {
+			g.emit(fmt.Sprintf("    lda #<%d", n))
+			g.emit("    sta ZP_TMP0")
+			g.emit(fmt.Sprintf("    lda #>%d", n))
+			g.emit("    sta ZP_TMP1")
+			g.usedTmp16 = true
+			return nil
+		}
+
+		g.emit(fmt.Sprintf("    lda #%d", n&0xff))
+		return nil
+
 	case *ast.IdentExpr:
 		if n, ok := g.constants[expr.Name]; ok {
 			if target.Name == "int" {

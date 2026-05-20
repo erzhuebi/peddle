@@ -5,9 +5,9 @@ import "testing"
 func TestSemaAllowsMixedNumericExpressions(t *testing.T) {
 	src := `
 fn main() {
-    var b: byte
-    var i: int
-    var x: int
+    var b byte
+    var i int
+    var x int
 
     b = 10
     i = 1000
@@ -24,7 +24,7 @@ fn main() {
 func TestSemaAllowsDirectBoolCondition(t *testing.T) {
 	src := `
 fn main() {
-    var done: bool
+    var done bool
 
     done = 1
 
@@ -42,7 +42,7 @@ fn main() {
 func TestSemaAllowsDirectIntCondition(t *testing.T) {
 	src := `
 fn main() {
-    var x: int
+    var x int
 
     x = 1
 
@@ -60,7 +60,7 @@ fn main() {
 func TestSemaRejectsBinaryStringMath(t *testing.T) {
 	src := `
 fn main() {
-    var x: int
+    var x int
     x = "A" + 1
 }
 `
@@ -73,7 +73,7 @@ fn main() {
 func TestSemaRejectsUnaryMinusString(t *testing.T) {
 	src := `
 fn main() {
-    var x: int
+    var x int
     x = -"A"
 }
 `
@@ -86,7 +86,7 @@ fn main() {
 func TestSemaRejectsUnaryBangString(t *testing.T) {
 	src := `
 fn main() {
-    var b: bool
+    var b bool
     b = !"A"
 }
 `
@@ -99,8 +99,8 @@ fn main() {
 func TestSemaRejectsInvalidArrayIndexType(t *testing.T) {
 	src := `
 fn main() {
-    var a: byte[4]
-    var s: char[4]
+    var a byte[4]
+    var s char[4]
 
     s = "HEY"
     a[s] = 1
@@ -114,7 +114,7 @@ fn main() {
 
 func TestSemaAllowsMultipleReturns(t *testing.T) {
 	src := `
-fn choose(x: int) -> int {
+fn choose(x int) int {
     if x {
         return 1
     }

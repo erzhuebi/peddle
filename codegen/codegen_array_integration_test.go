@@ -73,8 +73,8 @@ func requireASMAssemblesWith64tass(t *testing.T, asm string) {
 func TestCodegenArrayIndexWriteDoesNotEmitBrokenLabels(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var a: byte[10]
-    var i: byte
+    var a byte[10]
+    var i byte
 
     i = 5
     a[i] = 1
@@ -92,14 +92,14 @@ fn main() {
 func TestCodegenStructArrayFieldAssignmentPreservesValueAcrossIndexCalculation(t *testing.T) {
 	asm := compileSource(t, `
 struct Player {
-    id: byte
-    name: char[16]
-    hp: int
+    id byte
+    name char[16]
+    hp int
 }
 
 fn main() {
-    var players: Player[4]
-    var i: byte
+    var players Player[4]
+    var i byte
 
     i = 1
     players[i].hp = 120
@@ -126,20 +126,20 @@ fn main() {
 func TestCodegenArraysDemoAssembles(t *testing.T) {
 	asm := compileSource(t, `
 struct Player {
-    id: byte
-    name: char[16]
-    hp: int
+    id byte
+    name char[16]
+    hp int
 }
 
 fn main() {
-    var nums: int[10]
-    var copyNums: int[10]
+    var nums int[10]
+    var copyNums int[10]
 
-    var players: Player[4]
-    var i: byte
-    var n: int
+    var players Player[4]
+    var i byte
+    var n int
 
-    var title: char[32]
+    var title char[32]
 
     print("PEDDLE ARRAY DEMO ")
 
@@ -248,7 +248,7 @@ fn main() {
 func TestCodegenEmptyStringLiteralLengthIsZero(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
-    var s: char[10]
+    var s char[10]
 
     copy(s, "")
     append(s, "")
@@ -278,15 +278,15 @@ fn main() {
 func TestCodegenClearArraysAssembles(t *testing.T) {
 	asm := compileSource(t, `
 struct Player {
-    id: byte
-    name: char[16]
-    hp: int
+    id byte
+    name char[16]
+    hp int
 }
 
 fn main() {
-    var nums: int[10]
-    var title: char[16]
-    var players: Player[4]
+    var nums int[10]
+    var title char[16]
+    var players Player[4]
 
     append(nums, 1)
     clear(nums)
@@ -310,11 +310,11 @@ fn main() {
 func TestCodegenOptSizeArrayHelpersAssemble(t *testing.T) {
 	asm := compileSourceWithOptions(t, `
 fn main() {
-    var a: byte[10]
-    var b: byte[10]
-    var i: int[10]
-    var j: int[10]
-    var s: char[16]
+    var a byte[10]
+    var b byte[10]
+    var i int[10]
+    var j int[10]
+    var s char[16]
 
     append(a, 1)
     fill(a, 2)

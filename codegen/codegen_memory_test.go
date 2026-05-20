@@ -32,9 +32,9 @@ func generateProgramWithOptions(t *testing.T, src string, options Options) (*Gen
 func TestCodegenMemoryReportTracksStaticDataBytes(t *testing.T) {
 	g, _, err := generateProgramWithOptions(t, `
 fn main() {
-    var a: byte[10]
-    var b: int[4]
-    var s: char[16]
+    var a byte[10]
+    var b int[4]
+    var s char[16]
 }
 `, Options{OptMode: OptModeSpeed})
 
@@ -56,14 +56,14 @@ fn main() {
 func TestCodegenMemoryReportTracksStructStaticDataBytes(t *testing.T) {
 	g, _, err := generateProgramWithOptions(t, `
 struct Player {
-    id: byte
-    name: char[16]
-    hp: int
+    id byte
+    name char[16]
+    hp int
 }
 
 fn main() {
-    var p: Player
-    var players: Player[2]
+    var p Player
+    var players Player[2]
 }
 `, Options{OptMode: OptModeSpeed})
 
@@ -85,7 +85,7 @@ fn main() {
 func TestCodegenMemoryLimitAllowsProgramWithinLimit(t *testing.T) {
 	_, asm, err := generateProgramWithOptions(t, `
 fn main() {
-    var a: byte[10]
+    var a byte[10]
 }
 `, Options{
 		OptMode:           OptModeSpeed,
@@ -104,7 +104,7 @@ fn main() {
 func TestCodegenMemoryLimitRejectsProgramOverLimit(t *testing.T) {
 	_, _, err := generateProgramWithOptions(t, `
 fn main() {
-    var a: byte[10]
+    var a byte[10]
 }
 `, Options{
 		OptMode:           OptModeSpeed,

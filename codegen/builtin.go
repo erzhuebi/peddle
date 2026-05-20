@@ -144,6 +144,154 @@ func (g *Generator) genPeek(args []ast.Expr) (ast.Type, error) {
 	return ast.Type{Name: "byte"}, nil
 }
 
+func (g *Generator) genCls(args []ast.Expr) (ast.Type, error) {
+	if len(args) != 0 {
+		return ast.Type{}, fmt.Errorf("cls expects no arguments")
+	}
+
+	loopFull := g.newLabel()
+	loopLast := g.newLabel()
+	done := g.newLabel()
+
+	g.emit("    lda #$20")
+	g.emit("    ldx #0")
+	g.emit(loopFull + ":")
+	g.emit("    sta $0400, x")
+	g.emit("    sta $0500, x")
+	g.emit("    sta $0600, x")
+	g.emit("    inx")
+	g.emit(fmt.Sprintf("    bne %s", loopFull))
+
+	g.emit("    ldx #0")
+	g.emit(loopLast + ":")
+	g.emit("    cpx #232")
+	g.emit(fmt.Sprintf("    beq %s", done))
+	g.emit("    sta $0700, x")
+	g.emit("    inx")
+	g.emit(fmt.Sprintf("    jmp %s", loopLast))
+	g.emit(done + ":")
+
+	return ast.Type{}, nil
+}
+
+func (g *Generator) genBorder(args []ast.Expr) (ast.Type, error) {
+	return g.genStoreByteBuiltin("border", args, 0xd020)
+}
+
+func (g *Generator) genBackground(args []ast.Expr) (ast.Type, error) {
+	return g.genStoreByteBuiltin("background", args, 0xd021)
+}
+
+func (g *Generator) genTextColor(args []ast.Expr) (ast.Type, error) {
+	return g.genStoreByteBuiltin("textcolor", args, 0x0286)
+}
+
+func (g *Generator) genStoreByteBuiltin(name string, args []ast.Expr, addr int) (ast.Type, error) {
+	if len(args) != 1 {
+		return ast.Type{}, fmt.Errorf("%s expects one argument", name)
+	}
+
+	if err := g.genExprTo(args[0], ast.Type{Name: "byte"}); err != nil {
+		return ast.Type{}, err
+	}
+
+	g.emit(fmt.Sprintf("    sta $%04x", addr&0xffff))
+	return ast.Type{}, nil
+}
+
+func (g *Generator) genPutScreen(args []ast.Expr) (ast.Type, error) {
+	return g.genPutScreenByte("putscreen", args, 0x0400, false)
+}
+
+func (g *Generator) genPutChar(args []ast.Expr) (ast.Type, error) {
+	return g.genPutScreenByte("putchar", args, 0x0400, true)
+}
+
+func (g *Generator) genPutColor(args []ast.Expr) (ast.Type, error) {
+	return g.genPutScreenByte("putcolor", args, 0xd800, false)
+}
+
+func (g *Generator) genPutScreenByte(name string, args []ast.Expr, base int, convertChar bool) (ast.Type, error) {
+	if len(args) != 3 {
+		return ast.Type{}, fmt.Errorf("%s expects three arguments", name)
+	}
+
+	if err := g.genExprTo(args[0], ast.Type{Name: "byte"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    sta peddle_tmp_int0")
+
+	if err := g.genExprTo(args[1], ast.Type{Name: "byte"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    sta peddle_tmp_int0+1")
+
+	if err := g.genExprTo(args[2], ast.Type{Name: "byte"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    sta ZP_TMP0")
+
+	if convertChar {
+		g.genCharCodeToScreenCode()
+	}
+
+	addRow := g.newLabel()
+	rowDone := g.newLabel()
+
+	g.emit(fmt.Sprintf("    lda #<$%04x", base&0xffff))
+	g.emit("    sta ZP_PTR0_LO")
+	g.emit(fmt.Sprintf("    lda #>$%04x", base&0xffff))
+	g.emit("    sta ZP_PTR0_HI")
+
+	g.emit("    ldx peddle_tmp_int0+1")
+	g.emit(addRow + ":")
+	g.emit(fmt.Sprintf("    beq %s", rowDone))
+	g.emit("    lda ZP_PTR0_LO")
+	g.emit("    clc")
+	g.emit("    adc #40")
+	g.emit("    sta ZP_PTR0_LO")
+	g.emit("    lda ZP_PTR0_HI")
+	g.emit("    adc #0")
+	g.emit("    sta ZP_PTR0_HI")
+	g.emit("    dex")
+	g.emit(fmt.Sprintf("    jmp %s", addRow))
+
+	g.emit(rowDone + ":")
+	g.emit("    ldy peddle_tmp_int0")
+	g.emit("    lda ZP_TMP0")
+	g.emit("    sta (ZP_PTR0_LO), y")
+
+	g.usedTmp16 = true
+	return ast.Type{}, nil
+}
+
+func (g *Generator) genCharCodeToScreenCode() {
+	checkLower := g.newLabel()
+	done := g.newLabel()
+
+	g.emit("    lda ZP_TMP0")
+	g.emit("    cmp #65")
+	g.emit(fmt.Sprintf("    bcc %s", checkLower))
+	g.emit("    cmp #91")
+	g.emit(fmt.Sprintf("    bcs %s", checkLower))
+	g.emit("    sec")
+	g.emit("    sbc #64")
+	g.emit("    sta ZP_TMP0")
+	g.emit(fmt.Sprintf("    jmp %s", done))
+
+	g.emit(checkLower + ":")
+	g.emit("    lda ZP_TMP0")
+	g.emit("    cmp #97")
+	g.emit(fmt.Sprintf("    bcc %s", done))
+	g.emit("    cmp #123")
+	g.emit(fmt.Sprintf("    bcs %s", done))
+	g.emit("    sec")
+	g.emit("    sbc #96")
+	g.emit("    sta ZP_TMP0")
+
+	g.emit(done + ":")
+}
+
 func (g *Generator) genLen(args []ast.Expr) (ast.Type, error) {
 	if len(args) != 1 {
 		return ast.Type{}, fmt.Errorf("len expects one argument")
