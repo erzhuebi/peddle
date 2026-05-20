@@ -242,8 +242,17 @@ func (g *Generator) genPutScreenByte(name string, args []ast.Expr, base int, con
 		g.genCharCodeToScreenCode()
 	}
 
+	clip := g.newLabel()
 	addRow := g.newLabel()
 	rowDone := g.newLabel()
+
+	// Clip invalid coordinates.
+	g.emit("    lda peddle_tmp_int0")
+	g.emit("    cmp #40")
+	g.emit(fmt.Sprintf("    bcs %s", clip))
+	g.emit("    lda peddle_tmp_int0+1")
+	g.emit("    cmp #25")
+	g.emit(fmt.Sprintf("    bcs %s", clip))
 
 	g.emit(fmt.Sprintf("    lda #<$%04x", base&0xffff))
 	g.emit("    sta ZP_PTR0_LO")
@@ -267,6 +276,8 @@ func (g *Generator) genPutScreenByte(name string, args []ast.Expr, base int, con
 	g.emit("    ldy peddle_tmp_int0")
 	g.emit("    lda ZP_TMP0")
 	g.emit("    sta (ZP_PTR0_LO), y")
+
+	g.emit(clip + ":")
 
 	g.usedTmp16 = true
 	return ast.Type{}, nil
@@ -297,6 +308,194 @@ func (g *Generator) genCharCodeToScreenCode() {
 	g.emit("    sta ZP_TMP0")
 
 	g.emit(done + ":")
+}
+
+func (g *Generator) genPutStr(args []ast.Expr) (ast.Type, error) {
+	if len(args) != 3 {
+		return ast.Type{}, fmt.Errorf("putstr expects three arguments")
+	}
+
+	text, ok := args[2].(*ast.StringExpr)
+	if !ok {
+		return ast.Type{}, fmt.Errorf("putstr currently expects a string literal")
+	}
+
+	return g.genPutStringLiteral(args[0], args[1], text.Value, nil)
+}
+
+func (g *Generator) genPutStrColor(args []ast.Expr) (ast.Type, error) {
+	if len(args) != 4 {
+		return ast.Type{}, fmt.Errorf("putstrcolor expects four arguments")
+	}
+
+	text, ok := args[2].(*ast.StringExpr)
+	if !ok {
+		return ast.Type{}, fmt.Errorf("putstrcolor currently expects a string literal")
+	}
+
+	return g.genPutStringLiteral(args[0], args[1], text.Value, args[3])
+}
+
+func (g *Generator) genPutStringLiteral(xExpr ast.Expr, yExpr ast.Expr, value string, colorExpr ast.Expr) (ast.Type, error) {
+	if err := g.genExprTo(xExpr, ast.Type{Name: "byte"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    sta peddle_tmp_int0") // start x
+	g.emit("    sta ZP_TMP0")         // current x
+
+	if err := g.genExprTo(yExpr, ast.Type{Name: "byte"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    sta peddle_tmp_int0+1") // current y
+
+	if colorExpr != nil {
+		if err := g.genExprTo(colorExpr, ast.Type{Name: "byte"}); err != nil {
+			return ast.Type{}, err
+		}
+		g.emit("    sta ZP_TMP1") // color
+	}
+
+	done := g.newLabel()
+
+	// If starting coordinates are outside the screen, clip the whole string.
+	g.emit("    lda peddle_tmp_int0")
+	g.emit("    cmp #40")
+	g.emitJumpIfCarrySet(done)
+
+	g.emit("    lda peddle_tmp_int0+1")
+	g.emit("    cmp #25")
+	g.emitJumpIfCarrySet(done)
+
+	for i := 0; i < len(value); i++ {
+		ch := value[i]
+
+		if ch == 13 {
+			g.emit("    lda peddle_tmp_int0")
+			g.emit("    sta ZP_TMP0")
+			g.emit("    inc peddle_tmp_int0+1")
+			g.emit("    lda peddle_tmp_int0+1")
+			g.emit("    cmp #25")
+			g.emitJumpIfCarrySet(done)
+			continue
+		}
+
+		screenCode := peddleScreenCode(ch)
+
+		g.emitPutLiteralAtCurrentScreenPosition(done, 0x0400, screenCode)
+
+		if colorExpr != nil {
+			g.emitPutCurrentColorAtCurrentScreenPosition(done)
+		}
+
+		g.emitAdvanceCurrentScreenPosition(done)
+	}
+
+	g.emit(done + ":")
+
+	g.usedTmp16 = true
+	return ast.Type{}, nil
+}
+
+func (g *Generator) emitPutLiteralAtCurrentScreenPosition(done string, base int, value byte) {
+	addRow := g.newLabel()
+	rowDone := g.newLabel()
+
+	g.emit("    lda ZP_TMP0")
+	g.emit("    cmp #40")
+	g.emitJumpIfCarrySet(done)
+
+	g.emit("    lda peddle_tmp_int0+1")
+	g.emit("    cmp #25")
+	g.emitJumpIfCarrySet(done)
+
+	g.emit(fmt.Sprintf("    lda #<$%04x", base&0xffff))
+	g.emit("    sta ZP_PTR0_LO")
+	g.emit(fmt.Sprintf("    lda #>$%04x", base&0xffff))
+	g.emit("    sta ZP_PTR0_HI")
+
+	g.emit("    ldx peddle_tmp_int0+1")
+	g.emit(addRow + ":")
+	g.emit(fmt.Sprintf("    beq %s", rowDone))
+	g.emit("    lda ZP_PTR0_LO")
+	g.emit("    clc")
+	g.emit("    adc #40")
+	g.emit("    sta ZP_PTR0_LO")
+	g.emit("    lda ZP_PTR0_HI")
+	g.emit("    adc #0")
+	g.emit("    sta ZP_PTR0_HI")
+	g.emit("    dex")
+	g.emit(fmt.Sprintf("    jmp %s", addRow))
+
+	g.emit(rowDone + ":")
+	g.emit("    ldy ZP_TMP0")
+	g.emit(fmt.Sprintf("    lda #%d", int(value)))
+	g.emit("    sta (ZP_PTR0_LO), y")
+}
+
+func (g *Generator) emitPutCurrentColorAtCurrentScreenPosition(done string) {
+	addRow := g.newLabel()
+	rowDone := g.newLabel()
+
+	g.emit("    lda ZP_TMP0")
+	g.emit("    cmp #40")
+	g.emitJumpIfCarrySet(done)
+
+	g.emit("    lda peddle_tmp_int0+1")
+	g.emit("    cmp #25")
+	g.emitJumpIfCarrySet(done)
+
+	g.emit("    lda #<$d800")
+	g.emit("    sta ZP_PTR0_LO")
+	g.emit("    lda #>$d800")
+	g.emit("    sta ZP_PTR0_HI")
+
+	g.emit("    ldx peddle_tmp_int0+1")
+	g.emit(addRow + ":")
+	g.emit(fmt.Sprintf("    beq %s", rowDone))
+	g.emit("    lda ZP_PTR0_LO")
+	g.emit("    clc")
+	g.emit("    adc #40")
+	g.emit("    sta ZP_PTR0_LO")
+	g.emit("    lda ZP_PTR0_HI")
+	g.emit("    adc #0")
+	g.emit("    sta ZP_PTR0_HI")
+	g.emit("    dex")
+	g.emit(fmt.Sprintf("    jmp %s", addRow))
+
+	g.emit(rowDone + ":")
+	g.emit("    ldy ZP_TMP0")
+	g.emit("    lda ZP_TMP1")
+	g.emit("    sta (ZP_PTR0_LO), y")
+}
+
+func (g *Generator) emitAdvanceCurrentScreenPosition(done string) {
+	noWrap := g.newLabel()
+
+	g.emit("    inc ZP_TMP0")
+	g.emit("    lda ZP_TMP0")
+	g.emit("    cmp #40")
+	g.emit(fmt.Sprintf("    bcc %s", noWrap))
+
+	g.emit("    lda #0")
+	g.emit("    sta ZP_TMP0")
+	g.emit("    inc peddle_tmp_int0+1")
+	g.emit("    lda peddle_tmp_int0+1")
+	g.emit("    cmp #25")
+	g.emitJumpIfCarrySet(done)
+
+	g.emit(noWrap + ":")
+}
+
+func peddleScreenCode(ch byte) byte {
+	if ch >= 'A' && ch <= 'Z' {
+		return ch - 64
+	}
+
+	if ch >= 'a' && ch <= 'z' {
+		return ch - 96
+	}
+
+	return ch
 }
 
 func (g *Generator) genLen(args []ast.Expr) (ast.Type, error) {
@@ -1100,4 +1299,12 @@ func (g *Generator) genLengthTimesElemSizeToCounter(elemSize int) {
 	}
 
 	g.usedTmp16 = true
+}
+
+func (g *Generator) emitJumpIfCarrySet(label string) {
+	skip := g.newLabel()
+
+	g.emit(fmt.Sprintf("    bcc %s", skip))
+	g.emit(fmt.Sprintf("    jmp %s", label))
+	g.emit(skip + ":")
 }

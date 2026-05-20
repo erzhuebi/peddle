@@ -55,6 +55,12 @@ func (g *Generator) genCall(name string, args []ast.Expr) (ast.Type, error) {
 
 	case "putcolor":
 		return g.genPutColor(args)
+
+	case "putstr":
+		return g.genPutStr(args)
+
+	case "putstrcolor":
+		return g.genPutStrColor(args)
 	}
 
 	fn, ok := g.functions[name]

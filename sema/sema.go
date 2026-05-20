@@ -484,7 +484,67 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 		}
 
 		return ast.Type{}, nil
+	case "putstr":
+		if len(args) != 3 {
+			return ast.Type{}, fmt.Errorf("putstr expects three arguments")
+		}
 
+		xType, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(xType) {
+			return ast.Type{}, fmt.Errorf("putstr x argument must be numeric")
+		}
+
+		yType, err := c.checkExpr(scope, args[1])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(yType) {
+			return ast.Type{}, fmt.Errorf("putstr y argument must be numeric")
+		}
+
+		if _, ok := args[2].(*ast.StringExpr); !ok {
+			return ast.Type{}, fmt.Errorf("putstr currently expects a string literal")
+		}
+
+		return ast.Type{}, nil
+
+	case "putstrcolor":
+		if len(args) != 4 {
+			return ast.Type{}, fmt.Errorf("putstrcolor expects four arguments")
+		}
+
+		xType, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(xType) {
+			return ast.Type{}, fmt.Errorf("putstrcolor x argument must be numeric")
+		}
+
+		yType, err := c.checkExpr(scope, args[1])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(yType) {
+			return ast.Type{}, fmt.Errorf("putstrcolor y argument must be numeric")
+		}
+
+		if _, ok := args[2].(*ast.StringExpr); !ok {
+			return ast.Type{}, fmt.Errorf("putstrcolor currently expects a string literal")
+		}
+
+		colorType, err := c.checkExpr(scope, args[3])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(colorType) {
+			return ast.Type{}, fmt.Errorf("putstrcolor color argument must be numeric")
+		}
+
+		return ast.Type{}, nil
 	case "len", "size":
 		if len(args) != 1 {
 			return ast.Type{}, fmt.Errorf("%s expects one argument", name)

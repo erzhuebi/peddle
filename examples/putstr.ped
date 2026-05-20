@@ -1,0 +1,16 @@
+fn main() {
+    cls()
+
+    border(6)
+    background(0)
+    textcolor(1)
+
+    putstr(0, 0, "PUTSTR OK")
+    putstrcolor(0, 1, "COLOR OK", 2)
+
+    putstr(35, 3, "WRAPS TO NEXT LINE")
+    putstrcolor(0, 6, "RED GREEN BLUE", 5)
+
+    putstr(0, 23, "LINE 23")
+    putstr(0, 24, "LAST LINE CLIPS HERE AND STOPS SAFELY")
+}
