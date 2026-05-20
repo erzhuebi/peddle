@@ -1,11 +1,11 @@
 struct Player {
-name: char[16]
-hp: int
+name char[16]
+hp int
 }
 
-fn main() {
-var players: Player[10]
-var i: byte
+fn main(){
+var players Player[10]
+var i byte
 
 i = 0
 

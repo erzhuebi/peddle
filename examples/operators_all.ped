@@ -1,13 +1,13 @@
-fn main() {
-    var border: byte
-    var bg: byte
-    var a: byte
-    var b: byte
-    var s: byte
+fn main(){
+    var border byte
+    var bg byte
+    var a byte
+    var b byte
+    var s byte
 
-    var x: int
-    var y: int
-    var n: int
+    var x int
+    var y int
+    var n int
 
     # byte arithmetic
     a = 20 + 5

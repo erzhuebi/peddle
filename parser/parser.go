@@ -117,11 +117,10 @@ func (p *Parser) parseStruct() *ast.StructDecl {
 
 		name := p.cur.Literal
 
-		if !p.expectPeek(lexer.COLON) {
+		if !p.expectPeek(lexer.IDENT) {
 			return nil
 		}
 
-		p.nextToken()
 		typ := p.parseType()
 
 		s.Fields = append(s.Fields, ast.FieldDecl{
@@ -157,8 +156,7 @@ func (p *Parser) parseFunction() *ast.FunctionDecl {
 		return nil
 	}
 
-	if p.peek.Type == lexer.ARROW {
-		p.nextToken()
+	if p.peek.Type == lexer.IDENT {
 		p.nextToken()
 		fn.ReturnType = p.parseType()
 	}
@@ -197,11 +195,10 @@ func (p *Parser) parseParams() []ast.Param {
 
 		name := p.cur.Literal
 
-		if !p.expectPeek(lexer.COLON) {
+		if !p.expectPeek(lexer.IDENT) {
 			return params
 		}
 
-		p.nextToken()
 		typ := p.parseType()
 
 		params = append(params, ast.Param{
@@ -257,11 +254,10 @@ func (p *Parser) parseVarDecls() []*ast.VarDecl {
 		names = append(names, p.cur.Literal)
 	}
 
-	if !p.expectPeek(lexer.COLON) {
+	if !p.expectPeek(lexer.IDENT) {
 		return nil
 	}
 
-	p.nextToken()
 	typ := p.parseType()
 
 	var decls []*ast.VarDecl

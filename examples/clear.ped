@@ -1,19 +1,19 @@
 struct Player {
-    id: byte
-    name: char[16]
-    hp: int
+    id byte
+    name char[16]
+    hp int
 }
 
-fn main() {
-    var nums: int[16]
-    var backup: int[16]
+fn main(){
+    var nums int[16]
+    var backup int[16]
 
-    var players: Player[4]
+    var players Player[4]
 
-    var title: char[32]
+    var title char[32]
 
-    var i: byte
-    var n: int
+    var i byte
+    var n int
 
     print("PEDDLE ARRAYS ")
 

@@ -13,11 +13,11 @@ const MASK_LOW = %0000_1111
 const C_STYLE_HEX = 0xff
 const DEC_GROUPED = 1_000
 
-fn main() {
-    var border: byte
-    var bg: byte
-    var x: int
-    var y: int
+fn main(){
+    var border byte
+    var bg byte
+    var x int
+    var y int
 
     # constants with C64-style hex
     border = GREEN

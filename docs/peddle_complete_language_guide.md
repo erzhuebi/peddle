@@ -58,7 +58,7 @@ peddlec --run -o game.asm game.ped
 # Your First Program
 
 ```peddle
-fn main() {
+fn main(){
     print("HELLO WORLD")
 }
 ```
@@ -72,8 +72,8 @@ Peddle supports single-line comments using `#`.
 ```peddle
 # this is a comment
 
-fn main() {
-    var x: int
+fn main(){
+    var x int
 
     x = 1 # trailing comment
 }
@@ -111,8 +111,8 @@ Peddle supports decimal, hexadecimal, and binary integer literals.
 Underscores are visual separators and are ignored by the compiler.
 
 ```peddle
-var x: int
-var mask: byte
+var x int
+var mask byte
 
 x = 1_000
 x = $d020
@@ -148,7 +148,7 @@ const BORDER = $d020
 const BG = $d021
 const BLUE = 6
 
-fn main() {
+fn main(){
     poke(BORDER, BLUE)
     poke(BG, 0)
 }
@@ -163,7 +163,7 @@ Constants are currently numeric only.
 ## Single Variable
 
 ```peddle
-var x: int
+var x int
 ```
 
 ---
@@ -171,7 +171,7 @@ var x: int
 ## Multiple Variables
 
 ```peddle
-var x, y, z: int
+var x, y, z int
 ```
 
 ---
@@ -201,9 +201,9 @@ Example:
 
 ```peddle
 fn main() {
-    var a: int
-    var b: int
-    var c: int
+    var a int
+    var b int
+    var c int
 
     a = 100
     b = 50
@@ -248,8 +248,8 @@ Example:
 
 ```peddle
 fn main() {
-    var flags: byte
-    var mask: byte
+    var flags byte
+    var mask byte
 
     flags = %1010_0000
     mask = %1111_0000
@@ -346,7 +346,7 @@ if score > 100 {
 
 ```peddle
 fn main() {
-    var x: int
+    var x int
 
     x = 10
 
@@ -362,8 +362,8 @@ fn main() {
 
 ```peddle
 fn main() {
-    var a: int
-    var b: int
+    var a int
+    var b int
 
     a = 1
     b = 2
@@ -382,7 +382,7 @@ fn main() {
 
 ```peddle
 fn main() {
-    var i: byte
+    var i byte
 
     i = 0
 
@@ -409,7 +409,7 @@ fn hello() {
 ## Functions With Parameters
 
 ```peddle
-fn add(a: int, b: int) -> int {
+fn add(a int, b int) int {
     return a + b
 }
 ```
@@ -419,12 +419,12 @@ fn add(a: int, b: int) -> int {
 ## Calling Functions
 
 ```peddle
-fn add(a: int, b: int) -> int {
+fn add(a int, b int) int {
     return a + b
 }
 
-fn main() {
-    var result: int
+fn main(){
+    var result int
 
     result = add(10, 20)
 }
@@ -435,7 +435,7 @@ fn main() {
 # Return Statements
 
 ```peddle
-fn double(x: int) -> int {
+fn double(x int) int {
     return x + x
 }
 ```
@@ -463,19 +463,19 @@ Internally arrays store:
 ## Byte Array
 
 ```peddle
-var data: byte[16]
+var data byte[16]
 ```
 
 ## Int Array
 
 ```peddle
-var nums: int[32]
+var nums int[32]
 ```
 
 ## Char Array
 
 ```peddle
-var title: char[64]
+var title char[64]
 ```
 
 ---
@@ -492,7 +492,7 @@ nums[1] = 200
 ## Read
 
 ```peddle
-var x: int
+var x int
 
 x = nums[0]
 ```
@@ -512,7 +512,7 @@ nums[i + 1] = 10
 Use `len()` to get current runtime length.
 
 ```peddle
-var n: int
+var n int
 
 n = len(nums)
 ```
@@ -524,7 +524,7 @@ n = len(nums)
 Use `size()` to get maximum capacity.
 
 ```peddle
-var n: int
+var n int
 
 n = size(nums)
 ```
@@ -611,8 +611,8 @@ Strings are:
 # String Example
 
 ```peddle
-fn main() {
-    var title: char[32]
+fn main(){
+    var title char[32]
 
     copy(title, "COMMODORE")
     append(title, " 64")
@@ -649,8 +649,8 @@ Structs group multiple fields together.
 
 ```peddle
 struct Player {
-    id: byte
-    hp: int
+    id byte
+    hp int
 }
 ```
 
@@ -659,7 +659,7 @@ struct Player {
 # Struct Variables
 
 ```peddle
-var p: Player
+var p Player
 ```
 
 ---
@@ -676,7 +676,7 @@ p.hp = 100
 # Struct Field Read
 
 ```peddle
-var hp: int
+var hp int
 
 hp = p.hp
 ```
@@ -687,9 +687,9 @@ hp = p.hp
 
 ```peddle
 struct Player {
-    id: byte
-    name: char[16]
-    hp: int
+    id byte
+    name char[16]
+    hp int
 }
 ```
 
@@ -708,7 +708,7 @@ print(p.name)
 # Arrays Of Structs
 
 ```peddle
-var players: Player[8]
+var players Player[8]
 ```
 
 ---
@@ -752,7 +752,7 @@ append(players[0].name, "!")
 Read memory from the C64.
 
 ```peddle
-var b: byte
+var b byte
 
 b = peek(53280)
 ```
@@ -762,8 +762,8 @@ Constants and hex literals work well for hardware addresses.
 ```peddle
 const BORDER = $d020
 
-fn main() {
-    var color: byte
+fn main(){
+    var color byte
 
     color = peek(BORDER)
 }
@@ -819,13 +819,13 @@ const NAME_LEN = 16
 const COLOR_OK = %0000_0101
 
 struct Player {
-    id: byte
-    name: char[16]
-    hp: int
+    id byte
+    name char[16]
+    hp int
 }
 
 fn main() {
-    var players: Player[2]
+    var players Player[2]
 
     players[0].id = 1
     players[0].hp = 100
@@ -860,15 +860,15 @@ const MASK = %1111_0000
 const BIG = 1_000
 
 fn main() {
-    var border: byte
-    var bg: byte
-    var a: byte
-    var b: byte
-    var s: byte
+    var border byte
+    var bg byte
+    var a byte
+    var b byte
+    var s byte
 
-    var x: int
-    var y: int
-    var n: int
+    var x int
+    var y int
+    var n int
 
     # byte arithmetic
     a = 20 + 5

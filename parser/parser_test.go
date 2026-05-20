@@ -35,10 +35,24 @@ func parseExprFromMain(t *testing.T, src string) ast.Expr {
 	return assign.Value
 }
 
+func parseProgramForTest(t *testing.T, src string) *ast.Program {
+	t.Helper()
+
+	l := lexer.New(src)
+	p := New(l)
+	prog := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	return prog
+}
+
 func TestParseUnaryMinus(t *testing.T) {
 	expr := parseExprFromMain(t, `
 fn main() {
-    var x: int
+    var x int
     x = -1
 }
 `)
@@ -56,7 +70,7 @@ fn main() {
 func TestParseUnaryBang(t *testing.T) {
 	expr := parseExprFromMain(t, `
 fn main() {
-    var x: bool
+    var x bool
     x = !0
 }
 `)
@@ -71,24 +85,10 @@ fn main() {
 	}
 }
 
-func parseProgramForTest(t *testing.T, src string) *ast.Program {
-	t.Helper()
-
-	l := lexer.New(src)
-	p := New(l)
-	prog := p.ParseProgram()
-
-	if len(p.Errors()) > 0 {
-		t.Fatalf("parser errors: %v", p.Errors())
-	}
-
-	return prog
-}
-
 func TestParseIfElse(t *testing.T) {
 	prog := parseProgramForTest(t, `
 fn main() {
-    var x: byte
+    var x byte
 
     if x == 0 {
         x = 1
@@ -120,7 +120,7 @@ fn main() {
 func TestParseWhile(t *testing.T) {
 	prog := parseProgramForTest(t, `
 fn main() {
-    var i: byte
+    var i byte
 
     while i < 10 {
         i = i + 1
@@ -142,7 +142,7 @@ fn main() {
 func TestParseUserFunctionCall(t *testing.T) {
 	expr := parseExprFromMain(t, `
 fn main() {
-    var x: int
+    var x int
     x = add(1, 2)
 }
 `)
@@ -164,7 +164,7 @@ fn main() {
 func TestParseArrayIndexAssignment(t *testing.T) {
 	prog := parseProgramForTest(t, `
 fn main() {
-    var a: int[4]
+    var a int[4]
 
     a[0] = 1
 }
@@ -186,9 +186,9 @@ fn main() {
 	}
 }
 
-func TestParseFunctionReturnArrow(t *testing.T) {
+func TestParseFunctionReturnType(t *testing.T) {
 	prog := parseProgramForTest(t, `
-fn add(a: int, b: int) -> int {
+fn add(a int, b int) int {
     return a + b
 }
 `)
@@ -212,7 +212,7 @@ func TestParseComments(t *testing.T) {
 	input := `
 fn main() {
     # this is a comment
-    var x: int
+    var x int
     x = 1 # trailing comment
 }
 `
@@ -243,8 +243,8 @@ fn main() {
 func TestParseMultipleVarDecls(t *testing.T) {
 	prog := parseProgramForTest(t, `
 fn main() {
-    var x, y, z: int
-    var a, b: byte[16]
+    var x, y, z int
+    var a, b byte[16]
 
     x = 1
 }
@@ -297,7 +297,7 @@ fn main() {
 func TestParserStage1OperatorPrecedence(t *testing.T) {
 	input := `
 fn main() {
-    var a, b, c, d, e, x: int
+    var a, b, c, d, e, x int
     x = a | b ^ c & d + e * 2
 }
 `
@@ -374,7 +374,7 @@ fn main() {
 func TestParserStage2ShiftOperatorPrecedence(t *testing.T) {
 	input := `
 fn main() {
-    var a, b, c, d, x: int
+    var a, b, c, d, x int
     x = a | b & c << d + 1
 }
 `
@@ -434,7 +434,7 @@ fn main() {
 func TestParserStage3DivisionModuloPrecedence(t *testing.T) {
 	input := `
 fn main() {
-    var a, b, c, d, x: int
+    var a, b, c, d, x int
     x = a + b / c % d
 }
 `
@@ -490,7 +490,7 @@ const MASK = %1111_0000
 const BIG = 1_000
 
 fn main() {
-    var x: int
+    var x int
     x = BIG
 }
 `
@@ -537,11 +537,11 @@ func TestParseConstBeforeStructAndFunction(t *testing.T) {
 const DEFAULT_HP = 100
 
 struct Player {
-    hp: byte
+    hp byte
 }
 
 fn main() {
-    var p: Player
+    var p Player
     p.hp = DEFAULT_HP
 }
 `
