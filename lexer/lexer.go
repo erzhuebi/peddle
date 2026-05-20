@@ -332,8 +332,8 @@ func (l *Lexer) readString() string {
 			l.readChar()
 
 			switch l.ch {
-			case 'n':
-				out.WriteByte('\n')
+			case 'n', 'r':
+				out.WriteByte(13)
 			case '"':
 				out.WriteByte('"')
 			case '\\':
@@ -373,8 +373,8 @@ func (l *Lexer) readCharLiteral() string {
 		l.readChar()
 
 		switch l.ch {
-		case 'n':
-			value = '\n'
+		case 'n', 'r':
+			value = 13
 		case '\'':
 			value = '\''
 		case '"':

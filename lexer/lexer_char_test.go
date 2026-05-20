@@ -7,6 +7,7 @@ func TestLexerCharLiterals(t *testing.T) {
 'A'
 ' '
 '\n'
+'\r'
 '\''
 '\\'
 '\0'
@@ -18,7 +19,8 @@ func TestLexerCharLiterals(t *testing.T) {
 	}{
 		{CHAR, "65"},
 		{CHAR, "32"},
-		{CHAR, "10"},
+		{CHAR, "13"},
+		{CHAR, "13"},
 		{CHAR, "39"},
 		{CHAR, "92"},
 		{CHAR, "0"},
@@ -70,5 +72,23 @@ func TestLexerCharLiteralInsideCall(t *testing.T) {
 		if tok.Literal != tt.wantLiteral {
 			t.Fatalf("token %d: got literal %q, want %q", i, tok.Literal, tt.wantLiteral)
 		}
+	}
+}
+
+func TestLexerStringNewlineEscapesBecomeC64CarriageReturn(t *testing.T) {
+	input := `"A\nB\rC"`
+
+	l := New(input)
+
+	tok := l.NextToken()
+
+	if tok.Type != STRING {
+		t.Fatalf("got token type %q, want STRING", tok.Type)
+	}
+
+	want := string([]byte{65, 13, 66, 13, 67})
+
+	if tok.Literal != want {
+		t.Fatalf("got literal bytes %v, want %v", []byte(tok.Literal), []byte(want))
 	}
 }

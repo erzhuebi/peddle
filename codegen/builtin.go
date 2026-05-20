@@ -171,6 +171,13 @@ func (g *Generator) genCls(args []ast.Expr) (ast.Type, error) {
 	g.emit(fmt.Sprintf("    jmp %s", loopLast))
 	g.emit(done + ":")
 
+	// Reset KERNAL text cursor to row 0, column 0.
+	// KERNAL PLOT ($fff0), carry clear = set cursor position.
+	g.emit("    clc")
+	g.emit("    ldx #0")
+	g.emit("    ldy #0")
+	g.emit("    jsr $fff0")
+
 	return ast.Type{}, nil
 }
 

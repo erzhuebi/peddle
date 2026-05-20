@@ -1,0 +1,27 @@
+fn main() {
+    cls()
+
+    border(6)
+    background(0)
+    textcolor(1)
+
+    print("LINE 1\n")
+    print("LINE 2\n")
+    print("LINE 3")
+
+    putchar(0, 5, 'P')
+    putchar(1, 5, 'E')
+    putchar(2, 5, 'D')
+    putchar(3, 5, 'D')
+    putchar(4, 5, 'L')
+    putchar(5, 5, 'E')
+
+    putcolor(0, 5, 2)
+    putcolor(1, 5, 3)
+    putcolor(2, 5, 4)
+    putcolor(3, 5, 5)
+    putcolor(4, 5, 6)
+    putcolor(5, 5, 7)
+
+    print("\nDONE")
+}
