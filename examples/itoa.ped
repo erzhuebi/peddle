@@ -1,0 +1,31 @@
+fn main() {
+    var line char[32]
+    var score int
+    var neg int
+
+    cls()
+
+    score = 12345
+    neg = -123
+
+    copy(line, "SCORE ")
+    append(line, itoa(score))
+    putstr(0, 0, line)
+
+    clear(line)
+    copy(line, "NEG ")
+    append(line, itoa(neg))
+    putstr(0, 2, line)
+
+    clear(line)
+    copy(line, "MIN ")
+    append(line, itoa(-32768))
+    putstr(0, 4, line)
+
+    clear(line)
+    copy(line, "ZERO ")
+    append(line, itoa(0))
+    putstr(0, 6, line)
+
+    gotoxy(0, 22)
+}

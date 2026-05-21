@@ -580,7 +580,25 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 		}
 
 		return ast.Type{}, nil
+	case "itoa":
+		if len(args) != 1 {
+			return ast.Type{}, fmt.Errorf("itoa expects one argument")
+		}
 
+		t, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+
+		if !isNumeric(t) {
+			return ast.Type{}, fmt.Errorf("itoa argument must be numeric")
+		}
+
+		return ast.Type{
+			Name:     "char",
+			IsArray:  true,
+			ArrayLen: 6,
+		}, nil
 	case "len", "size":
 		if len(args) != 1 {
 			return ast.Type{}, fmt.Errorf("%s expects one argument", name)

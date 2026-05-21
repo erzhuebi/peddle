@@ -353,7 +353,7 @@ func (g *Generator) genPutStr(args []ast.Expr) (ast.Type, error) {
 		g.emit(fmt.Sprintf("    lda #>%d", len(text.Value)))
 		g.emit("    sta peddle_tmp_int0+1")
 
-	case *ast.IdentExpr, *ast.FieldExpr, *ast.IndexFieldExpr:
+	case *ast.IdentExpr, *ast.FieldExpr, *ast.IndexFieldExpr, *ast.CallExpr:
 		arrayType, err := g.arrayExprType(args[2])
 		if err != nil {
 			return ast.Type{}, err
@@ -367,7 +367,6 @@ func (g *Generator) genPutStr(args []ast.Expr) (ast.Type, error) {
 			return ast.Type{}, err
 		}
 
-		// Read runtime length from array header.
 		g.emit("    ldy #2")
 		g.emit("    lda (ZP_PTR0_LO), y")
 		g.emit("    sta peddle_tmp_int0")
@@ -375,7 +374,6 @@ func (g *Generator) genPutStr(args []ast.Expr) (ast.Type, error) {
 		g.emit("    lda (ZP_PTR0_LO), y")
 		g.emit("    sta peddle_tmp_int0+1")
 
-		// Point ZP_PTR1 at array data, after 4-byte header.
 		g.emit("    lda ZP_PTR0_LO")
 		g.emit("    clc")
 		g.emit("    adc #4")
@@ -424,7 +422,7 @@ func (g *Generator) genPutStrColor(args []ast.Expr) (ast.Type, error) {
 		g.emit(fmt.Sprintf("    lda #>%d", len(text.Value)))
 		g.emit("    sta peddle_tmp_int0+1")
 
-	case *ast.IdentExpr, *ast.FieldExpr, *ast.IndexFieldExpr:
+	case *ast.IdentExpr, *ast.FieldExpr, *ast.IndexFieldExpr, *ast.CallExpr:
 		arrayType, err := g.arrayExprType(args[2])
 		if err != nil {
 			return ast.Type{}, err
@@ -438,7 +436,6 @@ func (g *Generator) genPutStrColor(args []ast.Expr) (ast.Type, error) {
 			return ast.Type{}, err
 		}
 
-		// Read runtime length from array header.
 		g.emit("    ldy #2")
 		g.emit("    lda (ZP_PTR0_LO), y")
 		g.emit("    sta peddle_tmp_int0")
@@ -446,7 +443,6 @@ func (g *Generator) genPutStrColor(args []ast.Expr) (ast.Type, error) {
 		g.emit("    lda (ZP_PTR0_LO), y")
 		g.emit("    sta peddle_tmp_int0+1")
 
-		// Point ZP_PTR1 at array data, after 4-byte header.
 		g.emit("    lda ZP_PTR0_LO")
 		g.emit("    clc")
 		g.emit("    adc #4")
@@ -517,29 +513,23 @@ func (g *Generator) genAppend(args []ast.Expr) (ast.Type, error) {
 		return ast.Type{}, fmt.Errorf("append expects two arguments")
 	}
 
-	if src, ok := args[1].(*ast.StringExpr); ok {
-		arrayType, err := g.arrayExprType(args[0])
-		if err != nil {
-			return ast.Type{}, err
-		}
-
-		if !(arrayType.IsArray && arrayType.Name == "char") {
-			return ast.Type{}, fmt.Errorf("append string literal requires char array destination")
-		}
-
-		if err := g.genAppendStringLiteralToCharArray(args[0], src.Value); err != nil {
-			return ast.Type{}, err
-		}
-
-		return ast.Type{}, nil
-	}
-
-	arrayType, err := g.arrayExprType(args[0])
+	dstType, err := g.arrayExprType(args[0])
 	if err != nil {
 		return ast.Type{}, err
 	}
 
-	elemType := ast.Type{Name: arrayType.Name}
+	if dstType.IsArray && dstType.Name == "char" {
+		if _, ok := args[1].(*ast.StringExpr); ok {
+			return g.genAppendCharArraySource(args[0], args[1])
+		}
+
+		srcType, err := g.arrayExprType(args[1])
+		if err == nil && srcType.IsArray && srcType.Name == "char" {
+			return g.genAppendCharArraySource(args[0], args[1])
+		}
+	}
+
+	elemType := ast.Type{Name: dstType.Name}
 
 	if _, ok := g.structs[elemType.Name]; ok {
 		return ast.Type{}, fmt.Errorf("append does not support struct elements yet")
@@ -606,6 +596,82 @@ func (g *Generator) genAppend(args []ast.Expr) (ast.Type, error) {
 
 	g.usedTmp16 = true
 	return ast.Type{}, nil
+}
+
+func (g *Generator) genAppendCharArraySource(dst ast.Expr, src ast.Expr) (ast.Type, error) {
+	dstType, err := g.arrayExprType(dst)
+	if err != nil {
+		return ast.Type{}, err
+	}
+
+	if !(dstType.IsArray && dstType.Name == "char") {
+		return ast.Type{}, fmt.Errorf("append char array source requires char array destination")
+	}
+
+	if err := g.genCharArraySourceToPtr1AndLen(src); err != nil {
+		return ast.Type{}, err
+	}
+
+	if err := g.genArrayAddress(dst); err != nil {
+		return ast.Type{}, err
+	}
+
+	g.emit("    jsr peddle_string_append_literal")
+
+	g.usedTmp16 = true
+	g.usedStringAppendRuntime = true
+
+	return ast.Type{}, nil
+}
+
+func (g *Generator) genCharArraySourceToPtr1AndLen(src ast.Expr) error {
+	switch e := src.(type) {
+	case *ast.StringExpr:
+		label := g.addLiteral(e.Value)
+
+		g.emit(fmt.Sprintf("    lda #<%s", label))
+		g.emit("    sta ZP_PTR1_LO")
+		g.emit(fmt.Sprintf("    lda #>%s", label))
+		g.emit("    sta ZP_PTR1_HI")
+
+		g.emit(fmt.Sprintf("    lda #<%d", len(e.Value)))
+		g.emit("    sta peddle_tmp_int0")
+		g.emit(fmt.Sprintf("    lda #>%d", len(e.Value)))
+		g.emit("    sta peddle_tmp_int0+1")
+
+		return nil
+
+	default:
+		srcType, err := g.arrayExprType(src)
+		if err != nil {
+			return err
+		}
+
+		if !(srcType.IsArray && srcType.Name == "char") {
+			return fmt.Errorf("expected char array source")
+		}
+
+		if err := g.genArrayAddress(src); err != nil {
+			return err
+		}
+
+		g.emit("    ldy #2")
+		g.emit("    lda (ZP_PTR0_LO), y")
+		g.emit("    sta peddle_tmp_int0")
+		g.emit("    iny")
+		g.emit("    lda (ZP_PTR0_LO), y")
+		g.emit("    sta peddle_tmp_int0+1")
+
+		g.emit("    lda ZP_PTR0_LO")
+		g.emit("    clc")
+		g.emit("    adc #4")
+		g.emit("    sta ZP_PTR1_LO")
+		g.emit("    lda ZP_PTR0_HI")
+		g.emit("    adc #0")
+		g.emit("    sta ZP_PTR1_HI")
+
+		return nil
+	}
 }
 
 func (g *Generator) genAppendRuntime(args []ast.Expr, elemType ast.Type) (ast.Type, error) {
@@ -1105,6 +1171,21 @@ func (g *Generator) genArrayAddress(expr ast.Expr) error {
 		}
 
 		return nil
+
+	case *ast.CallExpr:
+		if e.Name != "itoa" {
+			return fmt.Errorf("only itoa() can be used as temporary char array expression")
+		}
+
+		if _, err := g.genItoa(e.Args); err != nil {
+			return err
+		}
+
+		g.emit("    lda #<peddle_itoa_buffer")
+		g.emit("    sta ZP_PTR0_LO")
+		g.emit("    lda #>peddle_itoa_buffer")
+		g.emit("    sta ZP_PTR0_HI")
+		return nil
 	}
 
 	return fmt.Errorf("expected array")
@@ -1156,6 +1237,15 @@ func (g *Generator) arrayExprType(expr ast.Expr) (ast.Type, error) {
 			return ast.Type{}, fmt.Errorf("expected array")
 		}
 		return fieldType, nil
+
+	case *ast.CallExpr:
+		if e.Name == "itoa" {
+			return ast.Type{
+				Name:     "char",
+				IsArray:  true,
+				ArrayLen: 6,
+			}, nil
+		}
 	}
 
 	return ast.Type{}, fmt.Errorf("expected array")
@@ -1273,6 +1363,26 @@ func (g *Generator) genLengthTimesElemSizeToCounter(elemSize int) {
 	}
 
 	g.usedTmp16 = true
+}
+
+func (g *Generator) genItoa(args []ast.Expr) (ast.Type, error) {
+	if len(args) != 1 {
+		return ast.Type{}, fmt.Errorf("itoa expects one argument")
+	}
+
+	if err := g.genExprTo(args[0], ast.Type{Name: "int"}); err != nil {
+		return ast.Type{}, err
+	}
+
+	g.emit("    jsr peddle_itoa")
+
+	g.usedItoaRuntime = true
+
+	return ast.Type{
+		Name:     "char",
+		IsArray:  true,
+		ArrayLen: 6,
+	}, nil
 }
 
 func (g *Generator) emitClsRuntime() {

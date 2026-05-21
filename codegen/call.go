@@ -17,6 +17,9 @@ func (g *Generator) genCall(name string, args []ast.Expr) (ast.Type, error) {
 	case "peek":
 		return g.genPeek(args)
 
+	case "itoa":
+		return g.genItoa(args)
+
 	case "len":
 		return g.genLen(args)
 

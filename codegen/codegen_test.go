@@ -536,11 +536,20 @@ fn main() {
 	requireASM(t, asm,
 		"literal_0:",
 		"literal_1:",
-		"adc #<1",
-		"adc #>1",
-		"lda literal_1, y",
-		"sta (ZP_PTR0_LO), y",
+		"lda #<literal_1",
+		"sta ZP_PTR1_LO",
+		"lda #>literal_1",
+		"sta ZP_PTR1_HI",
+		"lda #<1",
+		"sta peddle_tmp_int0",
+		"lda #>1",
+		"sta peddle_tmp_int0+1",
+		"jsr peddle_string_append_literal",
+		"peddle_string_append_literal:",
 	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
 }
 
 func TestCodegenDoesNotEmitUnusedPrintRuntime(t *testing.T) {
@@ -626,14 +635,18 @@ fn main() {
 		"peddle_fill_int:",
 		"peddle_append_byte:",
 		"peddle_append_int:",
-		"peddle_string_copy_literal:",
-		"peddle_string_append_literal:",
 		"jsr peddle_array_copy",
 		"jsr peddle_fill_byte",
 		"jsr peddle_append_byte",
-		"jsr peddle_string_copy_literal",
-		"jsr peddle_string_append_literal",
 	)
+
+	requireASM(t, asm,
+		"jsr peddle_string_append_literal",
+		"peddle_string_append_literal:",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
 }
 
 func TestCodegenOptSizeEmitsRuntimeHelpersForLargeBuiltins(t *testing.T) {

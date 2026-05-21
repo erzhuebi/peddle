@@ -712,10 +712,6 @@ func (p *Parser) parseCallArgs() []ast.Expr {
 			args = append(args, arg)
 		}
 
-		if p.cur.Type == lexer.RPAREN {
-			break
-		}
-
 		if p.peek.Type == lexer.COMMA {
 			p.nextToken()
 			p.nextToken()
@@ -724,6 +720,10 @@ func (p *Parser) parseCallArgs() []ast.Expr {
 
 		if p.peek.Type == lexer.RPAREN {
 			p.nextToken()
+			break
+		}
+
+		if p.cur.Type == lexer.RPAREN {
 			break
 		}
 

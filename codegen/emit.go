@@ -38,6 +38,22 @@ func (g *Generator) emitRuntime() {
 	g.emit("")
 	g.emit("; runtime")
 
+	g.emitRuntimeVariables()
+
+	g.emitPrintRuntime()
+	g.emitArrayCopyRuntime()
+	g.emitFillRuntime()
+	g.emitAppendRuntime()
+	g.emitMulRuntime()
+	g.emitDivModRuntime()
+	g.emitShiftRuntime()
+	g.emitStringRuntime()
+	g.emitClsRuntime()
+	g.emitItoaRuntime()
+	g.emitPutStrRuntime()
+}
+
+func (g *Generator) emitRuntimeVariables() {
 	needsTmp16 := g.usedTmp16 ||
 		g.usedPrint ||
 		g.usedArrayCopyRuntime ||
@@ -56,15 +72,169 @@ func (g *Generator) emitRuntime() {
 		g.usedStringCopyRuntime ||
 		g.usedStringAppendRuntime ||
 		g.usedPutStrRuntime ||
-		g.usedPutStrColorRuntime
+		g.usedPutStrColorRuntime ||
+		g.usedItoaRuntime
 
 	if needsTmp16 {
 		g.emit("peddle_tmp_int0:")
 		g.emit("    .fill 2, 0")
 	}
+}
 
-	if g.usedPrint {
-		g.emit(`
+func (g *Generator) emitItoaRuntime() {
+	if !g.usedItoaRuntime {
+		return
+	}
+
+	g.emit(`
+; itoa runtime
+peddle_itoa_buffer:
+    .word 6
+    .word 0
+    .fill 6, 0
+
+peddle_itoa_started:
+    .byte 0
+peddle_itoa_digit:
+    .byte 0
+peddle_itoa_div_lo:
+    .byte 0
+peddle_itoa_div_hi:
+    .byte 0
+peddle_itoa_force:
+    .byte 0
+
+peddle_itoa:
+    lda #0
+    sta peddle_itoa_buffer+2
+    sta peddle_itoa_buffer+3
+    sta peddle_itoa_started
+
+    lda ZP_TMP1
+    and #$80
+    beq peddle_itoa_positive
+
+    lda #45
+    ldy #0
+    sta peddle_itoa_buffer+4, y
+    lda #1
+    sta peddle_itoa_buffer+2
+
+    lda ZP_TMP0
+    eor #$ff
+    clc
+    adc #1
+    sta ZP_TMP0
+
+    lda ZP_TMP1
+    eor #$ff
+    adc #0
+    sta ZP_TMP1
+
+peddle_itoa_positive:
+    lda #<10000
+    sta peddle_itoa_div_lo
+    lda #>10000
+    sta peddle_itoa_div_hi
+    lda #0
+    sta peddle_itoa_force
+    jsr peddle_itoa_emit_digit
+
+    lda #<1000
+    sta peddle_itoa_div_lo
+    lda #>1000
+    sta peddle_itoa_div_hi
+    lda #0
+    sta peddle_itoa_force
+    jsr peddle_itoa_emit_digit
+
+    lda #<100
+    sta peddle_itoa_div_lo
+    lda #>100
+    sta peddle_itoa_div_hi
+    lda #0
+    sta peddle_itoa_force
+    jsr peddle_itoa_emit_digit
+
+    lda #<10
+    sta peddle_itoa_div_lo
+    lda #>10
+    sta peddle_itoa_div_hi
+    lda #0
+    sta peddle_itoa_force
+    jsr peddle_itoa_emit_digit
+
+    lda #<1
+    sta peddle_itoa_div_lo
+    lda #>1
+    sta peddle_itoa_div_hi
+    lda #1
+    sta peddle_itoa_force
+    jsr peddle_itoa_emit_digit
+
+    rts
+
+peddle_itoa_emit_digit:
+    lda #0
+    sta peddle_itoa_digit
+
+peddle_itoa_digit_loop:
+    lda ZP_TMP1
+    cmp peddle_itoa_div_hi
+    bcc peddle_itoa_digit_done
+    bne peddle_itoa_digit_subtract
+
+    lda ZP_TMP0
+    cmp peddle_itoa_div_lo
+    bcc peddle_itoa_digit_done
+
+peddle_itoa_digit_subtract:
+    sec
+    lda ZP_TMP0
+    sbc peddle_itoa_div_lo
+    sta ZP_TMP0
+    lda ZP_TMP1
+    sbc peddle_itoa_div_hi
+    sta ZP_TMP1
+
+    inc peddle_itoa_digit
+    jmp peddle_itoa_digit_loop
+
+peddle_itoa_digit_done:
+    lda peddle_itoa_force
+    bne peddle_itoa_digit_emit
+
+    lda peddle_itoa_started
+    bne peddle_itoa_digit_emit
+
+    lda peddle_itoa_digit
+    bne peddle_itoa_digit_start
+
+    rts
+
+peddle_itoa_digit_start:
+    lda #1
+    sta peddle_itoa_started
+
+peddle_itoa_digit_emit:
+    lda peddle_itoa_digit
+    clc
+    adc #48
+
+    ldy peddle_itoa_buffer+2
+    sta peddle_itoa_buffer+4, y
+
+    inc peddle_itoa_buffer+2
+    rts
+`)
+}
+
+func (g *Generator) emitPrintRuntime() {
+	if !g.usedPrint {
+		return
+	}
+
+	g.emit(`
 peddle_print_counted_string:
     lda peddle_tmp_int0
     ora peddle_tmp_int0+1
@@ -90,10 +260,14 @@ peddle_print_counted_string_dec_low:
 peddle_print_counted_string_done:
     rts
 `)
+}
+
+func (g *Generator) emitArrayCopyRuntime() {
+	if !g.usedArrayCopyRuntime {
+		return
 	}
 
-	if g.usedArrayCopyRuntime {
-		g.emit(`
+	g.emit(`
 peddle_array_copy:
     lda peddle_tmp_int0
     ora peddle_tmp_int0+1
@@ -124,8 +298,9 @@ peddle_array_copy_dec_low:
 peddle_array_copy_done:
     rts
 `)
-	}
+}
 
+func (g *Generator) emitFillRuntime() {
 	if g.usedFillByteRuntime {
 		g.emit(`
 peddle_fill_byte:
@@ -189,7 +364,9 @@ peddle_fill_int_done:
     rts
 `)
 	}
+}
 
+func (g *Generator) emitAppendRuntime() {
 	if g.usedAppendByteRuntime {
 		g.emit(`
 peddle_append_byte:
@@ -293,7 +470,9 @@ peddle_append_int:
     rts
 `)
 	}
+}
 
+func (g *Generator) emitMulRuntime() {
 	if g.usedMulByteRuntime {
 		g.emit(`
 peddle_mul_byte:
@@ -365,7 +544,9 @@ peddle_mul_int_done:
     rts
 `)
 	}
+}
 
+func (g *Generator) emitDivModRuntime() {
 	if g.usedDivModByteRuntime {
 		g.emit(`
 peddle_divmod_byte:
@@ -451,7 +632,9 @@ peddle_divmod_int_done:
     rts
 `)
 	}
+}
 
+func (g *Generator) emitShiftRuntime() {
 	if g.usedShlByteRuntime {
 		g.emit(`
 peddle_shl_byte:
@@ -523,7 +706,9 @@ peddle_shr_int_done:
     rts
 `)
 	}
+}
 
+func (g *Generator) emitStringRuntime() {
 	if g.usedStringCopyRuntime {
 		g.emit(`
 peddle_string_copy_literal:
@@ -641,9 +826,6 @@ peddle_string_append_literal_done:
     rts
 `)
 	}
-
-	g.emitPutStrRuntime()
-	g.emitClsRuntime()
 }
 
 func (g *Generator) emitLiterals() {
@@ -677,80 +859,6 @@ func (g *Generator) emitStaticData() {
 			g.emit(fmt.Sprintf("%s:", frame.Return.Label))
 			g.emitStaticValue(frame.Return.Type)
 		}
-	}
-}
-
-func (g *Generator) emitMulRuntime() {
-	if g.usedMulByteRuntime {
-		g.emit(`
-peddle_mul_byte:
-    sta ZP_TMP0
-    lda #0
-    sta ZP_TMP1
-
-peddle_mul_byte_loop:
-    lda peddle_tmp_int0
-    beq peddle_mul_byte_done
-
-    clc
-    lda ZP_TMP1
-    adc ZP_TMP0
-    sta ZP_TMP1
-
-    dec peddle_tmp_int0
-    jmp peddle_mul_byte_loop
-
-peddle_mul_byte_done:
-    lda ZP_TMP1
-    rts
-`)
-	}
-
-	if g.usedMulIntRuntime {
-		g.emit(`
-peddle_mul_int:
-    lda ZP_TMP0
-    sta ZP_PTR0_LO
-    lda ZP_TMP1
-    sta ZP_PTR0_HI
-
-    lda #0
-    sta ZP_PTR1_LO
-    sta ZP_PTR1_HI
-
-peddle_mul_int_loop:
-    lda peddle_tmp_int0
-    ora peddle_tmp_int0+1
-    beq peddle_mul_int_done
-
-    lda peddle_tmp_int0
-    and #1
-    beq peddle_mul_int_skip_add
-
-    clc
-    lda ZP_PTR1_LO
-    adc ZP_PTR0_LO
-    sta ZP_PTR1_LO
-    lda ZP_PTR1_HI
-    adc ZP_PTR0_HI
-    sta ZP_PTR1_HI
-
-peddle_mul_int_skip_add:
-    asl ZP_PTR0_LO
-    rol ZP_PTR0_HI
-
-    lsr peddle_tmp_int0+1
-    ror peddle_tmp_int0
-
-    jmp peddle_mul_int_loop
-
-peddle_mul_int_done:
-    lda ZP_PTR1_LO
-    sta ZP_TMP0
-    lda ZP_PTR1_HI
-    sta ZP_TMP1
-    rts
-`)
 	}
 }
 
