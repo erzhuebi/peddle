@@ -150,34 +150,8 @@ func (g *Generator) genCls(args []ast.Expr) (ast.Type, error) {
 		return ast.Type{}, fmt.Errorf("cls expects no arguments")
 	}
 
-	loopFull := g.newLabel()
-	loopLast := g.newLabel()
-	done := g.newLabel()
-
-	g.emit("    lda #$20")
-	g.emit("    ldx #0")
-	g.emit(loopFull + ":")
-	g.emit("    sta $0400, x")
-	g.emit("    sta $0500, x")
-	g.emit("    sta $0600, x")
-	g.emit("    inx")
-	g.emit(fmt.Sprintf("    bne %s", loopFull))
-
-	g.emit("    ldx #0")
-	g.emit(loopLast + ":")
-	g.emit("    cpx #232")
-	g.emit(fmt.Sprintf("    beq %s", done))
-	g.emit("    sta $0700, x")
-	g.emit("    inx")
-	g.emit(fmt.Sprintf("    jmp %s", loopLast))
-	g.emit(done + ":")
-
-	// Reset KERNAL text cursor to row 0, column 0.
-	// KERNAL PLOT ($fff0), carry clear = set cursor position.
-	g.emit("    clc")
-	g.emit("    ldx #0")
-	g.emit("    ldy #0")
-	g.emit("    jsr $fff0")
+	g.emit("    jsr peddle_cls")
+	g.usedClsRuntime = true
 
 	return ast.Type{}, nil
 }
@@ -1299,6 +1273,44 @@ func (g *Generator) genLengthTimesElemSizeToCounter(elemSize int) {
 	}
 
 	g.usedTmp16 = true
+}
+
+func (g *Generator) emitClsRuntime() {
+	if !g.usedClsRuntime {
+		return
+	}
+
+	g.emit("")
+	g.emit("; cls runtime")
+	g.emit("peddle_cls:")
+	g.emit("    lda #$20")
+	g.emit("    ldx #0")
+
+	g.emit("peddle_cls_loop_full:")
+	g.emit("    sta $0400, x")
+	g.emit("    sta $0500, x")
+	g.emit("    sta $0600, x")
+	g.emit("    inx")
+	g.emit("    bne peddle_cls_loop_full")
+
+	g.emit("    ldx #0")
+	g.emit("peddle_cls_loop_last:")
+	g.emit("    cpx #232")
+	g.emit("    beq peddle_cls_done_clear")
+	g.emit("    sta $0700, x")
+	g.emit("    inx")
+	g.emit("    jmp peddle_cls_loop_last")
+
+	g.emit("peddle_cls_done_clear:")
+
+	// Reset KERNAL text cursor to row 0, column 0.
+	// KERNAL PLOT ($fff0), carry clear = set cursor position.
+	g.emit("    clc")
+	g.emit("    ldx #0")
+	g.emit("    ldy #0")
+	g.emit("    jsr $fff0")
+
+	g.emit("    rts")
 }
 
 func (g *Generator) emitPutStrRuntime() {

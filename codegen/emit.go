@@ -643,6 +643,7 @@ peddle_string_append_literal_done:
 	}
 
 	g.emitPutStrRuntime()
+	g.emitClsRuntime()
 }
 
 func (g *Generator) emitLiterals() {

@@ -44,6 +44,7 @@ type Generator struct {
 	usedPrint bool
 	usedTmp16 bool
 
+	usedClsRuntime          bool
 	usedArrayCopyRuntime    bool
 	usedFillByteRuntime     bool
 	usedFillIntRuntime      bool
