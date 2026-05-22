@@ -591,6 +591,32 @@ append(nums, 1000)
 append(title, "!")
 ```
 
+## Append Char Array
+
+`append()` can append one `char[]` to another `char[]`.
+
+```peddle
+var title char[32]
+var suffix char[8]
+
+copy(title, "HELLO")
+copy(suffix, " C64")
+
+append(title, suffix)
+```
+
+This also works with temporary `char[]` values returned by builtins such as `itoa()`.
+
+```peddle
+var line char[32]
+var score int
+
+score = 123
+
+copy(line, "SCORE ")
+append(line, itoa(score))
+```
+
 Appending automatically increases runtime length.
 
 ---
@@ -607,6 +633,16 @@ copy(dst, src)
 
 ```peddle
 copy(title, "HELLO")
+```
+
+## Copy Temporary Char Array
+
+`copy()` can copy a temporary `char[]`, for example the result of `itoa()`.
+
+```peddle
+var number char[6]
+
+copy(number, itoa(-123))
 ```
 
 ---
@@ -635,6 +671,59 @@ Only the runtime length becomes zero.
 
 ---
 
+# itoa()
+
+Convert a signed 16-bit `int` to a temporary decimal `char[]`.
+
+```peddle
+var line char[32]
+var score int
+
+score = -123
+
+copy(line, "SCORE ")
+append(line, itoa(score))
+putstr(0, 0, line)
+```
+
+`itoa(value)` returns a temporary `char[6]`.
+
+The longest signed 16-bit decimal value is:
+
+```text
+-32768
+```
+
+So the returned temporary buffer can hold every possible `int` value.
+
+Examples:
+
+| Expression | Result |
+|---|---|
+| `itoa(0)` | `"0"` |
+| `itoa(12345)` | `"12345"` |
+| `itoa(-123)` | `"-123"` |
+| `itoa(-32768)` | `"-32768"` |
+
+The returned array is temporary and is overwritten by the next `itoa()` call.
+
+This is safe because the value is consumed immediately:
+
+```peddle
+append(line, itoa(score))
+putstr(0, 0, itoa(score))
+```
+
+If you need to keep the text, copy it into your own `char[]`.
+
+```peddle
+var saved char[6]
+
+copy(saved, itoa(score))
+```
+
+---
+
 # Strings
 
 Peddle strings are implemented using `char[]`.
@@ -643,6 +732,17 @@ Strings are:
 
 - counted strings
 - not zero terminated
+- stored in normal `char[]` arrays
+
+Use the normal array/string builtins for string work:
+
+- `copy()`
+- `append()`
+- `clear()`
+- `len()`
+- `size()`
+
+Use `itoa()` when you need to convert an `int` into text.
 
 ---
 
@@ -821,6 +921,7 @@ append(players[0].name, "!")
 | `copy(dst, src)` | copy arrays/strings |
 | `fill(array, value)` | fill array |
 | `clear(array)` | clear runtime length |
+| `itoa(value)` | convert signed `int` to temporary decimal `char[]` |
 | `cls()` | clear screen RAM and reset KERNAL text cursor |
 | `border(color)` | set border color using `$d020` |
 | `background(color)` | set background color using `$d021` |
@@ -829,8 +930,8 @@ append(players[0].name, "!")
 | `putchar(x, y, ch)` | write a character to screen RAM at position |
 | `putscreen(x, y, code)` | write raw C64 screen code to screen RAM |
 | `putcolor(x, y, color)` | write color RAM value at position |
-| `putstr(x, y, text)` | write a string literal directly to screen RAM |
-| `putstrcolor(x, y, text, color)` | write a string literal to screen RAM and color RAM |
+| `putstr(x, y, text)` | write a string literal or `char[]` directly to screen RAM |
+| `putstrcolor(x, y, text, color)` | write a string literal or `char[]` to screen RAM and color RAM |
 
 ---
 
@@ -844,7 +945,6 @@ Important distinction:
 - `gotoxy()` moves the KERNAL cursor
 - `textcolor()` affects KERNAL `print()`
 - `putchar()`, `putscreen()`, `putstr()`, and `putcolor()` write directly to screen/color RAM
-
 
 ---
 
@@ -938,11 +1038,13 @@ fn main() {
     gotoxy(10, 8)
     print("COL 10 ROW 8")
 
-    gotoxy(0, 24)
+    gotoxy(0, 22)
 }
 ```
 
-The final `gotoxy(0, 24)` is useful when running from BASIC, because BASIC prints `READY.` at the current KERNAL cursor position after the program exits.
+The final `gotoxy()` is useful when running from BASIC, because BASIC prints `READY.` at the current KERNAL cursor position after the program exits.
+
+Avoid parking the cursor on the very last row unless you intentionally want BASIC output to scroll the screen after the program exits. `gotoxy(0, 22)` or `gotoxy(0, 23)` is usually safer than `gotoxy(0, 24)`.
 
 ---
 
@@ -1029,7 +1131,7 @@ $d800 + y * 40 + x
 
 # putstr()
 
-Write a string literal directly to screen RAM.
+Write a string directly to screen RAM.
 
 ```peddle
 putstr(0, 0, "HELLO")
@@ -1042,13 +1144,24 @@ It does not use the KERNAL cursor and does not affect where `print()` will write
 
 `putstr()` does not change color RAM. Use `putstrcolor()` when you want to write text and color together.
 
-Currently `putstr()` supports string literals.
+`putstr()` supports:
+
+- string literals
+- `char[]` variables
+- `char[]` struct fields
+- temporary `char[]` results such as `itoa(...)`
 
 ```peddle
-putstr(0, 0, "READY")
-```
+var title char[32]
+var score int
 
-Dynamic `char[]` values are not supported by `putstr()` yet.
+copy(title, "SCORE ")
+append(title, itoa(score))
+
+putstr(0, 0, "READY")
+putstr(0, 1, title)
+putstr(0, 2, itoa(score))
+```
 
 ---
 
@@ -1105,7 +1218,7 @@ This writes `A` and `B` at columns 38 and 39, then continues with `C` and `D` at
 
 # putstrcolor()
 
-Write a string literal directly to screen RAM and also write color RAM for each character.
+Write a string directly to screen RAM and also write color RAM for each character.
 
 ```peddle
 putstrcolor(0, 0, "HELLO", 2)
@@ -1120,9 +1233,61 @@ putstrcolor(0, 0, "RED", 2)
 putstrcolor(0, 1, "GREEN", 5)
 ```
 
-Currently `putstrcolor()` supports string literals.
+`putstrcolor()` supports the same text argument forms as `putstr()`:
 
-Dynamic `char[]` values are not supported by `putstrcolor()` yet.
+- string literals
+- `char[]` variables
+- `char[]` struct fields
+- temporary `char[]` results such as `itoa(...)`
+
+```peddle
+var line char[32]
+
+copy(line, "GREEN")
+
+putstrcolor(0, 0, "RED", 2)
+putstrcolor(0, 1, line, 5)
+putstrcolor(0, 2, itoa(123), 1)
+```
+
+---
+
+# itoa() Example
+
+```peddle
+fn main() {
+    var line char[32]
+    var score int
+    var neg int
+
+    cls()
+
+    score = 12345
+    neg = -123
+
+    copy(line, "SCORE ")
+    append(line, itoa(score))
+    putstr(0, 0, line)
+
+    clear(line)
+    copy(line, "NEG ")
+    append(line, itoa(neg))
+    putstr(0, 2, line)
+
+    clear(line)
+    copy(line, "MIN ")
+    append(line, itoa(-32768))
+    putstr(0, 4, line)
+
+    clear(line)
+    copy(line, "ZERO ")
+    append(line, itoa(0))
+    putstr(0, 6, line)
+
+    # Leave room for BASIC READY. after program exit.
+    gotoxy(0, 22)
+}
+```
 
 ---
 
@@ -1140,8 +1305,7 @@ fn main() {
     putstrcolor(0, 1, "COLOR DIRECT", 2)
 
     gotoxy(0, 5)
-    print("KERNAL PRINT
-")
+    print("KERNAL PRINT\n")
 
     putchar(0, 8, 'P')
     putchar(1, 8, 'E')
@@ -1157,7 +1321,7 @@ fn main() {
     putcolor(4, 8, 6)
     putcolor(5, 8, 7)
 
-    gotoxy(0, 24)
+    gotoxy(0, 22)
 }
 ```
 
@@ -1259,6 +1423,8 @@ fn main() {
     if players[1].hp > players[0].hp {
         print("ADA LEADS")
     }
+
+    print(itoa(players[1].hp))
 
     poke(BORDER, COLOR_OK)
     poke(BG, 0)
@@ -1372,10 +1538,19 @@ Currently size mode shares runtime helpers for:
 - fill()
 - copy()
 - append()
-- string literal append/copy
 - multiplication
 - division and modulo
 - variable shifts
+
+Some larger helpers are shared in both speed and size mode because repeated inline code would quickly waste PRG space:
+
+- string literal append/copy
+- `putstr()`
+- `putstrcolor()`
+- `cls()`
+- `itoa()`
+
+Runtime helpers are emitted only when needed. For example, a program that does not call `cls()` does not include the `peddle_cls` helper.
 
 Constant shifts are emitted inline in both optimization modes.
 
@@ -1467,10 +1642,12 @@ Implemented:
 - arrays
 - runtime array length
 - append/copy/fill/clear
+- append/copy with `char[]` sources
 - strings
 - putchar/putscreen/putcolor
 - safe clipping for direct screen writes
-- putstr/putstrcolor
+- putstr/putstrcolor with string literals and dynamic `char[]`
+- signed `itoa()` conversion
 - gotoxy
 - cls/border/background/textcolor
 - string escape sequences including C64 newline/carriage return
@@ -1496,10 +1673,10 @@ Not implemented yet:
 - sprites/sound libraries
 - recursion safety
 - dynamic arrays
+- multiple simultaneous independent temporary string results from `itoa()`
 - constant expressions
 - typed constants
 - local constants
-- dynamic `char[]` arguments for `putstr()` and `putstrcolor()`
 
 ---
 
