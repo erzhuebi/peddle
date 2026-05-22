@@ -91,6 +91,14 @@ type ReturnStmt struct {
 
 func (*ReturnStmt) stmtNode() {}
 
+type BreakStmt struct{}
+
+func (*BreakStmt) stmtNode() {}
+
+type ContinueStmt struct{}
+
+func (*ContinueStmt) stmtNode() {}
+
 type LValue interface {
 	lvalueNode()
 }

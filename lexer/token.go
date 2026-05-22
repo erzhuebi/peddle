@@ -18,15 +18,17 @@ const (
 	STRING = "STRING"
 	CHAR   = "CHAR"
 
-	CONST  = "CONST"
-	FN     = "FN"
-	VAR    = "VAR"
-	ARROW  = "->"
-	WHILE  = "WHILE"
-	IF     = "IF"
-	ELSE   = "ELSE"
-	RETURN = "RETURN"
-	STRUCT = "STRUCT"
+	CONST    = "CONST"
+	FN       = "FN"
+	VAR      = "VAR"
+	ARROW    = "->"
+	WHILE    = "WHILE"
+	IF       = "IF"
+	ELSE     = "ELSE"
+	RETURN   = "RETURN"
+	STRUCT   = "STRUCT"
+	BREAK    = "BREAK"
+	CONTINUE = "CONTINUE"
 
 	LPAREN = "("
 	RPAREN = ")"
@@ -61,14 +63,16 @@ const (
 )
 
 var keywords = map[string]TokenType{
-	"const":  CONST,
-	"fn":     FN,
-	"var":    VAR,
-	"while":  WHILE,
-	"if":     IF,
-	"else":   ELSE,
-	"return": RETURN,
-	"struct": STRUCT,
+	"const":    CONST,
+	"fn":       FN,
+	"var":      VAR,
+	"while":    WHILE,
+	"if":       IF,
+	"else":     ELSE,
+	"return":   RETURN,
+	"struct":   STRUCT,
+	"break":    BREAK,
+	"continue": CONTINUE,
 }
 
 func LookupIdent(ident string) TokenType {

@@ -239,7 +239,7 @@ func (c *Checker) checkFunction(fn *ast.FunctionDecl) error {
 	}
 
 	for _, stmt := range fn.Body {
-		if err := c.checkStmt(scope, fn, stmt); err != nil {
+		if err := c.checkStmt(scope, fn, stmt, 0); err != nil {
 			return err
 		}
 	}
@@ -265,7 +265,7 @@ func (c *Checker) checkType(t ast.Type) error {
 	}
 }
 
-func (c *Checker) checkStmt(scope map[string]ast.Type, fn *ast.FunctionDecl, s ast.Stmt) error {
+func (c *Checker) checkStmt(scope map[string]ast.Type, fn *ast.FunctionDecl, s ast.Stmt, loopDepth int) error {
 	switch stmt := s.(type) {
 	case *ast.AssignStmt:
 		targetType, err := c.checkLValue(scope, stmt.Target)
@@ -294,7 +294,7 @@ func (c *Checker) checkStmt(scope map[string]ast.Type, fn *ast.FunctionDecl, s a
 		}
 
 		for _, inner := range stmt.Body {
-			if err := c.checkStmt(scope, fn, inner); err != nil {
+			if err := c.checkStmt(scope, fn, inner, loopDepth+1); err != nil {
 				return err
 			}
 		}
@@ -306,13 +306,13 @@ func (c *Checker) checkStmt(scope map[string]ast.Type, fn *ast.FunctionDecl, s a
 		}
 
 		for _, inner := range stmt.Then {
-			if err := c.checkStmt(scope, fn, inner); err != nil {
+			if err := c.checkStmt(scope, fn, inner, loopDepth); err != nil {
 				return err
 			}
 		}
 
 		for _, inner := range stmt.Else {
-			if err := c.checkStmt(scope, fn, inner); err != nil {
+			if err := c.checkStmt(scope, fn, inner, loopDepth); err != nil {
 				return err
 			}
 		}
@@ -336,6 +336,16 @@ func (c *Checker) checkStmt(scope map[string]ast.Type, fn *ast.FunctionDecl, s a
 
 		if !sameType(fn.ReturnType, valueType) && !canAssign(fn.ReturnType, valueType) {
 			return fmt.Errorf("cannot return %s from function returning %s", valueType.String(), fn.ReturnType.String())
+		}
+
+	case *ast.BreakStmt:
+		if loopDepth == 0 {
+			return fmt.Errorf("break outside loop")
+		}
+
+	case *ast.ContinueStmt:
+		if loopDepth == 0 {
+			return fmt.Errorf("continue outside loop")
 		}
 
 	default:

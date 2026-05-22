@@ -331,6 +331,14 @@ func (p *Parser) parseStatement() ast.Stmt {
 	case lexer.RETURN:
 		return p.parseReturn()
 
+	case lexer.BREAK:
+		p.nextToken()
+		return &ast.BreakStmt{}
+
+	case lexer.CONTINUE:
+		p.nextToken()
+		return &ast.ContinueStmt{}
+
 	case lexer.VAR:
 		p.errorf("var declarations are only allowed at the beginning of a block")
 		p.nextToken()

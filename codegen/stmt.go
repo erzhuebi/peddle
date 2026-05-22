@@ -18,9 +18,71 @@ func (g *Generator) genStmt(s ast.Stmt) error {
 		return g.genIf(stmt)
 	case *ast.ReturnStmt:
 		return g.genReturn(stmt)
+	case *ast.BreakStmt:
+		return g.genBreak(stmt)
+	case *ast.ContinueStmt:
+		return g.genContinue(stmt)
 	default:
 		return fmt.Errorf("unsupported statement")
 	}
+}
+
+type loopLabels struct {
+	continueLabel string
+	breakLabel    string
+}
+
+var generatorLoopLabels = map[*Generator][]loopLabels{}
+
+func (g *Generator) pushLoopLabels(continueLabel string, breakLabel string) {
+	generatorLoopLabels[g] = append(generatorLoopLabels[g], loopLabels{
+		continueLabel: continueLabel,
+		breakLabel:    breakLabel,
+	})
+}
+
+func (g *Generator) popLoopLabels() {
+	stack := generatorLoopLabels[g]
+	if len(stack) == 0 {
+		return
+	}
+
+	stack = stack[:len(stack)-1]
+	if len(stack) == 0 {
+		delete(generatorLoopLabels, g)
+		return
+	}
+
+	generatorLoopLabels[g] = stack
+}
+
+func (g *Generator) currentLoopLabels() (loopLabels, bool) {
+	stack := generatorLoopLabels[g]
+	if len(stack) == 0 {
+		return loopLabels{}, false
+	}
+
+	return stack[len(stack)-1], true
+}
+
+func (g *Generator) genBreak(_ *ast.BreakStmt) error {
+	labels, ok := g.currentLoopLabels()
+	if !ok {
+		return fmt.Errorf("break outside loop")
+	}
+
+	g.emit(fmt.Sprintf("    jmp %s", labels.breakLabel))
+	return nil
+}
+
+func (g *Generator) genContinue(_ *ast.ContinueStmt) error {
+	labels, ok := g.currentLoopLabels()
+	if !ok {
+		return fmt.Errorf("continue outside loop")
+	}
+
+	g.emit(fmt.Sprintf("    jmp %s", labels.continueLabel))
+	return nil
 }
 
 func (g *Generator) genAssign(a *ast.AssignStmt) error {
@@ -238,6 +300,9 @@ func (g *Generator) genCallStmt(c *ast.CallStmt) error {
 func (g *Generator) genWhile(w *ast.WhileStmt) error {
 	start := g.newLabel()
 	end := g.newLabel()
+
+	g.pushLoopLabels(start, end)
+	defer g.popLoopLabels()
 
 	g.emit(start + ":")
 

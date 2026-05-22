@@ -432,6 +432,54 @@ fn main() {
 
 ---
 
+# break and continue
+
+`break` exits the nearest enclosing `while` loop immediately.
+
+```peddle
+fn main() {
+    var i byte
+
+    i = 0
+
+    while i < 10 {
+        if i == 5 {
+            break
+        }
+
+        i = i + 1
+    }
+}
+```
+
+`continue` skips the rest of the current loop iteration and jumps back to the `while` condition.
+
+```peddle
+fn main() {
+    var i byte
+    var sum int
+
+    i = 0
+    sum = 0
+
+    while i < 10 {
+        i = i + 1
+
+        if i == 3 {
+            continue
+        }
+
+        sum = sum + i
+    }
+}
+```
+
+`break` and `continue` are only valid inside `while` loops. Using either outside a loop is a compile-time error.
+
+In nested loops, `break` and `continue` affect the nearest enclosing loop.
+
+---
+
 # Functions
 
 ## Basic Function
@@ -1433,6 +1481,71 @@ fn main() {
 
 ---
 
+# Break / Continue Example
+
+```peddle
+fn main() {
+    var i byte
+    var sum int
+    var line char[32]
+
+    cls()
+    border(6)
+    background(0)
+    textcolor(1)
+
+    i = 0
+    sum = 0
+
+    while i < 10 {
+        i = i + 1
+
+        # Skip 3 and 6.
+        if i == 3 {
+            continue
+        }
+
+        if i == 6 {
+            continue
+        }
+
+        # Stop completely at 8.
+        if i == 8 {
+            break
+        }
+
+        sum = sum + i
+    }
+
+    # sum = 1 + 2 + 4 + 5 + 7 = 19
+
+    copy(line, "I ")
+    append(line, itoa(i))
+    putstr(0, 0, line)
+
+    clear(line)
+    copy(line, "SUM ")
+    append(line, itoa(sum))
+    putstr(0, 2, line)
+
+    if i == 8 {
+        putstrcolor(0, 4, "BREAK OK", 5)
+    } else {
+        putstrcolor(0, 4, "BREAK FAIL", 2)
+    }
+
+    if sum == 19 {
+        putstrcolor(0, 5, "CONTINUE OK", 5)
+    } else {
+        putstrcolor(0, 5, "CONTINUE FAIL", 2)
+    }
+
+    gotoxy(0, 22)
+}
+```
+
+---
+
 # Complete Operator Example
 
 ```peddle
@@ -1637,6 +1750,7 @@ Implemented:
 - unary operators
 - if/else
 - while loops
+- break and continue
 - functions
 - return values
 - arrays
