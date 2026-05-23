@@ -89,7 +89,7 @@ check-run: check
 
 build: check
 	@mkdir -p build
-	go build -o $(PEDDLEC_BIN) ./cmd/peddlec
+	$(GO) build -ldflags "-X main.Version=$(VERSION)" -o $(PEDDLEC_BIN) ./cmd/peddlec
 	@echo "wrote $(PEDDLEC_BIN)"
 	@echo "version $(VERSION)"
 

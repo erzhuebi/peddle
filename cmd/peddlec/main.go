@@ -11,7 +11,7 @@ import (
 	"peddle/sema"
 )
 
-const Version = "0.2.0-dev"
+var Version = "0.0.0" // will be changed by Makefile
 
 func main() {
 	outPath := flag.String("o", "out.asm", "output ASM file")
@@ -23,7 +23,7 @@ func main() {
 	showVersionShort := flag.Bool("v", false, "print compiler version")
 
 	flag.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: peddlec -o output.asm [--opt=speed|--opt=size] [--mem-report] [--mem-limit=N] input.ped")
+		fmt.Fprintln(os.Stderr, "usage: peddlec -o output.asm [--opt=speed|--opt=size] [--mem-report] [--mem-limit=N] [--version] input.ped")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
