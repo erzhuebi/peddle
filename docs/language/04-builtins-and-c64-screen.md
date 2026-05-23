@@ -24,6 +24,9 @@
 | `putcolor(x, y, color)` | write color RAM value at position |
 | `putstr(x, y, text)` | write a string literal or `char[]` directly to screen RAM |
 | `putstrcolor(x, y, text, color)` | write a string literal or `char[]` to screen RAM and color RAM |
+| `key()` | non-blocking keyboard read; returns `0` if no key is waiting |
+| `waitkey()` | blocking keyboard read; waits until a key is available |
+| `readline(buffer, echo, max)` | read a line into a `char[]` buffer |
 
 ---
 
@@ -167,13 +170,16 @@ putchar(1, 0, 80)
 
 Both write the letter `P`.
 
-Currently the conversion handles:
+The conversion uses Peddle's character-to-screen-code table.
 
+Currently the important mappings include:
+
+- `@` to C64 screen code `0`
 - `A`..`Z` to C64 screen codes `1`..`26`
 - `a`..`z` to C64 screen codes `1`..`26`
-- all other values unchanged
+- space and digits keep their usual values
 
-So space and digits work naturally:
+So `@`, space, letters, and digits work naturally:
 
 ```peddle
 putchar(0, 0, ' ')
@@ -261,11 +267,14 @@ putstr(0, 2, itoa(score))
 
 `putstr()` uses the same character-to-screen-code conversion as `putchar()`.
 
-Currently the conversion handles:
+The conversion uses Peddle's character-to-screen-code table.
 
+Currently the important mappings include:
+
+- `@` to C64 screen code `0`
 - `A`..`Z` to C64 screen codes `1`..`26`
 - `a`..`z` to C64 screen codes `1`..`26`
-- all other values unchanged
+- space and digits keep their usual values
 
 ---
 
@@ -414,6 +423,130 @@ putstr()    converts string characters to screen codes
 For example, the space character is simple because it is `32` in both common text handling and screen memory. Letters are different: PETSCII/KERNAL character codes and raw screen codes are not the same thing.
 
 Therefore, do not pass a value returned by `key()` directly to `putscreen()` unless you intentionally want to use it as a raw screen code.
+
+---
+
+# waitkey()
+
+`waitkey()` is the blocking form of `key()`.
+
+```peddle
+waitkey() char
+```
+
+It waits until a key is available and then returns the C64 KERNAL/PETSCII character code.
+
+`waitkey()` does not echo the key to the screen.
+
+Internally, `waitkey()` repeatedly calls the C64 KERNAL `GETIN` routine at `$FFE4` until it receives a non-zero value.
+
+Example:
+
+```peddle
+fn main() {
+    var k char
+    var line char[32]
+
+    cls()
+    putstr(0, 0, "PRESS ANY KEY")
+
+    k = waitkey()
+
+    clear(line)
+    copy(line, "KEY ")
+    append(line, itoa(k))
+    putstr(0, 2, line)
+
+    gotoxy(0, 22)
+}
+```
+
+Use `waitkey()` when the program should stop and wait for one key. Use `key()` when the program should continue running even if no key is pressed.
+
+---
+
+# readline()
+
+Read a line of keyboard input into a `char[]` buffer.
+
+```peddle
+readline(buffer char[], echo bool, max int) int
+```
+
+`readline()` blocks until RETURN is pressed.
+
+Arguments:
+
+| Argument | Meaning |
+|---|---|
+| `buffer` | target `char[]` that receives the typed text |
+| `echo` | `true` echoes accepted characters, `false` stores silently |
+| `max` | maximum number of characters to accept |
+
+Return value:
+
+- the number of characters stored in `buffer`
+
+Important behavior:
+
+- `readline()` clears the buffer first
+- RETURN ends input and is not stored
+- the effective limit is `min(size(buffer), max)`
+- if the limit is reached, additional typed characters are ignored until RETURN
+- if `echo` is `true`, accepted characters are echoed using KERNAL character output
+- if `echo` is `false`, input is stored without printing typed characters
+
+Example with echo:
+
+```peddle
+fn main() {
+    var name char[32]
+    var line char[32]
+    var n int
+
+    cls()
+
+    putstr(0, 0, "NAME? ")
+    gotoxy(6, 0)
+
+    n = readline(name, true, 16)
+
+    clear(line)
+    copy(line, "HELLO ")
+    append(line, name)
+    putstr(0, 2, line)
+
+    clear(line)
+    copy(line, "LEN ")
+    append(line, itoa(n))
+    putstr(0, 3, line)
+
+    gotoxy(0, 22)
+}
+```
+
+Example without echo:
+
+```peddle
+fn main() {
+    var secret char[16]
+    var n int
+
+    cls()
+
+    putstr(0, 0, "SECRET? ")
+    gotoxy(8, 0)
+
+    n = readline(secret, false, 8)
+
+    putstr(0, 2, "SECRET STORED")
+    putstr(0, 3, itoa(n))
+
+    gotoxy(0, 22)
+}
+```
+
+Because arrays are mutable arguments in Peddle, `readline()` writes into the caller's `char[]` storage and updates the runtime length of that buffer.
 
 ---
 

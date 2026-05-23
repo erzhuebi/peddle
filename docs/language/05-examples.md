@@ -364,34 +364,86 @@ Run it with:
 
 `key()` returns `0` when no key is waiting. When a key is pressed, it returns the C64 KERNAL/PETSCII character code.
 
+
 ---
 
-## Target file: `examples/keyboard_key.ped`
+# Keyboard Line Input Example
 
-If you already created this example and it works in VICE, no change is needed.
+This example uses `readline()`, `waitkey()`, `key()`, and boolean literals together.
 
 ```peddle
 fn main() {
-    var k char
+    var name char[32]
+    var secret char[16]
     var line char[32]
+    var n int
+    var k char
+    var done bool
 
     cls()
-    putstr(0, 0, "PRESS KEYS")
+    textcolor(1)
 
-    while 1 == 1 {
+    done = false
+
+    putstr(0, 0, "READLINE TEST")
+    putstr(0, 2, "NAME? ")
+    gotoxy(6, 2)
+
+    n = readline(name, true, 16)
+
+    clear(line)
+    copy(line, "HELLO ")
+    append(line, name)
+    putstr(0, 4, line)
+
+    clear(line)
+    copy(line, "LEN ")
+    append(line, itoa(n))
+    putstr(0, 5, line)
+
+    putstr(0, 7, "SECRET? ")
+    gotoxy(8, 7)
+
+    n = readline(secret, false, 8)
+
+    clear(line)
+    copy(line, "SECRET LEN ")
+    append(line, itoa(n))
+    putstr(0, 9, line)
+
+    putstr(0, 11, "PRESS ANY KEY")
+    k = waitkey()
+
+    clear(line)
+    copy(line, "KEY ")
+    append(line, itoa(k))
+    putstr(0, 13, line)
+
+    putstr(0, 15, "PRESS Q TO QUIT")
+
+    while done == false {
         k = key()
 
-        if k != 0 {
-            clear(line)
-            copy(line, "KEY ")
-            append(line, itoa(k))
+        if k == 'q' {
+            done = true
+        }
 
-            putstr(0, 2, "        ")
-            putstr(0, 2, line)
+        if k == 'Q' {
+            done = true
         }
     }
+
+    gotoxy(0, 22)
 }
 ```
+
+Expected behavior:
+
+1. `NAME?` echoes typed characters and accepts at most 16 characters.
+2. The program prints `HELLO <name>` and the stored length.
+3. `SECRET?` accepts at most 8 characters without echoing them.
+4. `waitkey()` blocks at `PRESS ANY KEY`.
+5. The final loop uses non-blocking `key()` and exits when `Q` is pressed.
 
 ---
 
