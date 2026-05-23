@@ -11,6 +11,53 @@
 
 ---
 
+
+# Boolean Literals
+
+Peddle supports the boolean literals `true` and `false`.
+
+```peddle
+var done bool
+var enabled bool
+
+done = false
+enabled = true
+```
+
+Boolean values are stored as one byte:
+
+| Literal | Value | Meaning |
+|---|---:|---|
+| `false` | 0 | false |
+| `true` | 1 | true |
+
+Using `0` and `1` for boolean values is still allowed. This is useful for low-level C64 code and keeps existing programs compatible.
+
+```peddle
+var done bool
+
+done = 0
+done = 1
+```
+
+Boolean literals can be used in assignments, comparisons, `if` statements, and `while` loops.
+
+```peddle
+fn main() {
+    var done bool
+
+    done = false
+
+    while done == false {
+        if key() == 'q' {
+            done = true
+        }
+    }
+}
+```
+
+---
+
 # Numeric Literals
 
 Peddle supports decimal, hexadecimal, and binary integer literals.

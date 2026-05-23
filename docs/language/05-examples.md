@@ -260,6 +260,75 @@ fn main() {
 
 ---
 
+# Boolean Literals Example
+
+```peddle
+fn main() {
+    var done bool
+    var enabled bool
+    var count byte
+
+    cls()
+    textcolor(1)
+
+    done = false
+    enabled = true
+    count = 0
+
+    if enabled == true {
+        putstrcolor(0, 0, "ENABLED TRUE OK", 5)
+    } else {
+        putstrcolor(0, 0, "ENABLED TRUE FAIL", 2)
+    }
+
+    if done == false {
+        putstrcolor(0, 1, "DONE FALSE OK", 5)
+    } else {
+        putstrcolor(0, 1, "DONE FALSE FAIL", 2)
+    }
+
+    while done == false {
+        count = count + 1
+
+        if count == 5 {
+            done = true
+        }
+    }
+
+    if done == true {
+        putstrcolor(0, 3, "DONE TRUE OK", 5)
+    } else {
+        putstrcolor(0, 3, "DONE TRUE FAIL", 2)
+    }
+
+    if count == 5 {
+        putstrcolor(0, 4, "WHILE BOOL OK", 5)
+    } else {
+        putstrcolor(0, 4, "WHILE BOOL FAIL", 2)
+    }
+
+    gotoxy(0, 22)
+}
+```
+
+Run it with:
+
+```bash
+./peddle.sh --run examples/bool_literals.ped
+```
+
+Expected screen output:
+
+```text
+ENABLED TRUE OK
+DONE FALSE OK
+
+DONE TRUE OK
+WHILE BOOL OK
+```
+
+---
+
 # Keyboard input
 
 The `keyboard_key.ped` example shows how to read keys without blocking the program.
@@ -294,7 +363,6 @@ Run it with:
 ```
 
 `key()` returns `0` when no key is waiting. When a key is pressed, it returns the C64 KERNAL/PETSCII character code.
-```
 
 ---
 

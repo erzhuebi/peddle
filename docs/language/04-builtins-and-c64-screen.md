@@ -414,7 +414,6 @@ putstr()    converts string characters to screen codes
 For example, the space character is simple because it is `32` in both common text handling and screen memory. Letters are different: PETSCII/KERNAL character codes and raw screen codes are not the same thing.
 
 Therefore, do not pass a value returned by `key()` directly to `putscreen()` unless you intentionally want to use it as a raw screen code.
-```
 
 ---
 
