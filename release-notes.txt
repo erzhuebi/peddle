@@ -2,28 +2,7 @@
 
 ## v0.4.0 - 2026-05-23
 
+- auto release notes generation
 - version added into the compiler binary
 - chore: start 0.4.0-dev
-
-v0.3.0
-
-- versioning added
-- chore: ignore macOS metadata files
-- chore: add versioning
-- keyboard input added
-- publish wiki script added
-- splitted language guide
-- break and continue added to the language
-- documentation added
-- itoa implemented
-- put putstr, cls etc as runtime not inline to reduce size.
-- builtin cleanup
-- putstr and color version is now in the runtime.
-- gotoxy() added
-- putstr() and putstrcolor() added.
-- new language features documented
-- cls() fixed for resetting to 0,0; \n newline behaviour fixed.
-- new example ped files
-- putchar accepts char literals, makefile has now "all" target and all tests are fixed for the new type syntax (without ":")
-- language definition changed: the type for a var or function is not separated by a colon anymore
 
