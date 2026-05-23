@@ -1,0 +1,63 @@
+fn main() {
+    var name char[32]
+    var secret char[16]
+    var line char[32]
+    var n int
+    var k char
+    var done bool
+
+    cls()
+    textcolor(1)
+
+    done = false
+
+    putstr(0, 0, "READLINE TEST")
+    putstr(0, 2, "NAME? ")
+    gotoxy(6, 2)
+
+    n = readline(name, true, 16)
+
+    clear(line)
+    copy(line, "HELLO ")
+    append(line, name)
+    putstr(0, 4, line)
+
+    clear(line)
+    copy(line, "LEN ")
+    append(line, itoa(n))
+    putstr(0, 5, line)
+
+    putstr(0, 7, "SECRET? ")
+    gotoxy(8, 7)
+
+    n = readline(secret, false, 8)
+
+    clear(line)
+    copy(line, "SECRET LEN ")
+    append(line, itoa(n))
+    putstr(0, 9, line)
+
+    putstr(0, 11, "PRESS ANY KEY")
+    k = waitkey()
+
+    clear(line)
+    copy(line, "KEY ")
+    append(line, itoa(k))
+    putstr(0, 13, line)
+
+    putstr(0, 15, "PRESS Q TO QUIT")
+
+    while done == false {
+        k = key()
+
+        if k == 'q' {
+            done = true
+        }
+
+        if k == 'Q' {
+            done = true
+        }
+    }
+
+    gotoxy(0, 22)
+}

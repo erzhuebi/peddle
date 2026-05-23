@@ -20,6 +20,12 @@ func (g *Generator) genCall(name string, args []ast.Expr) (ast.Type, error) {
 	case "key":
 		return g.genKey(args)
 
+	case "waitkey":
+		return g.genWaitKey(args)
+
+	case "readline":
+		return g.genReadLine(args)
+
 	case "itoa":
 		return g.genItoa(args)
 

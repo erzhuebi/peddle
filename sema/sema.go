@@ -426,6 +426,47 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 		}
 		return ast.Type{Name: "char"}, nil
 
+	case "waitkey":
+		if len(args) != 0 {
+			return ast.Type{}, fmt.Errorf("%s expects no arguments", name)
+		}
+		return ast.Type{Name: "char"}, nil
+
+	case "readline":
+		if len(args) != 3 {
+			return ast.Type{}, fmt.Errorf("readline expects three arguments")
+		}
+
+		if _, ok := args[0].(*ast.StringExpr); ok {
+			return ast.Type{}, fmt.Errorf("readline buffer must be char array variable")
+		}
+
+		bufferType, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !(bufferType.IsArray && bufferType.Name == "char") {
+			return ast.Type{}, fmt.Errorf("readline buffer must be char array")
+		}
+
+		echoType, err := c.checkExpr(scope, args[1])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if echoType.Name != "bool" && !isNumeric(echoType) {
+			return ast.Type{}, fmt.Errorf("readline echo argument must be bool or numeric")
+		}
+
+		maxType, err := c.checkExpr(scope, args[2])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(maxType) {
+			return ast.Type{}, fmt.Errorf("readline max argument must be numeric")
+		}
+
+		return ast.Type{Name: "int"}, nil
+
 	case "print":
 		if len(args) != 1 {
 			return ast.Type{}, fmt.Errorf("print expects one argument")

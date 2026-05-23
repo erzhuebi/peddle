@@ -156,6 +156,55 @@ func (g *Generator) genKey(args []ast.Expr) (ast.Type, error) {
 	return ast.Type{Name: "char"}, nil
 }
 
+func (g *Generator) genWaitKey(args []ast.Expr) (ast.Type, error) {
+	return g.genWaitKeyNamed("waitkey", args)
+}
+
+func (g *Generator) genWaitKeyNamed(name string, args []ast.Expr) (ast.Type, error) {
+	if len(args) != 0 {
+		return ast.Type{}, fmt.Errorf("%s expects no arguments", name)
+	}
+
+	loop := g.newLabel()
+
+	// KERNAL GETIN ($ffe4): returns one PETSCII character code in A,
+	// or 0 when no key is waiting in the keyboard buffer.
+	g.emit(loop + ":")
+	g.emit("    jsr $ffe4")
+	g.emit("    cmp #0")
+	g.emit(fmt.Sprintf("    beq %s", loop))
+
+	return ast.Type{Name: "char"}, nil
+}
+
+func (g *Generator) genReadLine(args []ast.Expr) (ast.Type, error) {
+	if len(args) != 3 {
+		return ast.Type{}, fmt.Errorf("readline expects three arguments")
+	}
+
+	if err := g.genExprTo(args[1], ast.Type{Name: "byte"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    sta peddle_readline_echo")
+
+	if err := g.genExprTo(args[2], ast.Type{Name: "int"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    lda ZP_TMP0")
+	g.emit("    sta peddle_readline_max")
+	g.emit("    lda ZP_TMP1")
+	g.emit("    sta peddle_readline_max+1")
+
+	if err := g.genCharArrayAddress(args[0]); err != nil {
+		return ast.Type{}, err
+	}
+
+	g.emit("    jsr peddle_readline")
+	g.usedReadLineRuntime = true
+
+	return ast.Type{Name: "int"}, nil
+}
+
 func (g *Generator) genCls(args []ast.Expr) (ast.Type, error) {
 	if len(args) != 0 {
 		return ast.Type{}, fmt.Errorf("cls expects no arguments")
@@ -1471,6 +1520,126 @@ func (g *Generator) emitCharToScreenTable() {
 			table[i+15],
 		))
 	}
+}
+
+func (g *Generator) emitReadLineRuntime() {
+	if !g.usedReadLineRuntime {
+		return
+	}
+
+	g.emit("")
+	g.emit("; readline runtime")
+	g.emit("peddle_readline_echo:")
+	g.emit("    .byte 0")
+	g.emit("peddle_readline_max:")
+	g.emit("    .word 0")
+	g.emit("peddle_readline_limit:")
+	g.emit("    .word 0")
+	g.emit("peddle_readline_len:")
+	g.emit("    .word 0")
+	g.emit("peddle_readline_char:")
+	g.emit("    .byte 0")
+
+	g.emit("")
+	g.emit("peddle_readline:")
+
+	// Clear runtime length in the destination array header.
+	g.emit("    ldy #2")
+	g.emit("    lda #0")
+	g.emit("    sta (ZP_PTR0_LO), y")
+	g.emit("    iny")
+	g.emit("    sta (ZP_PTR0_LO), y")
+	g.emit("    sta peddle_readline_len")
+	g.emit("    sta peddle_readline_len+1")
+
+	// Start with limit = array capacity.
+	g.emit("    ldy #0")
+	g.emit("    lda (ZP_PTR0_LO), y")
+	g.emit("    sta peddle_readline_limit")
+	g.emit("    iny")
+	g.emit("    lda (ZP_PTR0_LO), y")
+	g.emit("    sta peddle_readline_limit+1")
+
+	// If max < capacity, use max as the effective limit.
+	g.emit("    lda peddle_readline_max+1")
+	g.emit("    cmp peddle_readline_limit+1")
+	g.emit("    bcc peddle_readline_use_max")
+	g.emit("    bne peddle_readline_limit_done")
+	g.emit("    lda peddle_readline_max")
+	g.emit("    cmp peddle_readline_limit")
+	g.emit("    bcc peddle_readline_use_max")
+	g.emit("    jmp peddle_readline_limit_done")
+
+	g.emit("peddle_readline_use_max:")
+	g.emit("    lda peddle_readline_max")
+	g.emit("    sta peddle_readline_limit")
+	g.emit("    lda peddle_readline_max+1")
+	g.emit("    sta peddle_readline_limit+1")
+
+	g.emit("peddle_readline_limit_done:")
+
+	// ZP_PTR1 points at the next destination data byte.
+	g.emit("    lda ZP_PTR0_LO")
+	g.emit("    clc")
+	g.emit("    adc #4")
+	g.emit("    sta ZP_PTR1_LO")
+	g.emit("    lda ZP_PTR0_HI")
+	g.emit("    adc #0")
+	g.emit("    sta ZP_PTR1_HI")
+
+	g.emit("peddle_readline_loop:")
+	g.emit("    jsr $ffe4")
+	g.emit("    cmp #0")
+	g.emit("    beq peddle_readline_loop")
+	g.emit("    cmp #13")
+	g.emit("    beq peddle_readline_done")
+	g.emit("    sta peddle_readline_char")
+
+	// Ignore additional characters once the effective limit is reached.
+	g.emit("    lda peddle_readline_len+1")
+	g.emit("    cmp peddle_readline_limit+1")
+	g.emit("    bcc peddle_readline_has_space")
+	g.emit("    bne peddle_readline_loop")
+	g.emit("    lda peddle_readline_len")
+	g.emit("    cmp peddle_readline_limit")
+	g.emit("    bcc peddle_readline_has_space")
+	g.emit("    jmp peddle_readline_loop")
+
+	g.emit("peddle_readline_has_space:")
+	g.emit("    ldy #0")
+	g.emit("    lda peddle_readline_char")
+	g.emit("    sta (ZP_PTR1_LO), y")
+
+	// Echo accepted characters when requested.
+	g.emit("    lda peddle_readline_echo")
+	g.emit("    beq peddle_readline_no_echo")
+	g.emit("    lda peddle_readline_char")
+	g.emit("    jsr $ffd2")
+	g.emit("peddle_readline_no_echo:")
+
+	// Advance destination pointer.
+	g.emit("    inc ZP_PTR1_LO")
+	g.emit("    bne peddle_readline_ptr_no_carry")
+	g.emit("    inc ZP_PTR1_HI")
+	g.emit("peddle_readline_ptr_no_carry:")
+
+	// Increment current length.
+	g.emit("    inc peddle_readline_len")
+	g.emit("    bne peddle_readline_loop")
+	g.emit("    inc peddle_readline_len+1")
+	g.emit("    jmp peddle_readline_loop")
+
+	g.emit("peddle_readline_done:")
+	g.emit("    ldy #2")
+	g.emit("    lda peddle_readline_len")
+	g.emit("    sta (ZP_PTR0_LO), y")
+	g.emit("    sta ZP_TMP0")
+	g.emit("    iny")
+	g.emit("    lda peddle_readline_len+1")
+	g.emit("    sta (ZP_PTR0_LO), y")
+	g.emit("    sta ZP_TMP1")
+	g.emit("    lda ZP_TMP0")
+	g.emit("    rts")
 }
 
 func (g *Generator) emitPutStrRuntime() {
