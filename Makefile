@@ -19,7 +19,7 @@ SRC     := examples/$(EXAMPLE).ped
 ASM_OUT := build/$(EXAMPLE).asm
 PRG_OUT := build/$(EXAMPLE).prg
 
-.PHONY: help all check check-run build run example hello clean test examples version bump-patch bump-minor bump-major _bump_version
+.PHONY: help all check check-run build run example hello clean test examples version release-notes bump-patch bump-minor bump-major _bump_version _write_release_notes
 
 # default target
 help:
@@ -35,6 +35,7 @@ help:
 	@echo "  make check                         - check compiler toolchain"
 	@echo "  make test                          - run Go tests"
 	@echo "  make version                       - print current development version"
+	@echo "  make release-notes                 - update release-notes.txt from git history"
 	@echo "  make bump-patch                    - tag current version and bump patch"
 	@echo "  make bump-minor                    - tag current version and bump minor"
 	@echo "  make bump-major                    - tag current version and bump major"
@@ -55,11 +56,11 @@ help:
 all: test build
 
 test: check
-	go test ./...
+	$(GO) test ./...
 
 check:
-	@command -v go >/dev/null 2>&1 || { \
-		echo "missing: go"; \
+	@command -v $(GO) >/dev/null 2>&1 || { \
+		echo "missing: $(GO)"; \
 		echo "macOS: install with: brew install go"; \
 		echo "Linux: install with: sudo apt install golang"; \
 		exit 1; \
@@ -96,6 +97,10 @@ build: check
 version: check
 	@echo "$(VERSION)"
 
+release-notes: check
+	@$(MAKE) --no-print-directory _write_release_notes RELEASE_VERSION="$(BASE_VERSION)"
+	@echo "updated $(RELEASE_NOTES_FILE)"
+
 bump-patch:
 	@$(MAKE) --no-print-directory _bump_version BUMP=patch
 
@@ -105,7 +110,7 @@ bump-minor:
 bump-major:
 	@$(MAKE) --no-print-directory _bump_version BUMP=major
 
-_bump_version: check
+_bump_version: test
 	@set -e; \
 	if [ -z "$(BUMP)" ]; then \
 		echo "missing BUMP=patch|minor|major"; \
@@ -127,23 +132,7 @@ _bump_version: check
 		*) echo "invalid version in $(VERSION_FILE): $$base"; exit 1 ;; \
 	esac; \
 	echo "Releasing v$$base"; \
-	last_tag=$$(git describe --tags --abbrev=0 2>/dev/null || true); \
-	tmp_notes=$$(mktemp); \
-	{ \
-		echo "v$$base"; \
-		echo ""; \
-		if [ -n "$$last_tag" ]; then \
-			git log --pretty=format:'- %s' "$$last_tag"..HEAD; \
-		else \
-			git log --pretty=format:'- %s'; \
-		fi; \
-		echo ""; \
-		echo ""; \
-		if [ -f "$(RELEASE_NOTES_FILE)" ]; then \
-			cat "$(RELEASE_NOTES_FILE)"; \
-		fi; \
-	} > "$$tmp_notes"; \
-	mv "$$tmp_notes" "$(RELEASE_NOTES_FILE)"; \
+	$(MAKE) --no-print-directory _write_release_notes RELEASE_VERSION="$$base"; \
 	git add "$(RELEASE_NOTES_FILE)" "$(VERSION_FILE)"; \
 	git commit -m "release: v$$base"; \
 	git tag -a "v$$base" -m "v$$base"; \
@@ -158,6 +147,44 @@ _bump_version: check
 	echo "Push with:"; \
 	echo "  git push"; \
 	echo "  git push --tags"
+
+_write_release_notes:
+	@set -e; \
+	if [ -z "$(RELEASE_VERSION)" ]; then \
+		echo "missing RELEASE_VERSION"; \
+		exit 1; \
+	fi; \
+	if [ ! -d .git ]; then \
+		echo "not a git repository"; \
+		exit 1; \
+	fi; \
+	last_tag=$$(git describe --tags --abbrev=0 2>/dev/null || true); \
+	tmp_notes=$$(mktemp); \
+	{ \
+		echo "# Release notes"; \
+		echo ""; \
+		echo "## v$(RELEASE_VERSION) - $$(date +%Y-%m-%d)"; \
+		echo ""; \
+		if [ -n "$$last_tag" ]; then \
+			commits=$$(git log --pretty=format:'- %s' "$$last_tag"..HEAD); \
+		else \
+			commits=$$(git log --pretty=format:'- %s'); \
+		fi; \
+		if [ -n "$$commits" ]; then \
+			echo "$$commits"; \
+		else \
+			echo "- No changes recorded."; \
+		fi; \
+		echo ""; \
+		if [ -f "$(RELEASE_NOTES_FILE)" ]; then \
+			if grep -q '^# Release notes' "$(RELEASE_NOTES_FILE)"; then \
+				awk 'BEGIN{skip=1} /^## /{if (seen){skip=0} else {seen=1; next}} skip==0{print}' "$(RELEASE_NOTES_FILE)"; \
+			else \
+				cat "$(RELEASE_NOTES_FILE)"; \
+			fi; \
+		fi; \
+	} > "$$tmp_notes"; \
+	mv "$$tmp_notes" "$(RELEASE_NOTES_FILE)"
 
 examples:
 	@find examples -maxdepth 1 -type f -name '*.ped' | sed 's|examples/||; s|\.ped$$||' | sort
