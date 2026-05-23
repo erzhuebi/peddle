@@ -2,6 +2,15 @@ PEDDLEC_BIN := build/peddlec
 ASM        := 64tass
 VICE       ?= $(shell command -v x64sc 2>/dev/null || command -v x64 2>/dev/null)
 
+GO ?= go
+
+VERSION_FILE := .version
+RELEASE_NOTES_FILE ?= release-notes.txt
+DEVTOOL_CMD ?= ./cmd/devtool
+
+BASE_VERSION := $(shell [ -f $(VERSION_FILE) ] && cat $(VERSION_FILE) || echo "0.0.0")
+VERSION := $(BASE_VERSION)-dev
+
 EXAMPLE ?= hello
 OPT     ?= speed
 MEM_FLAGS ?=
@@ -10,7 +19,7 @@ SRC     := examples/$(EXAMPLE).ped
 ASM_OUT := build/$(EXAMPLE).asm
 PRG_OUT := build/$(EXAMPLE).prg
 
-.PHONY: help all check check-run build run example hello clean test examples
+.PHONY: help all check check-run build run example hello clean test examples version bump-patch bump-minor bump-major _bump_version
 
 # default target
 help:
@@ -24,11 +33,20 @@ help:
 	@echo "  make hello                         - same as make run EXAMPLE=hello"
 	@echo "  make examples                      - list available examples"
 	@echo "  make check                         - check compiler toolchain"
+	@echo "  make test                          - run Go tests"
+	@echo "  make version                       - print current development version"
+	@echo "  make bump-patch                    - tag current version and bump patch"
+	@echo "  make bump-minor                    - tag current version and bump minor"
+	@echo "  make bump-major                    - tag current version and bump major"
 	@echo "  make clean                         - remove build artifacts"
 	@echo ""
 	@echo "Optional variables:"
 	@echo "  OPT=speed|size"
 	@echo "  MEM_FLAGS='--mem-report --mem-limit=32768'"
+	@echo ""
+	@echo "Version:"
+	@echo "  base: $(BASE_VERSION)"
+	@echo "  dev : $(VERSION)"
 	@echo ""
 	@echo "Toolchain:"
 	@echo "  macOS: brew install go 64tass vice"
@@ -46,6 +64,12 @@ check:
 		echo "Linux: install with: sudo apt install golang"; \
 		exit 1; \
 	}
+	@if [ ! -f "$(VERSION_FILE)" ]; then \
+		echo "missing: $(VERSION_FILE)"; \
+		echo "create it with an initial version, for example:"; \
+		echo "  echo 0.1.0 > $(VERSION_FILE)"; \
+		exit 1; \
+	fi
 	@echo "compiler toolchain ok"
 
 check-run: check
@@ -67,6 +91,73 @@ build: check
 	@mkdir -p build
 	go build -o $(PEDDLEC_BIN) ./cmd/peddlec
 	@echo "wrote $(PEDDLEC_BIN)"
+	@echo "version $(VERSION)"
+
+version: check
+	@echo "$(VERSION)"
+
+bump-patch:
+	@$(MAKE) --no-print-directory _bump_version BUMP=patch
+
+bump-minor:
+	@$(MAKE) --no-print-directory _bump_version BUMP=minor
+
+bump-major:
+	@$(MAKE) --no-print-directory _bump_version BUMP=major
+
+_bump_version: check
+	@set -e; \
+	if [ -z "$(BUMP)" ]; then \
+		echo "missing BUMP=patch|minor|major"; \
+		exit 1; \
+	fi; \
+	if [ ! -d .git ]; then \
+		echo "not a git repository"; \
+		exit 1; \
+	fi; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Git working tree is dirty. Commit or stash changes first."; \
+		echo ""; \
+		git status --short; \
+		exit 1; \
+	fi; \
+	base=$$(cat "$(VERSION_FILE)"); \
+	case "$$base" in \
+		*.*.*) ;; \
+		*) echo "invalid version in $(VERSION_FILE): $$base"; exit 1 ;; \
+	esac; \
+	echo "Releasing v$$base"; \
+	last_tag=$$(git describe --tags --abbrev=0 2>/dev/null || true); \
+	tmp_notes=$$(mktemp); \
+	{ \
+		echo "v$$base"; \
+		echo ""; \
+		if [ -n "$$last_tag" ]; then \
+			git log --pretty=format:'- %s' "$$last_tag"..HEAD; \
+		else \
+			git log --pretty=format:'- %s'; \
+		fi; \
+		echo ""; \
+		echo ""; \
+		if [ -f "$(RELEASE_NOTES_FILE)" ]; then \
+			cat "$(RELEASE_NOTES_FILE)"; \
+		fi; \
+	} > "$$tmp_notes"; \
+	mv "$$tmp_notes" "$(RELEASE_NOTES_FILE)"; \
+	git add "$(RELEASE_NOTES_FILE)" "$(VERSION_FILE)"; \
+	git commit -m "release: v$$base"; \
+	git tag -a "v$$base" -m "v$$base"; \
+	new=$$($(GO) run "$(DEVTOOL_CMD)" -quiet "$(VERSION_FILE)" "$(BUMP)"); \
+	echo "Next development version: $$new-dev"; \
+	git add "$(VERSION_FILE)"; \
+	git commit -m "chore: start $$new-dev"; \
+	echo ""; \
+	echo "Released v$$base"; \
+	echo "Current development version: $$new-dev"; \
+	echo ""; \
+	echo "Push with:"; \
+	echo "  git push"; \
+	echo "  git push --tags"
 
 examples:
 	@find examples -maxdepth 1 -type f -name '*.ped' | sed 's|examples/||; s|\.ped$$||' | sort
