@@ -1,8 +1,9 @@
 # Release notes
 
-## v0.4.0 - 2026-05-23
+## v0.5.0 - 2026-05-23
 
-- auto release notes generation
-- version added into the compiler binary
-- chore: start 0.4.0-dev
+- some ignores
+- boolean literals true and false added to the documentation
+- boolean literals true and false added
+- chore: start 0.5.0-dev
 
