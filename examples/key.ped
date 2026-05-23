@@ -1,0 +1,26 @@
+fn main() {
+    var k char
+    var line char[32]
+
+    cls()
+    border(6)
+    background(0)
+    textcolor(1)
+
+    putstr(0, 0, "PRESS KEYS")
+    putstr(0, 1, "SPACE SHOULD BE 32")
+    putstr(0, 2, "RETURN SHOULD BE 13")
+
+    while 1 == 1 {
+        k = key()
+
+        if k != 0 {
+            clear(line)
+            copy(line, "KEY ")
+            append(line, itoa(k))
+
+            putstr(0, 4, "        ")
+            putstr(0, 4, line)
+        }
+    }
+}

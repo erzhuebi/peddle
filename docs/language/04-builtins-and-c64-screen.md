@@ -344,6 +344,80 @@ putstrcolor(0, 2, itoa(123), 1)
 
 ---
 
+# key()
+
+Peddle provides a simple non-blocking keyboard builtin for C64 programs:
+
+```peddle
+key() char
+```
+
+`key()` reads one character from the C64 KERNAL keyboard buffer.
+
+It returns:
+
+- the next C64 KERNAL/PETSCII character code if a key is waiting
+- `0` if no key is currently waiting
+
+`key()` does not block. This makes it useful for games and interactive programs where the main loop should continue running even when no key is pressed.
+
+Internally, `key()` uses the C64 KERNAL `GETIN` routine at `$FFE4`.
+
+Example:
+
+```peddle
+fn main() {
+    var k char
+    var line char[32]
+
+    cls()
+    putstr(0, 0, "PRESS KEYS")
+
+    while 1 == 1 {
+        k = key()
+
+        if k != 0 {
+            clear(line)
+            copy(line, "KEY ")
+            append(line, itoa(k))
+
+            putstr(0, 2, "        ")
+            putstr(0, 2, line)
+        }
+    }
+}
+```
+
+Common values include:
+
+```text
+SPACE   32
+RETURN  13
+```
+
+Other keys should be treated as C64/PETSCII-style key codes and can be checked in VICE or on real hardware.
+
+### PETSCII and screen codes
+
+`key()` returns C64 KERNAL/PETSCII-style character codes. These are not the same as raw screen codes.
+
+Use this rule:
+
+```text
+key()       returns PETSCII/KERNAL character codes
+print()     uses KERNAL/PETSCII output
+putscreen() writes raw screen codes directly to screen RAM
+putchar()   converts a character to a screen code
+putstr()    converts string characters to screen codes
+```
+
+For example, the space character is simple because it is `32` in both common text handling and screen memory. Letters are different: PETSCII/KERNAL character codes and raw screen codes are not the same thing.
+
+Therefore, do not pass a value returned by `key()` directly to `putscreen()` unless you intentionally want to use it as a raw screen code.
+```
+
+---
+
 # peek()
 
 Read memory from the C64.

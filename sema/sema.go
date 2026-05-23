@@ -455,6 +455,12 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 		}
 		return ast.Type{Name: "byte"}, nil
 
+	case "key":
+		if len(args) != 0 {
+			return ast.Type{}, fmt.Errorf("key expects no arguments")
+		}
+		return ast.Type{Name: "char"}, nil
+
 	case "cls":
 		if len(args) != 0 {
 			return ast.Type{}, fmt.Errorf("cls expects no arguments")

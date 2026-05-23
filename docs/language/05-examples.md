@@ -260,6 +260,70 @@ fn main() {
 
 ---
 
+# Keyboard input
+
+The `keyboard_key.ped` example shows how to read keys without blocking the program.
+
+```peddle
+fn main() {
+    var k char
+    var line char[32]
+
+    cls()
+    putstr(0, 0, "PRESS KEYS")
+
+    while 1 == 1 {
+        k = key()
+
+        if k != 0 {
+            clear(line)
+            copy(line, "KEY ")
+            append(line, itoa(k))
+
+            putstr(0, 2, "        ")
+            putstr(0, 2, line)
+        }
+    }
+}
+```
+
+Run it with:
+
+```bash
+./peddle.sh --run examples/keyboard_key.ped
+```
+
+`key()` returns `0` when no key is waiting. When a key is pressed, it returns the C64 KERNAL/PETSCII character code.
+```
+
+---
+
+## Target file: `examples/keyboard_key.ped`
+
+If you already created this example and it works in VICE, no change is needed.
+
+```peddle
+fn main() {
+    var k char
+    var line char[32]
+
+    cls()
+    putstr(0, 0, "PRESS KEYS")
+
+    while 1 == 1 {
+        k = key()
+
+        if k != 0 {
+            clear(line)
+            copy(line, "KEY ")
+            append(line, itoa(k))
+
+            putstr(0, 2, "        ")
+            putstr(0, 2, line)
+        }
+    }
+}
+```
 
 ---
 

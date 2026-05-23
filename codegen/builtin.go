@@ -145,6 +145,17 @@ func (g *Generator) genPeek(args []ast.Expr) (ast.Type, error) {
 	return ast.Type{Name: "byte"}, nil
 }
 
+func (g *Generator) genKey(args []ast.Expr) (ast.Type, error) {
+	if len(args) != 0 {
+		return ast.Type{}, fmt.Errorf("key expects no arguments")
+	}
+
+	// KERNAL GETIN ($ffe4): returns one PETSCII character code in A,
+	// or 0 when no key is waiting in the keyboard buffer.
+	g.emit("    jsr $ffe4")
+	return ast.Type{Name: "char"}, nil
+}
+
 func (g *Generator) genCls(args []ast.Expr) (ast.Type, error) {
 	if len(args) != 0 {
 		return ast.Type{}, fmt.Errorf("cls expects no arguments")
@@ -298,30 +309,12 @@ func (g *Generator) genPutScreenByte(name string, args []ast.Expr, base int, con
 }
 
 func (g *Generator) genCharCodeToScreenCode() {
-	checkLower := g.newLabel()
-	done := g.newLabel()
+	g.usedCharToScreenTable = true
 
 	g.emit("    lda ZP_TMP0")
-	g.emit("    cmp #65")
-	g.emit(fmt.Sprintf("    bcc %s", checkLower))
-	g.emit("    cmp #91")
-	g.emit(fmt.Sprintf("    bcs %s", checkLower))
-	g.emit("    sec")
-	g.emit("    sbc #64")
+	g.emit("    tax")
+	g.emit("    lda peddle_char_to_screen_table, x")
 	g.emit("    sta ZP_TMP0")
-	g.emit(fmt.Sprintf("    jmp %s", done))
-
-	g.emit(checkLower + ":")
-	g.emit("    lda ZP_TMP0")
-	g.emit("    cmp #97")
-	g.emit(fmt.Sprintf("    bcc %s", done))
-	g.emit("    cmp #123")
-	g.emit(fmt.Sprintf("    bcs %s", done))
-	g.emit("    sec")
-	g.emit("    sbc #96")
-	g.emit("    sta ZP_TMP0")
-
-	g.emit(done + ":")
 }
 
 func (g *Generator) genPutStr(args []ast.Expr) (ast.Type, error) {
@@ -1423,6 +1416,63 @@ func (g *Generator) emitClsRuntime() {
 	g.emit("    rts")
 }
 
+func (g *Generator) emitCharToScreenTable() {
+	if !g.usedCharToScreenTable && !g.usedPutStrRuntime && !g.usedPutStrColorRuntime {
+		return
+	}
+
+	table := make([]int, 256)
+	for i := 0; i < 256; i++ {
+		table[i] = i
+	}
+
+	// C64 screen RAM does not use PETSCII/ASCII codes directly.
+	//
+	// Common useful mappings:
+	//   '@'       PETSCII/ASCII 64      -> screen code 0
+	//   'A'..'Z' PETSCII/ASCII 65..90   -> screen codes 1..26
+	//   'a'..'z' PETSCII/ASCII 97..122  -> screen codes 1..26
+	//
+	// Other values currently keep identity mapping. This preserves existing
+	// behavior for digits, spaces, and common punctuation while giving us one
+	// central place to improve the PETSCII-to-screen mapping later.
+	table[64] = 0
+
+	for ch := 65; ch <= 90; ch++ {
+		table[ch] = ch - 64
+	}
+
+	for ch := 97; ch <= 122; ch++ {
+		table[ch] = ch - 96
+	}
+
+	g.emit("")
+	g.emit("; character to C64 screen code lookup table")
+	g.emit("peddle_char_to_screen_table:")
+
+	for i := 0; i < 256; i += 16 {
+		g.emit(fmt.Sprintf(
+			"    .byte %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+			table[i+0],
+			table[i+1],
+			table[i+2],
+			table[i+3],
+			table[i+4],
+			table[i+5],
+			table[i+6],
+			table[i+7],
+			table[i+8],
+			table[i+9],
+			table[i+10],
+			table[i+11],
+			table[i+12],
+			table[i+13],
+			table[i+14],
+			table[i+15],
+		))
+	}
+}
+
 func (g *Generator) emitPutStrRuntime() {
 	if !g.usedPutStrRuntime && !g.usedPutStrColorRuntime {
 		return
@@ -1512,24 +1562,10 @@ func (g *Generator) emitPutStrRuntime() {
 	g.emit("    jmp peddle_putstr_newline")
 	g.emit("peddle_putstr_not_newline:")
 
-	// Convert character code in A to C64 screen code.
-	g.emit("    cmp #65")
-	g.emit("    bcc peddle_putstr_check_lower")
-	g.emit("    cmp #91")
-	g.emit("    bcs peddle_putstr_check_lower")
-	g.emit("    sec")
-	g.emit("    sbc #64")
-	g.emit("    jmp peddle_putstr_converted")
-
-	g.emit("peddle_putstr_check_lower:")
-	g.emit("    cmp #97")
-	g.emit("    bcc peddle_putstr_converted")
-	g.emit("    cmp #123")
-	g.emit("    bcs peddle_putstr_converted")
-	g.emit("    sec")
-	g.emit("    sbc #96")
-
-	g.emit("peddle_putstr_converted:")
+	// Convert character code to C64 screen code through the shared table.
+	g.emit("    lda peddle_putstr_char")
+	g.emit("    tax")
+	g.emit("    lda peddle_char_to_screen_table, x")
 	g.emit("    sta peddle_putstr_char")
 
 	// Clip current x.

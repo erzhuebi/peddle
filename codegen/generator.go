@@ -62,6 +62,7 @@ type Generator struct {
 	usedStringAppendRuntime bool
 	usedPutStrRuntime       bool
 	usedPutStrColorRuntime  bool
+	usedCharToScreenTable   bool
 	usedItoaRuntime         bool
 
 	memoryReport MemoryReport

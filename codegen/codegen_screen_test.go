@@ -80,7 +80,7 @@ fn main() {
 	requireASMAssemblesWith64tass(t, asm)
 }
 
-func TestCodegenPutScreenIsRawAndPutCharConvertsLetters(t *testing.T) {
+func TestCodegenPutScreenIsRawAndPutCharUsesCharToScreenTable(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
     cls()
@@ -90,13 +90,27 @@ fn main() {
 }
 `)
 
+	// putscreen() is raw screen-code output.
 	requireASM(t, asm,
 		"lda #16",
 		"sta ZP_TMP0",
+	)
+
+	// putchar() is character output and must convert through the shared table.
+	requireASM(t, asm,
 		"lda #80",
 		"sta ZP_TMP0",
-		"sbc #64",
+		"lda ZP_TMP0",
+		"tax",
+		"lda peddle_char_to_screen_table, x",
 		"sta ZP_TMP0",
+		"peddle_char_to_screen_table:",
+	)
+
+	// Old branch-based character conversion should no longer be emitted.
+	requireNoASM(t, asm,
+		"sbc #64",
+		"sbc #96",
 	)
 
 	requireReferencedLabelsDefined(t, asm)

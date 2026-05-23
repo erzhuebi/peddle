@@ -50,6 +50,7 @@ func (g *Generator) emitRuntime() {
 	g.emitStringRuntime()
 	g.emitClsRuntime()
 	g.emitItoaRuntime()
+	g.emitCharToScreenTable()
 	g.emitPutStrRuntime()
 }
 

@@ -207,7 +207,7 @@ fn main() {
 	requireASMAssemblesWith64tass(t, asm)
 }
 
-func TestCodegenPutStrRuntimeConvertsUppercaseAndLowercase(t *testing.T) {
+func TestCodegenPutStrRuntimeUsesCharToScreenTable(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
     putstr(0, 0, "abc")
@@ -215,22 +215,17 @@ fn main() {
 `)
 
 	requireASM(t, asm,
-		"peddle_putstr_check_lower:",
-		"cmp #97",
-		"bcc peddle_putstr_converted",
-		"cmp #123",
-		"bcs peddle_putstr_converted",
-		"sec",
-		"sbc #96",
-		"peddle_putstr_converted:",
+		"peddle_char_to_screen_table:",
+		"lda peddle_putstr_char",
+		"tax",
+		"lda peddle_char_to_screen_table, x",
+		"sta peddle_putstr_char",
 	)
 
-	requireASM(t, asm,
-		"cmp #65",
-		"bcc peddle_putstr_check_lower",
-		"cmp #91",
-		"bcs peddle_putstr_check_lower",
+	requireNoASM(t, asm,
+		"peddle_putstr_check_lower:",
 		"sbc #64",
+		"sbc #96",
 	)
 
 	requireReferencedLabelsDefined(t, asm)
