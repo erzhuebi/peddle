@@ -39,11 +39,28 @@ func (g *Generator) genBinaryByte(b *ast.BinaryExpr) error {
 	if err := g.genExprTo(b.Right, ast.Type{Name: "byte"}); err != nil {
 		return err
 	}
-	g.emit("    sta ZP_TMP0")
+
+	// Preserve the right-hand byte while generating the left side.
+	//
+	// Nested left expressions also use ZP_TMP0/ZP_TMP1 internally. Without
+	// preserving the right side, expressions like:
+	//
+	//     (a + 1) & 4
+	//     (a + 1) << shift
+	//
+	// can accidentally use the nested expression's temporary value instead of
+	// the outer right-hand operand.
+	g.emit("    pha")
 
 	if err := g.genExprTo(b.Left, ast.Type{Name: "byte"}); err != nil {
 		return err
 	}
+
+	// Save left in ZP_TMP1, restore right into ZP_TMP0, and put left back in A.
+	g.emit("    sta ZP_TMP1")
+	g.emit("    pla")
+	g.emit("    sta ZP_TMP0")
+	g.emit("    lda ZP_TMP1")
 
 	switch b.Op {
 	case "+":
@@ -147,14 +164,40 @@ func (g *Generator) genBinaryInt(b *ast.BinaryExpr) error {
 	if err := g.genExprTo(b.Right, ast.Type{Name: "int"}); err != nil {
 		return err
 	}
+
+	// Preserve the right-hand int while generating the left side.
+	//
+	// Nested left expressions also use peddle_tmp_int0 and ZP_TMP0/ZP_TMP1.
+	// Without preserving the right side, expressions like:
+	//
+	//     (a + 1) & 4
+	//
+	// can overwrite the outer right-hand operand while generating (a + 1).
 	g.emit("    lda ZP_TMP0")
-	g.emit("    sta peddle_tmp_int0")
+	g.emit("    pha")
 	g.emit("    lda ZP_TMP1")
-	g.emit("    sta peddle_tmp_int0+1")
+	g.emit("    pha")
 
 	if err := g.genExprTo(b.Left, ast.Type{Name: "int"}); err != nil {
 		return err
 	}
+
+	// Save left temporarily, restore right into peddle_tmp_int0, then restore
+	// left into ZP_TMP0/ZP_TMP1 for the operation below.
+	g.emit("    lda ZP_TMP0")
+	g.emit("    sta ZP_PTR0_LO")
+	g.emit("    lda ZP_TMP1")
+	g.emit("    sta ZP_PTR0_HI")
+
+	g.emit("    pla")
+	g.emit("    sta peddle_tmp_int0+1")
+	g.emit("    pla")
+	g.emit("    sta peddle_tmp_int0")
+
+	g.emit("    lda ZP_PTR0_LO")
+	g.emit("    sta ZP_TMP0")
+	g.emit("    lda ZP_PTR0_HI")
+	g.emit("    sta ZP_TMP1")
 
 	switch b.Op {
 	case "+":
@@ -450,14 +493,30 @@ func (g *Generator) genComparisonJumpTrue(b *ast.BinaryExpr, trueLabel string) e
 		return err
 	}
 
+	// Preserve the right-hand comparison value while generating the left side.
+	//
+	// genExprToIntValue() and nested binary expressions use peddle_tmp_int0
+	// internally. If we stored the right side there before generating the left
+	// side, an expression like:
+	//
+	//     (j & 4) == 0
+	//
+	// would overwrite the saved 0 while generating (j & 4), because bitwise
+	// code also uses peddle_tmp_int0. The hardware stack is safe here because
+	// calls made during left-side generation balance their own JSR/RTS use.
 	g.emit("    lda ZP_TMP0")
-	g.emit("    sta peddle_tmp_int0")
+	g.emit("    pha")
 	g.emit("    lda ZP_TMP1")
-	g.emit("    sta peddle_tmp_int0+1")
+	g.emit("    pha")
 
 	if err := g.genExprToIntValue(b.Left); err != nil {
 		return err
 	}
+
+	g.emit("    pla")
+	g.emit("    sta peddle_tmp_int0+1")
+	g.emit("    pla")
+	g.emit("    sta peddle_tmp_int0")
 
 	switch b.Op {
 	case "==":

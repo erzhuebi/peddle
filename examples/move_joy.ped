@@ -29,11 +29,9 @@ fn printjoy(j byte) {
 fn main() {
     var x byte
     var y byte
-    var k char
     var j byte
-    var joystick bool
-    var moved bool
     var done bool
+    var moved bool
 
     cls()
     textcolor(1)
@@ -41,58 +39,28 @@ fn main() {
     x = 20
     y = 12
     done = false
-    joystick = false
+
+    putstr(0, 0, "JOYSTICK PORT 2")
+    putstr(0, 1, "MOVE WITH JOYSTICK")
+    putstr(0, 2, "FIRE TO QUIT")
+    putstr(0, 3, "IDLE SHOULD BE 31")
+
     j = 31
-
-    putstr(0, 0, "WASD MOVE  Q QUIT")
-    putstr(0, 1, "J TOGGLE JOYSTICK PORT 2")
-    putstr(0, 3, "JOYSTICK OFF")
     printjoy(j)
-
     draw(x, y)
 
     while done == false {
-        k = key()
+        j = joy(2) & 31
         moved = false
 
-        if k == 'q' {
+        printjoy(j)
+
+        if (j & 16) == 0 {
             done = true
         }
 
-        if k == 'Q' {
-            done = true
-        }
-
-        if k == 'j' {
-            if joystick == false {
-                joystick = true
-                putstr(0, 3, "JOYSTICK ON ")
-            } else {
-                joystick = false
-                putstr(0, 3, "JOYSTICK OFF")
-            }
-        }
-
-        if k == 'J' {
-            if joystick == false {
-                joystick = true
-                putstr(0, 3, "JOYSTICK ON ")
-            } else {
-                joystick = false
-                putstr(0, 3, "JOYSTICK OFF")
-            }
-        }
-
-        if k == 'a' {
-            if x > 0 {
-                erase(x, y)
-                x = x - 1
-                moved = true
-            }
-        }
-
-        if moved == false {
-            if k == 'A' {
+        if done == false {
+            if (j & 4) == 0 {
                 if x > 0 {
                     erase(x, y)
                     x = x - 1
@@ -102,7 +70,7 @@ fn main() {
         }
 
         if moved == false {
-            if k == 'd' {
+            if (j & 8) == 0 {
                 if x < 39 {
                     erase(x, y)
                     x = x + 1
@@ -112,17 +80,7 @@ fn main() {
         }
 
         if moved == false {
-            if k == 'D' {
-                if x < 39 {
-                    erase(x, y)
-                    x = x + 1
-                    moved = true
-                }
-            }
-        }
-
-        if moved == false {
-            if k == 'w' {
+            if (j & 1) == 0 {
                 if y > 5 {
                     erase(x, y)
                     y = y - 1
@@ -132,87 +90,11 @@ fn main() {
         }
 
         if moved == false {
-            if k == 'W' {
-                if y > 5 {
-                    erase(x, y)
-                    y = y - 1
-                    moved = true
-                }
-            }
-        }
-
-        if moved == false {
-            if k == 's' {
+            if (j & 2) == 0 {
                 if y < 24 {
                     erase(x, y)
                     y = y + 1
                     moved = true
-                }
-            }
-        }
-
-        if moved == false {
-            if k == 'S' {
-                if y < 24 {
-                    erase(x, y)
-                    y = y + 1
-                    moved = true
-                }
-            }
-        }
-
-        if moved == false {
-            if joystick == true {
-                j = joy(2) & 31
-                printjoy(j)
-
-                # 30 = north/up
-                if j == 30 {
-                    if y > 5 {
-                        erase(x, y)
-                        y = y - 1
-                        moved = true
-                    }
-                }
-
-                # 29 = south/down
-                if moved == false {
-                    if j == 29 {
-                        if y < 24 {
-                            erase(x, y)
-                            y = y + 1
-                            moved = true
-                        }
-                    }
-                }
-
-                # 27 = west/left
-                if moved == false {
-                    if j == 27 {
-                        if x > 0 {
-                            erase(x, y)
-                            x = x - 1
-                            moved = true
-                        }
-                    }
-                }
-
-                # 23 = east/right
-                if moved == false {
-                    if j == 23 {
-                        if x < 39 {
-                            erase(x, y)
-                            x = x + 1
-                            moved = true
-                        }
-                    }
-                }
-
-                # 15 = fire
-                if moved == false {
-                    if j == 15 {
-                        done = true
-                    }
                 }
             }
         }
