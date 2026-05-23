@@ -528,6 +528,7 @@ const (
 	SHIFT
 	SUM
 	PRODUCT
+	PREFIX
 	CALL
 	INDEX
 	FIELD
@@ -563,14 +564,14 @@ func (p *Parser) parseExpression(precedence int) ast.Expr {
 		p.nextToken()
 		left = &ast.UnaryExpr{
 			Op:   "-",
-			Expr: p.parseExpression(SUM),
+			Expr: p.parseExpression(PREFIX),
 		}
 
 	case lexer.BANG:
 		p.nextToken()
 		left = &ast.UnaryExpr{
 			Op:   "!",
-			Expr: p.parseExpression(SUM),
+			Expr: p.parseExpression(PREFIX),
 		}
 
 	case lexer.IDENT:

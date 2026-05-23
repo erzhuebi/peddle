@@ -505,6 +505,19 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 		}
 		return ast.Type{Name: "byte"}, nil
 
+	case "joy":
+		if len(args) != 1 {
+			return ast.Type{}, fmt.Errorf("joy expects one argument")
+		}
+		t, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(t) {
+			return ast.Type{}, fmt.Errorf("joy argument must be numeric")
+		}
+		return ast.Type{Name: "byte"}, nil
+
 	case "cls":
 		if len(args) != 0 {
 			return ast.Type{}, fmt.Errorf("cls expects no arguments")

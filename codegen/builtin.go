@@ -145,6 +145,41 @@ func (g *Generator) genPeek(args []ast.Expr) (ast.Type, error) {
 	return ast.Type{Name: "byte"}, nil
 }
 
+func (g *Generator) genJoy(args []ast.Expr) (ast.Type, error) {
+	if len(args) != 1 {
+		return ast.Type{}, fmt.Errorf("joy expects one argument")
+	}
+
+	if err := g.genExprTo(args[0], ast.Type{Name: "byte"}); err != nil {
+		return ast.Type{}, err
+	}
+
+	port1 := g.newLabel()
+	port2 := g.newLabel()
+	done := g.newLabel()
+
+	// C64 joystick inputs are active-low.
+	// joy(1) reads CIA #1 port B ($dc01).
+	// joy(2) reads CIA #1 port A ($dc00).
+	// Invalid port numbers return 255, which means no direction/fire pressed.
+	g.emit("    cmp #1")
+	g.emit(fmt.Sprintf("    beq %s", port1))
+	g.emit("    cmp #2")
+	g.emit(fmt.Sprintf("    beq %s", port2))
+	g.emit("    lda #255")
+	g.emit(fmt.Sprintf("    jmp %s", done))
+
+	g.emit(port1 + ":")
+	g.emit("    lda $dc01")
+	g.emit(fmt.Sprintf("    jmp %s", done))
+
+	g.emit(port2 + ":")
+	g.emit("    lda $dc00")
+
+	g.emit(done + ":")
+	return ast.Type{Name: "byte"}, nil
+}
+
 func (g *Generator) genKey(args []ast.Expr) (ast.Type, error) {
 	if len(args) != 0 {
 		return ast.Type{}, fmt.Errorf("key expects no arguments")
