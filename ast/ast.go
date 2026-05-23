@@ -175,6 +175,12 @@ type CharExpr struct {
 
 func (*CharExpr) exprNode() {}
 
+type BoolExpr struct {
+	Value bool
+}
+
+func (*BoolExpr) exprNode() {}
+
 type StringExpr struct {
 	Value string
 }

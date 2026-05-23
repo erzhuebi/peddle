@@ -29,6 +29,8 @@ const (
 	STRUCT   = "STRUCT"
 	BREAK    = "BREAK"
 	CONTINUE = "CONTINUE"
+	TRUE     = "TRUE"
+	FALSE    = "FALSE"
 
 	LPAREN = "("
 	RPAREN = ")"
@@ -73,6 +75,8 @@ var keywords = map[string]TokenType{
 	"struct":   STRUCT,
 	"break":    BREAK,
 	"continue": CONTINUE,
+	"true":     TRUE,
+	"false":    FALSE,
 }
 
 func LookupIdent(ident string) TokenType {

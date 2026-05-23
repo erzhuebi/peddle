@@ -132,6 +132,9 @@ func (c *Checker) checkExpr(scope map[string]ast.Type, e ast.Expr) (ast.Type, er
 	case *ast.CharExpr:
 		return ast.Type{Name: "char"}, nil
 
+	case *ast.BoolExpr:
+		return ast.Type{Name: "bool"}, nil
+
 	case *ast.StringExpr:
 		return ast.Type{Name: "char", IsArray: true, ArrayLen: len(expr.Value)}, nil
 
@@ -417,6 +420,12 @@ func (c *Checker) checkLValue(scope map[string]ast.Type, lv ast.LValue) (ast.Typ
 
 func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.Expr) (ast.Type, error) {
 	switch name {
+	case "key":
+		if len(args) != 0 {
+			return ast.Type{}, fmt.Errorf("key expects no arguments")
+		}
+		return ast.Type{Name: "char"}, nil
+
 	case "print":
 		if len(args) != 1 {
 			return ast.Type{}, fmt.Errorf("print expects one argument")
@@ -454,12 +463,6 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 			return ast.Type{}, fmt.Errorf("peek argument must be numeric")
 		}
 		return ast.Type{Name: "byte"}, nil
-
-	case "key":
-		if len(args) != 0 {
-			return ast.Type{}, fmt.Errorf("key expects no arguments")
-		}
-		return ast.Type{Name: "char"}, nil
 
 	case "cls":
 		if len(args) != 0 {

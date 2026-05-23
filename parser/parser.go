@@ -582,6 +582,12 @@ func (p *Parser) parseExpression(precedence int) ast.Expr {
 	case lexer.CHAR:
 		left = &ast.CharExpr{Value: p.cur.Literal}
 
+	case lexer.TRUE:
+		left = &ast.BoolExpr{Value: true}
+
+	case lexer.FALSE:
+		left = &ast.BoolExpr{Value: false}
+
 	case lexer.STRING:
 		left = &ast.StringExpr{Value: p.cur.Literal}
 
