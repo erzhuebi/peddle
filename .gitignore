@@ -14,3 +14,4 @@
 /~$peddle_tasks.xlsx
 build/
 /gitsync.sh
+.DS_Store
