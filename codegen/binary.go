@@ -456,8 +456,12 @@ func (g *Generator) genConditionFalseJump(cond ast.Expr, falseLabel string) erro
 		if err := g.genExprTo(cond, ast.Type{Name: "byte"}); err != nil {
 			return err
 		}
+
 		g.emit("    cmp #0")
-		g.emit(fmt.Sprintf("    beq %s", falseLabel))
+		if err := g.emitLongBranch("beq", falseLabel); err != nil {
+			return err
+		}
+
 		return nil
 	}
 

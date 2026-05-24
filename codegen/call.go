@@ -17,6 +17,15 @@ func (g *Generator) genCall(name string, args []ast.Expr) (ast.Type, error) {
 	case "peek":
 		return g.genPeek(args)
 
+	case "ticks":
+		return g.genTicks(args)
+
+	case "elapsed":
+		return g.genElapsed(args)
+
+	case "tickdue":
+		return g.genTickDue(args)
+
 	case "joy":
 		return g.genJoy(args)
 

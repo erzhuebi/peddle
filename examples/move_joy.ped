@@ -6,15 +6,6 @@ fn erase(x byte, y byte) {
     putchar(x, y, ' ')
 }
 
-fn delay() {
-    var i int
-
-    i = 0
-    while i < 900 {
-        i = i + 1
-    }
-}
-
 fn printjoy(j byte) {
     var line char[16]
 
@@ -26,12 +17,25 @@ fn printjoy(j byte) {
     putstr(0, 4, line)
 }
 
+fn printticks(t int) {
+    var line char[20]
+
+    clear(line)
+    copy(line, "ELAPSED ")
+    append(line, itoa(t))
+
+    putstr(0, 5, "              ")
+    putstr(0, 5, line)
+}
+
 fn main() {
     var x byte
     var y byte
     var j byte
     var done bool
     var moved bool
+    var lastMove int
+    var moveEvery int
 
     cls()
     textcolor(1)
@@ -39,6 +43,8 @@ fn main() {
     x = 20
     y = 12
     done = false
+    moveEvery = 4
+    lastMove = ticks()
 
     putstr(0, 0, "JOYSTICK PORT 2")
     putstr(0, 1, "MOVE WITH JOYSTICK")
@@ -47,61 +53,67 @@ fn main() {
 
     j = 31
     printjoy(j)
+    printticks(0)
     draw(x, y)
 
     while done == false {
-        j = joy(2) & 31
-        moved = false
+        printticks(elapsed(lastMove))
 
-        printjoy(j)
+        if tickdue(lastMove, moveEvery) {
+            lastMove = ticks()
 
-        if (j & 16) == 0 {
-            done = true
-        }
+            j = joy(2) & 31
+            printjoy(j)
 
-        if done == false {
-            if (j & 4) == 0 {
-                if x > 0 {
-                    erase(x, y)
-                    x = x - 1
-                    moved = true
+            moved = false
+
+            if (j & 16) == 0 {
+                done = true
+            }
+
+            if done == false {
+                if (j & 4) == 0 {
+                    if x > 0 {
+                        erase(x, y)
+                        x = x - 1
+                        moved = true
+                    }
+                }
+
+                if moved == false {
+                    if (j & 8) == 0 {
+                        if x < 39 {
+                            erase(x, y)
+                            x = x + 1
+                            moved = true
+                        }
+                    }
+                }
+
+                if moved == false {
+                    if (j & 1) == 0 {
+                        if y > 6 {
+                            erase(x, y)
+                            y = y - 1
+                            moved = true
+                        }
+                    }
+                }
+
+                if moved == false {
+                    if (j & 2) == 0 {
+                        if y < 24 {
+                            erase(x, y)
+                            y = y + 1
+                            moved = true
+                        }
+                    }
+                }
+
+                if moved == true {
+                    draw(x, y)
                 }
             }
-        }
-
-        if moved == false {
-            if (j & 8) == 0 {
-                if x < 39 {
-                    erase(x, y)
-                    x = x + 1
-                    moved = true
-                }
-            }
-        }
-
-        if moved == false {
-            if (j & 1) == 0 {
-                if y > 5 {
-                    erase(x, y)
-                    y = y - 1
-                    moved = true
-                }
-            }
-        }
-
-        if moved == false {
-            if (j & 2) == 0 {
-                if y < 24 {
-                    erase(x, y)
-                    y = y + 1
-                    moved = true
-                }
-            }
-        }
-
-        if moved == true {
-            draw(x, y)
-            delay()
         }
     }
 

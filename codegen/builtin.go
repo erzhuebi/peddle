@@ -145,6 +145,129 @@ func (g *Generator) genPeek(args []ast.Expr) (ast.Type, error) {
 	return ast.Type{Name: "byte"}, nil
 }
 
+func (g *Generator) genTicks(args []ast.Expr) (ast.Type, error) {
+	if len(args) != 0 {
+		return ast.Type{}, fmt.Errorf("ticks expects no arguments")
+	}
+
+	// C64 KERNAL jiffy clock:
+	//   $A2 = fastest-changing byte
+	//   $A1 = next byte
+	//
+	// We expose these two bytes as a Peddle int:
+	//   low byte  = $A2
+	//   high byte = $A1
+	//
+	// This gives a 16-bit tick counter that advances roughly once per frame
+	// while the normal KERNAL interrupt is running.
+	g.emit("    lda $00a2")
+	g.emit("    sta ZP_TMP0")
+	g.emit("    lda $00a1")
+	g.emit("    sta ZP_TMP1")
+	g.emit("    lda ZP_TMP0")
+
+	g.usedTmp16 = true
+	return ast.Type{Name: "int"}, nil
+}
+
+func (g *Generator) genElapsed(args []ast.Expr) (ast.Type, error) {
+	if len(args) != 1 {
+		return ast.Type{}, fmt.Errorf("elapsed expects one argument")
+	}
+
+	if err := g.genExprTo(args[0], ast.Type{Name: "int"}); err != nil {
+		return ast.Type{}, err
+	}
+
+	// Store last tick value.
+	g.emit("    lda ZP_TMP0")
+	g.emit("    sta peddle_tmp_int0")
+	g.emit("    lda ZP_TMP1")
+	g.emit("    sta peddle_tmp_int0+1")
+
+	// Compute current - last modulo 65536.
+	//
+	// C64 KERNAL jiffy clock byte order for our exposed 16-bit value:
+	//   low byte  = $A2
+	//   high byte = $A1
+	g.emit("    lda $00a2")
+	g.emit("    sec")
+	g.emit("    sbc peddle_tmp_int0")
+	g.emit("    sta ZP_TMP0")
+	g.emit("    lda $00a1")
+	g.emit("    sbc peddle_tmp_int0+1")
+	g.emit("    sta ZP_TMP1")
+	g.emit("    lda ZP_TMP0")
+
+	g.usedTmp16 = true
+	return ast.Type{Name: "int"}, nil
+}
+
+func (g *Generator) genTickDue(args []ast.Expr) (ast.Type, error) {
+	if len(args) != 2 {
+		return ast.Type{}, fmt.Errorf("tickdue expects two arguments")
+	}
+
+	if err := g.genExprTo(args[0], ast.Type{Name: "int"}); err != nil {
+		return ast.Type{}, err
+	}
+
+	// Store last tick value in ZP_PTR0_LO/HI.
+	g.emit("    lda ZP_TMP0")
+	g.emit("    sta ZP_PTR0_LO")
+	g.emit("    lda ZP_TMP1")
+	g.emit("    sta ZP_PTR0_HI")
+
+	if err := g.genExprTo(args[1], ast.Type{Name: "int"}); err != nil {
+		return ast.Type{}, err
+	}
+
+	// Store interval in peddle_tmp_int0.
+	g.emit("    lda ZP_TMP0")
+	g.emit("    sta peddle_tmp_int0")
+	g.emit("    lda ZP_TMP1")
+	g.emit("    sta peddle_tmp_int0+1")
+
+	// Compute elapsed = current - last modulo 65536.
+	//
+	// C64 KERNAL jiffy clock byte order for our exposed 16-bit value:
+	//   low byte  = $A2
+	//   high byte = $A1
+	g.emit("    lda $00a2")
+	g.emit("    sec")
+	g.emit("    sbc ZP_PTR0_LO")
+	g.emit("    sta ZP_TMP0")
+	g.emit("    lda $00a1")
+	g.emit("    sbc ZP_PTR0_HI")
+	g.emit("    sta ZP_TMP1")
+
+	trueLabel := g.newLabel()
+	falseLabel := g.newLabel()
+	doneLabel := g.newLabel()
+
+	// Unsigned 16-bit compare:
+	//   elapsed >= interval
+	g.emit("    lda ZP_TMP1")
+	g.emit("    cmp peddle_tmp_int0+1")
+	g.emit(fmt.Sprintf("    bcc %s", falseLabel))
+	g.emit(fmt.Sprintf("    bne %s", trueLabel))
+	g.emit("    lda ZP_TMP0")
+	g.emit("    cmp peddle_tmp_int0")
+	g.emit(fmt.Sprintf("    bcc %s", falseLabel))
+
+	g.emit(trueLabel + ":")
+	g.emit("    lda #1")
+	g.emit(fmt.Sprintf("    jmp %s", doneLabel))
+
+	g.emit(falseLabel + ":")
+	g.emit("    lda #0")
+
+	g.emit(doneLabel + ":")
+
+	g.usedTmp16 = true
+	return ast.Type{Name: "bool"}, nil
+}
+
 func (g *Generator) genJoy(args []ast.Expr) (ast.Type, error) {
 	if len(args) != 1 {
 		return ast.Type{}, fmt.Errorf("joy expects one argument")

@@ -420,6 +420,49 @@ func (c *Checker) checkLValue(scope map[string]ast.Type, lv ast.LValue) (ast.Typ
 
 func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.Expr) (ast.Type, error) {
 	switch name {
+	case "ticks":
+		if len(args) != 0 {
+			return ast.Type{}, fmt.Errorf("ticks expects no arguments")
+		}
+		return ast.Type{Name: "int"}, nil
+
+	case "elapsed":
+		if len(args) != 1 {
+			return ast.Type{}, fmt.Errorf("elapsed expects one argument")
+		}
+
+		t, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(t) {
+			return ast.Type{}, fmt.Errorf("elapsed argument must be numeric")
+		}
+
+		return ast.Type{Name: "int"}, nil
+
+	case "tickdue":
+		if len(args) != 2 {
+			return ast.Type{}, fmt.Errorf("tickdue expects two arguments")
+		}
+
+		lastType, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(lastType) {
+			return ast.Type{}, fmt.Errorf("tickdue last argument must be numeric")
+		}
+
+		intervalType, err := c.checkExpr(scope, args[1])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(intervalType) {
+			return ast.Type{}, fmt.Errorf("tickdue interval argument must be numeric")
+		}
+
+		return ast.Type{Name: "bool"}, nil
 	case "key":
 		if len(args) != 0 {
 			return ast.Type{}, fmt.Errorf("key expects no arguments")

@@ -29,3 +29,37 @@ func asmStringBytes(s string) string {
 
 	return out
 }
+
+func (g *Generator) emitLongBranch(op string, target string) error {
+	inverse, err := inverseBranchOp(op)
+	if err != nil {
+		return err
+	}
+
+	skip := g.newLabel()
+
+	g.emit(fmt.Sprintf("    %s %s", inverse, skip))
+	g.emit(fmt.Sprintf("    jmp %s", target))
+	g.emit(skip + ":")
+
+	return nil
+}
+
+func inverseBranchOp(op string) (string, error) {
+	switch op {
+	case "beq":
+		return "bne", nil
+	case "bne":
+		return "beq", nil
+	case "bcc":
+		return "bcs", nil
+	case "bcs":
+		return "bcc", nil
+	case "bmi":
+		return "bpl", nil
+	case "bpl":
+		return "bmi", nil
+	default:
+		return "", fmt.Errorf("unsupported branch op %q", op)
+	}
+}
