@@ -447,4 +447,154 @@ Expected behavior:
 
 ---
 
+# Timed Joystick Movement Example
+
+This example uses `joy()`, `ticks()`, `elapsed()`, and `tickdue()` to move an `@` character with joystick port 2 without using a busy delay loop.
+
+```peddle
+fn draw(x byte, y byte) {
+    putchar(x, y, '@')
+}
+
+fn erase(x byte, y byte) {
+    putchar(x, y, ' ')
+}
+
+fn printjoy(j byte) {
+    var line char[16]
+
+    clear(line)
+    copy(line, "JOY ")
+    append(line, itoa(j))
+
+    putstr(0, 4, "        ")
+    putstr(0, 4, line)
+}
+
+fn printticks(t int) {
+    var line char[20]
+
+    clear(line)
+    copy(line, "ELAPSED ")
+    append(line, itoa(t))
+
+    putstr(0, 5, "              ")
+    putstr(0, 5, line)
+}
+
+fn main() {
+    var x byte
+    var y byte
+    var j byte
+    var done bool
+    var moved bool
+    var lastMove int
+    var moveEvery int
+
+    cls()
+    textcolor(1)
+
+    x = 20
+    y = 12
+    done = false
+    moveEvery = 4
+    lastMove = ticks()
+
+    putstr(0, 0, "JOYSTICK PORT 2")
+    putstr(0, 1, "MOVE WITH JOYSTICK")
+    putstr(0, 2, "FIRE TO QUIT")
+    putstr(0, 3, "IDLE SHOULD BE 31")
+
+    j = 31
+    printjoy(j)
+    printticks(0)
+    draw(x, y)
+
+    while done == false {
+        printticks(elapsed(lastMove))
+
+        if tickdue(lastMove, moveEvery) {
+            lastMove = ticks()
+
+            j = joy(2) & 31
+            printjoy(j)
+
+            moved = false
+
+            if (j & 16) == 0 {
+                done = true
+            }
+
+            if done == false {
+                if (j & 4) == 0 {
+                    if x > 0 {
+                        erase(x, y)
+                        x = x - 1
+                        moved = true
+                    }
+                }
+
+                if moved == false {
+                    if (j & 8) == 0 {
+                        if x < 39 {
+                            erase(x, y)
+                            x = x + 1
+                            moved = true
+                        }
+                    }
+                }
+
+                if moved == false {
+                    if (j & 1) == 0 {
+                        if y > 6 {
+                            erase(x, y)
+                            y = y - 1
+                            moved = true
+                        }
+                    }
+                }
+
+                if moved == false {
+                    if (j & 2) == 0 {
+                        if y < 24 {
+                            erase(x, y)
+                            y = y + 1
+                            moved = true
+                        }
+                    }
+                }
+
+                if moved == true {
+                    draw(x, y)
+                }
+            }
+        }
+    }
+
+    gotoxy(0, 22)
+}
+```
+
+Run it with:
+
+```bash
+./peddle.sh --run examples/move_joy.ped
+```
+
+Joystick values are active-low. With the example's `j = joy(2) & 31` mask, common values are:
+
+```text
+31 = idle
+30 = up
+29 = down
+27 = left
+23 = right
+15 = fire
+```
+
+`tickdue(lastMove, moveEvery)` throttles movement to one update every `moveEvery` ticks. The example refreshes `lastMove` every timed input slot, even when no direction is pressed, so the timing remains stable during long idle periods.
+
+
+---
+
 [Back to documentation index](README.md)

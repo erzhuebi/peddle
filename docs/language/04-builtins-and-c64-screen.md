@@ -27,6 +27,10 @@
 | `key()` | non-blocking keyboard read; returns `0` if no key is waiting |
 | `waitkey()` | blocking keyboard read; waits until a key is available |
 | `readline(buffer, echo, max)` | read a line into a `char[]` buffer |
+| `joy(port)` | read joystick port state |
+| `ticks()` | read 16-bit system tick counter |
+| `elapsed(last)` | wrap-safe elapsed ticks since `last` |
+| `tickdue(last, interval)` | wrap-safe check if an interval has passed |
 
 ---
 
@@ -547,6 +551,152 @@ fn main() {
 ```
 
 Because arrays are mutable arguments in Peddle, `readline()` writes into the caller's `char[]` storage and updates the runtime length of that buffer.
+
+---
+
+# joy()
+
+Read the current joystick state.
+
+```peddle
+joy(port) byte
+```
+
+`joy(1)` reads joystick port 1.
+
+`joy(2)` reads joystick port 2.
+
+Other port values return `255`, which means no direction or fire button is pressed.
+
+C64 joystick bits are active-low:
+
+```text
+bit 0 = up
+bit 1 = down
+bit 2 = left
+bit 3 = right
+bit 4 = fire
+
+pressed     means bit == 0
+not pressed means bit == 1
+```
+
+A common pattern is to mask the lower five joystick bits:
+
+```peddle
+var j byte
+
+j = joy(2) & 31
+```
+
+Common values are:
+
+```text
+31 = idle
+30 = up
+29 = down
+27 = left
+23 = right
+15 = fire
+```
+
+For diagonal movement, test individual bits instead of comparing only the full value:
+
+```peddle
+if (j & 4) == 0 {
+    # left pressed
+}
+
+if (j & 8) == 0 {
+    # right pressed
+}
+```
+
+---
+
+# ticks()
+
+Read the current 16-bit system tick counter.
+
+```peddle
+ticks() int
+```
+
+`ticks()` returns a 16-bit counter based on the C64 KERNAL jiffy clock. It advances roughly once per video frame while the normal KERNAL interrupt is running.
+
+Typical rates:
+
+```text
+PAL C64:  about 50 ticks per second
+NTSC C64: about 60 ticks per second
+```
+
+The returned value wraps from `65535` back to `0`. For timing checks, prefer `elapsed(last)` or `tickdue(last, interval)` instead of manually subtracting two tick values.
+
+Example:
+
+```peddle
+var start int
+
+start = ticks()
+```
+
+---
+
+# elapsed()
+
+Return how many ticks have passed since a previous tick value.
+
+```peddle
+elapsed(last int) int
+```
+
+`elapsed(last)` computes the difference between the current tick counter and `last` using wrap-safe 16-bit arithmetic.
+
+Example:
+
+```peddle
+var start int
+var passed int
+
+start = ticks()
+passed = elapsed(start)
+```
+
+The result is intended for relatively short intervals. For common game timing, such as a few frames or a few seconds, it is safe and convenient.
+
+---
+
+# tickdue()
+
+Check if a tick interval has passed.
+
+```peddle
+tickdue(last int, interval int) bool
+```
+
+`tickdue(last, interval)` returns `true` if at least `interval` ticks have passed since `last`. It handles tick counter wraparound internally.
+
+This is the recommended helper for frame-based throttling in games.
+
+Example:
+
+```peddle
+var lastMove int
+var moveEvery int
+
+moveEvery = 4
+lastMove = ticks()
+
+while true {
+    if tickdue(lastMove, moveEvery) {
+        lastMove = ticks()
+        # update movement here
+    }
+}
+```
+
+For long-running loops, update the stored tick value whenever the timed slot is reached, even if no movement happened. This avoids keeping an old timestamp for many minutes.
 
 ---
 
