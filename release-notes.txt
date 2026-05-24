@@ -1,8 +1,7 @@
 # Release notes
 
-## v0.7.0 - 2026-05-23
+## v0.8.0 - 2026-05-24
 
-- precedence bug fixed, joystick example added
-- joystick support added and precedence bug with unary operator fixed
-- chore: start 0.7.0-dev
+- timers added, joystick example added
+- chore: start 0.8.0-dev
 
