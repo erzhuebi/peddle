@@ -417,6 +417,8 @@ func (g *Generator) genForCounterPastEndJump(counter Symbol, end Symbol, endLabe
 		skip := g.newLabel()
 
 		g.loadForIntOperands(counter, end)
+		// Signed comparison branches only to nearby labels. The far exit from
+		// the user-controlled loop body is always an absolute jmp to endLabel.
 		if err := g.genSignedGreaterThanJump(past); err != nil {
 			return err
 		}
@@ -431,6 +433,8 @@ func (g *Generator) genForCounterPastEndJump(counter Symbol, end Symbol, endLabe
 	skip := g.newLabel()
 	g.emit(fmt.Sprintf("    lda %s", counter.Label))
 	g.emit(fmt.Sprintf("    cmp %s", end.Label))
+	// Byte comparisons branch to a nearby skip label, then use an absolute jmp
+	// for the potentially far loop exit.
 	g.emit(fmt.Sprintf("    beq %s", skip))
 	g.emit(fmt.Sprintf("    bcc %s", skip))
 	g.emit(fmt.Sprintf("    jmp %s", endLabel))
@@ -443,6 +447,8 @@ func (g *Generator) genForCounterAtOrPastEndJump(counter Symbol, end Symbol, end
 		less := g.newLabel()
 
 		g.loadForIntOperands(counter, end)
+		// Keep signed comparison branch targets local; use jmp for the
+		// potentially far counted-loop exit.
 		if err := g.genSignedLessThanJump(less); err != nil {
 			return err
 		}
@@ -455,6 +461,7 @@ func (g *Generator) genForCounterAtOrPastEndJump(counter Symbol, end Symbol, end
 	skip := g.newLabel()
 	g.emit(fmt.Sprintf("    lda %s", counter.Label))
 	g.emit(fmt.Sprintf("    cmp %s", end.Label))
+	// The branch target is local. The far exit is the following absolute jmp.
 	g.emit(fmt.Sprintf("    bcc %s", skip))
 	g.emit(fmt.Sprintf("    jmp %s", endLabel))
 	g.emit(skip + ":")

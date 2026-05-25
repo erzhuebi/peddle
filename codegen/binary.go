@@ -458,6 +458,8 @@ func (g *Generator) genConditionFalseJump(cond ast.Expr, falseLabel string) erro
 		}
 
 		g.emit("    cmp #0")
+		// The false label can be after an arbitrary user-controlled statement
+		// body, so this conditional exit must use a long branch sequence.
 		if err := g.emitLongBranch("beq", falseLabel); err != nil {
 			return err
 		}
@@ -467,6 +469,10 @@ func (g *Generator) genConditionFalseJump(cond ast.Expr, falseLabel string) erro
 
 	trueLabel := g.newLabel()
 
+	// Comparison helpers only branch to trueLabel, which is emitted a few
+	// instructions below. The far path is the false case, handled by an
+	// absolute jmp so large if/while/for bodies cannot exceed 6502 branch
+	// range.
 	if err := g.genComparisonJumpTrue(b, trueLabel); err != nil {
 		return err
 	}
