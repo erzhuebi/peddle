@@ -77,6 +77,18 @@ type WhileStmt struct {
 
 func (*WhileStmt) stmtNode() {}
 
+type ForStmt struct {
+	Cond Expr
+	Body []Stmt
+
+	IsCounted bool
+	Counter   string
+	Start     Expr
+	End       Expr
+}
+
+func (*ForStmt) stmtNode() {}
+
 type IfStmt struct {
 	Cond Expr
 	Then []Stmt

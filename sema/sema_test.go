@@ -140,6 +140,64 @@ fn main() {
 	}
 }
 
+func TestSemaAllowsForLoopForms(t *testing.T) {
+	src := `
+fn main() {
+    var i byte
+    var n int
+
+    for {
+        break
+    }
+
+    for i < 10 {
+        i = i + 1
+        continue
+    }
+
+    for i = 0 to 9 {
+        n = n + i
+    }
+
+    for n = -2 to 2 {
+        i = i + 1
+    }
+}
+`
+
+	if err := checkSource(t, src); err != nil {
+		t.Fatalf("unexpected sema error: %v", err)
+	}
+}
+
+func TestSemaRejectsUnknownForLoopCounter(t *testing.T) {
+	src := `
+fn main() {
+    for i = 0 to 9 {
+    }
+}
+`
+
+	if err := checkSource(t, src); err == nil {
+		t.Fatalf("expected sema error")
+	}
+}
+
+func TestSemaRejectsInvalidForLoopCounterType(t *testing.T) {
+	src := `
+fn main() {
+    var name char[8]
+
+    for name = 0 to 9 {
+    }
+}
+`
+
+	if err := checkSource(t, src); err == nil {
+		t.Fatalf("expected sema error")
+	}
+}
+
 func TestSemaRejectsInvalidReturnValue(t *testing.T) {
 	src := `
 fn f() int {

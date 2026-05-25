@@ -862,6 +862,11 @@ func (g *Generator) emitStaticData() {
 			g.emitStaticValue(frame.Return.Type)
 		}
 	}
+
+	for _, sym := range g.forLoopTemps {
+		g.emit(fmt.Sprintf("%s:", sym.Label))
+		g.emitStaticValue(sym.Type)
+	}
 }
 
 func (g *Generator) emitStaticValue(t ast.Type) {

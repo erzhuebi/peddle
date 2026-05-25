@@ -325,6 +325,9 @@ func (p *Parser) parseStatement() ast.Stmt {
 	case lexer.WHILE:
 		return p.parseWhile()
 
+	case lexer.FOR:
+		return p.parseFor()
+
 	case lexer.IF:
 		return p.parseIf()
 
@@ -458,6 +461,89 @@ func (p *Parser) parseWhile() ast.Stmt {
 	return &ast.WhileStmt{
 		Cond: cond,
 		Body: body,
+	}
+}
+
+func (p *Parser) parseFor() ast.Stmt {
+	p.nextToken()
+
+	if p.cur.Type == lexer.LBRACE {
+		p.nextToken()
+		body := p.parseStatementsUntil(lexer.RBRACE)
+
+		if !p.expectCur(lexer.RBRACE) {
+			return nil
+		}
+
+		p.nextToken()
+		return &ast.ForStmt{Body: body}
+	}
+
+	if p.cur.Type == lexer.IDENT && p.peek.Type == lexer.ASSIGN {
+		return p.parseCountedFor()
+	}
+
+	cond := p.parseExpression(LOWEST)
+
+	if p.cur.Type != lexer.LBRACE {
+		if !p.expectPeek(lexer.LBRACE) {
+			return nil
+		}
+	}
+
+	p.nextToken()
+	body := p.parseStatementsUntil(lexer.RBRACE)
+
+	if !p.expectCur(lexer.RBRACE) {
+		return nil
+	}
+
+	p.nextToken()
+
+	return &ast.ForStmt{
+		Cond: cond,
+		Body: body,
+	}
+}
+
+func (p *Parser) parseCountedFor() ast.Stmt {
+	counter := p.cur.Literal
+
+	if !p.expectPeek(lexer.ASSIGN) {
+		return nil
+	}
+
+	p.nextToken()
+	start := p.parseExpression(LOWEST)
+
+	if !p.expectPeek(lexer.TO) {
+		return nil
+	}
+
+	p.nextToken()
+	end := p.parseExpression(LOWEST)
+
+	if p.cur.Type != lexer.LBRACE {
+		if !p.expectPeek(lexer.LBRACE) {
+			return nil
+		}
+	}
+
+	p.nextToken()
+	body := p.parseStatementsUntil(lexer.RBRACE)
+
+	if !p.expectCur(lexer.RBRACE) {
+		return nil
+	}
+
+	p.nextToken()
+
+	return &ast.ForStmt{
+		Body:      body,
+		IsCounted: true,
+		Counter:   counter,
+		Start:     start,
+		End:       end,
 	}
 }
 

@@ -302,6 +302,50 @@ func (c *Checker) checkStmt(scope map[string]ast.Type, fn *ast.FunctionDecl, s a
 			}
 		}
 
+	case *ast.ForStmt:
+		if stmt.IsCounted {
+			counterType, ok := scope[stmt.Counter]
+			if !ok {
+				return fmt.Errorf("unknown loop variable %q", stmt.Counter)
+			}
+			if counterType.IsArray || (counterType.Name != "byte" && counterType.Name != "int") {
+				return fmt.Errorf("for loop variable must be byte or int")
+			}
+
+			startType, err := c.checkExpr(scope, stmt.Start)
+			if err != nil {
+				return err
+			}
+			if !isNumeric(startType) {
+				return fmt.Errorf("for loop start must be numeric")
+			}
+			if !sameType(counterType, startType) && !canAssign(counterType, startType) {
+				return fmt.Errorf("cannot assign for loop start %s to %s", startType.String(), counterType.String())
+			}
+
+			endType, err := c.checkExpr(scope, stmt.End)
+			if err != nil {
+				return err
+			}
+			if !isNumeric(endType) {
+				return fmt.Errorf("for loop end must be numeric")
+			}
+			if !sameType(counterType, endType) && !canAssign(counterType, endType) {
+				return fmt.Errorf("cannot assign for loop end %s to %s", endType.String(), counterType.String())
+			}
+		} else if stmt.Cond != nil {
+			_, err := c.checkExpr(scope, stmt.Cond)
+			if err != nil {
+				return err
+			}
+		}
+
+		for _, inner := range stmt.Body {
+			if err := c.checkStmt(scope, fn, inner, loopDepth+1); err != nil {
+				return err
+			}
+		}
+
 	case *ast.IfStmt:
 		_, err := c.checkExpr(scope, stmt.Cond)
 		if err != nil {

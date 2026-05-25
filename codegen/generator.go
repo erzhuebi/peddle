@@ -41,6 +41,8 @@ type Generator struct {
 
 	literals []string
 
+	forLoopTemps []Symbol
+
 	usedPrint bool
 	usedTmp16 bool
 
@@ -164,6 +166,11 @@ func (g *Generator) computeMemoryReport() MemoryReport {
 
 	for _, lit := range g.literals {
 		report.LiteralBytes += len(lit)
+	}
+
+	for _, sym := range g.forLoopTemps {
+		report.StaticDataBytes += sym.Size
+		report.StaticSymbolCount++
 	}
 
 	return report

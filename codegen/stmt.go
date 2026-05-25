@@ -14,6 +14,8 @@ func (g *Generator) genStmt(s ast.Stmt) error {
 		return g.genCallStmt(stmt)
 	case *ast.WhileStmt:
 		return g.genWhile(stmt)
+	case *ast.ForStmt:
+		return g.genFor(stmt)
 	case *ast.IfStmt:
 		return g.genIf(stmt)
 	case *ast.ReturnStmt:
@@ -319,6 +321,166 @@ func (g *Generator) genWhile(w *ast.WhileStmt) error {
 	g.emit(fmt.Sprintf("    jmp %s", start))
 	g.emit(end + ":")
 	return nil
+}
+
+func (g *Generator) genFor(f *ast.ForStmt) error {
+	if f.IsCounted {
+		return g.genCountedFor(f)
+	}
+
+	start := g.newLabel()
+	end := g.newLabel()
+
+	g.pushLoopLabels(start, end)
+	defer g.popLoopLabels()
+
+	g.emit(start + ":")
+
+	if f.Cond != nil {
+		if err := g.genConditionFalseJump(f.Cond, end); err != nil {
+			return err
+		}
+	}
+
+	for _, stmt := range f.Body {
+		if err := g.genStmt(stmt); err != nil {
+			return err
+		}
+	}
+
+	g.emit(fmt.Sprintf("    jmp %s", start))
+	g.emit(end + ":")
+	return nil
+}
+
+func (g *Generator) genCountedFor(f *ast.ForStmt) error {
+	counterSym, ok := g.resolve(f.Counter)
+	if !ok {
+		return fmt.Errorf("unknown loop variable %q", f.Counter)
+	}
+
+	endSym := g.newForLoopEndSymbol(counterSym.Type)
+	check := g.newLabel()
+	continueLabel := g.newLabel()
+	endLabel := g.newLabel()
+
+	if err := g.genExprTo(f.Start, counterSym.Type); err != nil {
+		return err
+	}
+	g.storeAIntoSymbol(counterSym)
+
+	if err := g.genExprTo(f.End, counterSym.Type); err != nil {
+		return err
+	}
+	g.storeAIntoSymbol(endSym)
+
+	g.pushLoopLabels(continueLabel, endLabel)
+	defer g.popLoopLabels()
+
+	g.emit(check + ":")
+	if err := g.genForCounterPastEndJump(counterSym, endSym, endLabel); err != nil {
+		return err
+	}
+
+	for _, stmt := range f.Body {
+		if err := g.genStmt(stmt); err != nil {
+			return err
+		}
+	}
+
+	g.emit(continueLabel + ":")
+	if err := g.genForCounterAtOrPastEndJump(counterSym, endSym, endLabel); err != nil {
+		return err
+	}
+
+	g.emitIncrementSymbol(counterSym)
+	g.emit(fmt.Sprintf("    jmp %s", check))
+	g.emit(endLabel + ":")
+	return nil
+}
+
+func (g *Generator) newForLoopEndSymbol(t ast.Type) Symbol {
+	g.labelCounter++
+	sym := Symbol{
+		SourceName: "for_end",
+		Label:      fmt.Sprintf("%s_for_end_%d", g.currentFn.Name, g.labelCounter),
+		Type:       t,
+		Size:       g.sizeof(t),
+	}
+	g.forLoopTemps = append(g.forLoopTemps, sym)
+	return sym
+}
+
+func (g *Generator) genForCounterPastEndJump(counter Symbol, end Symbol, endLabel string) error {
+	if counter.Type.Name == "int" {
+		past := g.newLabel()
+		skip := g.newLabel()
+
+		g.loadForIntOperands(counter, end)
+		if err := g.genSignedGreaterThanJump(past); err != nil {
+			return err
+		}
+
+		g.emit(fmt.Sprintf("    jmp %s", skip))
+		g.emit(past + ":")
+		g.emit(fmt.Sprintf("    jmp %s", endLabel))
+		g.emit(skip + ":")
+		return nil
+	}
+
+	skip := g.newLabel()
+	g.emit(fmt.Sprintf("    lda %s", counter.Label))
+	g.emit(fmt.Sprintf("    cmp %s", end.Label))
+	g.emit(fmt.Sprintf("    beq %s", skip))
+	g.emit(fmt.Sprintf("    bcc %s", skip))
+	g.emit(fmt.Sprintf("    jmp %s", endLabel))
+	g.emit(skip + ":")
+	return nil
+}
+
+func (g *Generator) genForCounterAtOrPastEndJump(counter Symbol, end Symbol, endLabel string) error {
+	if counter.Type.Name == "int" {
+		less := g.newLabel()
+
+		g.loadForIntOperands(counter, end)
+		if err := g.genSignedLessThanJump(less); err != nil {
+			return err
+		}
+
+		g.emit(fmt.Sprintf("    jmp %s", endLabel))
+		g.emit(less + ":")
+		return nil
+	}
+
+	skip := g.newLabel()
+	g.emit(fmt.Sprintf("    lda %s", counter.Label))
+	g.emit(fmt.Sprintf("    cmp %s", end.Label))
+	g.emit(fmt.Sprintf("    bcc %s", skip))
+	g.emit(fmt.Sprintf("    jmp %s", endLabel))
+	g.emit(skip + ":")
+	return nil
+}
+
+func (g *Generator) loadForIntOperands(counter Symbol, end Symbol) {
+	g.loadSymbol(counter)
+	g.emit(fmt.Sprintf("    lda %s", end.Label))
+	g.emit("    sta peddle_tmp_int0")
+	g.emit(fmt.Sprintf("    lda %s+1", end.Label))
+	g.emit("    sta peddle_tmp_int0+1")
+	g.usedTmp16 = true
+}
+
+func (g *Generator) emitIncrementSymbol(sym Symbol) {
+	if sym.Type.Name == "int" {
+		noCarry := g.newLabel()
+		g.emit(fmt.Sprintf("    inc %s", sym.Label))
+		g.emit(fmt.Sprintf("    bne %s", noCarry))
+		g.emit(fmt.Sprintf("    inc %s+1", sym.Label))
+		g.emit(noCarry + ":")
+		return
+	}
+
+	g.emit(fmt.Sprintf("    inc %s", sym.Label))
 }
 
 func (g *Generator) genIf(i *ast.IfStmt) error {

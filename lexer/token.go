@@ -23,6 +23,8 @@ const (
 	VAR      = "VAR"
 	ARROW    = "->"
 	WHILE    = "WHILE"
+	FOR      = "FOR"
+	TO       = "TO"
 	IF       = "IF"
 	ELSE     = "ELSE"
 	RETURN   = "RETURN"
@@ -69,6 +71,8 @@ var keywords = map[string]TokenType{
 	"fn":       FN,
 	"var":      VAR,
 	"while":    WHILE,
+	"for":      FOR,
+	"to":       TO,
 	"if":       IF,
 	"else":     ELSE,
 	"return":   RETURN,

@@ -396,9 +396,37 @@ fn main() {
 
 ---
 
+# For Loops
+
+Peddle supports three `for` loop forms.
+
+```peddle
+for {
+    # infinite loop
+}
+```
+
+```peddle
+for condition {
+    # loop while condition is non-zero / true
+}
+```
+
+```peddle
+for i = 0 to 9 {
+    # counted loop
+}
+```
+
+Counted `for` loops are inclusive: `for i = 0 to 9` runs with `i` set to every value from `0` through `9`.
+
+The loop variable must already exist and must be `byte` or `int`. The end expression is evaluated once before the loop body runs.
+
+---
+
 # break and continue
 
-`break` exits the nearest enclosing `while` loop immediately.
+`break` exits the nearest enclosing loop immediately.
 
 ```peddle
 fn main() {
@@ -416,7 +444,7 @@ fn main() {
 }
 ```
 
-`continue` skips the rest of the current loop iteration and jumps back to the `while` condition.
+`continue` skips the rest of the current loop iteration and starts the next iteration.
 
 ```peddle
 fn main() {
@@ -438,7 +466,7 @@ fn main() {
 }
 ```
 
-`break` and `continue` are only valid inside `while` loops. Using either outside a loop is a compile-time error.
+`break` and `continue` are only valid inside loops. Using either outside a loop is a compile-time error.
 
 In nested loops, `break` and `continue` affect the nearest enclosing loop.
 

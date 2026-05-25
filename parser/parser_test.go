@@ -139,6 +139,61 @@ fn main() {
 	}
 }
 
+func TestParseForLoopForms(t *testing.T) {
+	prog := parseProgramForTest(t, `
+fn main() {
+    var i byte
+
+    for {
+        break
+    }
+
+    for i < 10 {
+        i = i + 1
+    }
+
+    for i = 0 to 9 {
+        i = i + 1
+    }
+}
+`)
+
+	fn := prog.Functions[0]
+	if len(fn.Body) != 3 {
+		t.Fatalf("expected 3 body statements, got %d", len(fn.Body))
+	}
+
+	infinite, ok := fn.Body[0].(*ast.ForStmt)
+	if !ok {
+		t.Fatalf("expected first statement to be ForStmt, got %T", fn.Body[0])
+	}
+	if infinite.Cond != nil || infinite.IsCounted {
+		t.Fatalf("expected infinite for loop, got %#v", infinite)
+	}
+
+	conditional, ok := fn.Body[1].(*ast.ForStmt)
+	if !ok {
+		t.Fatalf("expected second statement to be ForStmt, got %T", fn.Body[1])
+	}
+	if conditional.Cond == nil || conditional.IsCounted {
+		t.Fatalf("expected conditional for loop, got %#v", conditional)
+	}
+
+	counted, ok := fn.Body[2].(*ast.ForStmt)
+	if !ok {
+		t.Fatalf("expected third statement to be ForStmt, got %T", fn.Body[2])
+	}
+	if !counted.IsCounted {
+		t.Fatalf("expected counted for loop")
+	}
+	if counted.Counter != "i" {
+		t.Fatalf("got counter %q, want i", counted.Counter)
+	}
+	if counted.Start == nil || counted.End == nil {
+		t.Fatalf("expected counted for start and end expressions")
+	}
+}
+
 func TestParseUserFunctionCall(t *testing.T) {
 	expr := parseExprFromMain(t, `
 fn main() {
