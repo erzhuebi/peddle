@@ -1,7 +1,11 @@
 # Release notes
 
-## v0.8.0 - 2026-05-24
+## v0.9.0 - 2026-05-25
 
-- timers added, joystick example added
-- chore: start 0.8.0-dev
+- constant folding added
+- long branch tests added
+- for loop added
+- for loop added
+- documentation updated
+- chore: start 0.9.0-dev
 
