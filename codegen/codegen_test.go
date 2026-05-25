@@ -181,6 +181,17 @@ fn main() {
 	)
 }
 
+func TestCodegenDisablesBasicROMAtStartup(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+}
+`)
+
+	requireASM(t, asm,
+		"start:\n    lda #$36\n    sta $01\n    jsr main",
+	)
+}
+
 func TestCodegenUserFunctionCallAndReturn(t *testing.T) {
 	asm := compileSource(t, `
 fn add(a int, b int) int {

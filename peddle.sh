@@ -4,6 +4,7 @@ set -e
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
 RUN=0
+OPT="${OPT:-size}"
 
 if [ "$1" = "--run" ]; then
     RUN=1
@@ -20,10 +21,15 @@ fi
 INPUT="$1"
 BASE="${INPUT%.ped}"
 
-"$SCRIPT_DIR/build/peddlec" --opt=size -o "$BASE.asm" "$INPUT"
+"$SCRIPT_DIR/build/peddlec" --opt="$OPT" -o "$BASE.asm" "$INPUT"
 
 64tass "$BASE.asm" -o "$BASE.prg"
 
+if [ -f "$SCRIPT_DIR/scripts/prg_memory_map.sh" ]; then
+    sh "$SCRIPT_DIR/scripts/prg_memory_map.sh" "$BASE.prg" || true
+fi
+
+echo ""
 echo "wrote $BASE.prg"
 
 if [ "$RUN" = "1" ]; then

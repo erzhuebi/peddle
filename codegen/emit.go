@@ -29,6 +29,8 @@ basic_next:
 * = $0810
 
 start:
+    lda #$36
+    sta $01
     jsr main
     rts
 `)
