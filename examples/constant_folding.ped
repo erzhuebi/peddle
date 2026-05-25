@@ -1,0 +1,18 @@
+const BORDER = $d020
+
+fn main() {
+    var x int
+    var color byte
+
+    cls()
+
+    x = 2 + 3 * 4
+    color = (%1111_0000 & 15) + 1
+
+    poke(BORDER + 1, color)
+
+    putstr(0, 0, "CONST FOLD")
+    putstr(0, 1, itoa(x))
+
+    gotoxy(0, 22)
+}

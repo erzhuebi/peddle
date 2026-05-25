@@ -2,7 +2,6 @@ package codegen
 
 import (
 	"fmt"
-	"strconv"
 
 	"peddle/ast"
 )
@@ -65,29 +64,15 @@ func (g *Generator) genPoke(args []ast.Expr) (ast.Type, error) {
 		return ast.Type{}, fmt.Errorf("poke expects two arguments")
 	}
 
-	if addr, ok := args[0].(*ast.NumberExpr); ok {
-		n, err := strconv.Atoi(addr.Value)
-		if err != nil {
-			return ast.Type{}, err
-		}
-
+	if n, ok, err := g.foldConstExpr(args[0], ast.Type{Name: "int"}); err != nil {
+		return ast.Type{}, err
+	} else if ok {
 		if err := g.genExprTo(args[1], ast.Type{Name: "byte"}); err != nil {
 			return ast.Type{}, err
 		}
 
 		g.emit(fmt.Sprintf("    sta $%04x", n&0xffff))
 		return ast.Type{}, nil
-	}
-
-	if addr, ok := args[0].(*ast.IdentExpr); ok {
-		if n, ok := g.constants[addr.Name]; ok {
-			if err := g.genExprTo(args[1], ast.Type{Name: "byte"}); err != nil {
-				return ast.Type{}, err
-			}
-
-			g.emit(fmt.Sprintf("    sta $%04x", n&0xffff))
-			return ast.Type{}, nil
-		}
 	}
 
 	if err := g.genExprTo(args[0], ast.Type{Name: "int"}); err != nil {
@@ -114,21 +99,11 @@ func (g *Generator) genPeek(args []ast.Expr) (ast.Type, error) {
 		return ast.Type{}, fmt.Errorf("peek expects one argument")
 	}
 
-	if addr, ok := args[0].(*ast.NumberExpr); ok {
-		n, err := strconv.Atoi(addr.Value)
-		if err != nil {
-			return ast.Type{}, err
-		}
-
+	if n, ok, err := g.foldConstExpr(args[0], ast.Type{Name: "int"}); err != nil {
+		return ast.Type{}, err
+	} else if ok {
 		g.emit(fmt.Sprintf("    lda $%04x", n&0xffff))
 		return ast.Type{Name: "byte"}, nil
-	}
-
-	if addr, ok := args[0].(*ast.IdentExpr); ok {
-		if n, ok := g.constants[addr.Name]; ok {
-			g.emit(fmt.Sprintf("    lda $%04x", n&0xffff))
-			return ast.Type{Name: "byte"}, nil
-		}
 	}
 
 	if err := g.genExprTo(args[0], ast.Type{Name: "int"}); err != nil {

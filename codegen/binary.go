@@ -2,7 +2,6 @@ package codegen
 
 import (
 	"fmt"
-	"strconv"
 
 	"peddle/ast"
 )
@@ -25,7 +24,7 @@ func (g *Generator) genBinaryTo(b *ast.BinaryExpr, target ast.Type) error {
 
 func (g *Generator) genBinaryByte(b *ast.BinaryExpr) error {
 	if b.Op == "<<" || b.Op == ">>" {
-		if count, ok, err := constShiftCount(b.Right); err != nil {
+		if count, ok, err := g.constShiftCount(b.Right, 8); err != nil {
 			return err
 		} else if ok {
 			if err := g.genExprTo(b.Left, ast.Type{Name: "byte"}); err != nil {
@@ -149,7 +148,7 @@ func (g *Generator) genBinaryByte(b *ast.BinaryExpr) error {
 
 func (g *Generator) genBinaryInt(b *ast.BinaryExpr) error {
 	if b.Op == "<<" || b.Op == ">>" {
-		if count, ok, err := constShiftCount(b.Right); err != nil {
+		if count, ok, err := g.constShiftCount(b.Right, 16); err != nil {
 			return err
 		} else if ok {
 			if err := g.genExprTo(b.Left, ast.Type{Name: "int"}); err != nil {
@@ -287,24 +286,6 @@ func (g *Generator) genBinaryInt(b *ast.BinaryExpr) error {
 
 	g.usedTmp16 = true
 	return nil
-}
-
-func constShiftCount(e ast.Expr) (int, bool, error) {
-	n, ok := e.(*ast.NumberExpr)
-	if !ok {
-		return 0, false, nil
-	}
-
-	v, err := strconv.Atoi(n.Value)
-	if err != nil {
-		return 0, false, err
-	}
-
-	if v < 0 {
-		v = 0
-	}
-
-	return v, true, nil
 }
 
 func (g *Generator) emitConstShiftByte(op string, count int) {
@@ -642,29 +623,18 @@ func (g *Generator) genSignedGreaterThanJump(trueLabel string) error {
 }
 
 func (g *Generator) genExprToIntValue(e ast.Expr) error {
+	if n, ok, err := g.foldConstExpr(e, ast.Type{Name: "int"}); err != nil {
+		return err
+	} else if ok {
+		g.emitConstExprTo(n, ast.Type{Name: "int"})
+		return nil
+	}
+
 	switch expr := e.(type) {
 	case *ast.NumberExpr:
-		n, err := strconv.Atoi(expr.Value)
-		if err != nil {
-			return err
-		}
-		g.emit(fmt.Sprintf("    lda #<%d", n))
-		g.emit("    sta ZP_TMP0")
-		g.emit(fmt.Sprintf("    lda #>%d", n))
-		g.emit("    sta ZP_TMP1")
-		g.usedTmp16 = true
-		return nil
+		return fmt.Errorf("unfoldable number literal %q", expr.Value)
 
 	case *ast.IdentExpr:
-		if n, ok := g.constants[expr.Name]; ok {
-			g.emit(fmt.Sprintf("    lda #<%d", n))
-			g.emit("    sta ZP_TMP0")
-			g.emit(fmt.Sprintf("    lda #>%d", n))
-			g.emit("    sta ZP_TMP1")
-			g.usedTmp16 = true
-			return nil
-		}
-
 		sym, ok := g.resolve(expr.Name)
 		if !ok {
 			return fmt.Errorf("unknown variable %q", expr.Name)

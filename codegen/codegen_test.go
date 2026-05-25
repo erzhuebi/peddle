@@ -167,7 +167,8 @@ fn main() {
     var x int
     var b bool
 
-    x = -1
+    x = 1
+    x = -x
     b = !b
 }
 `)
@@ -721,8 +722,11 @@ fn main() {
     var a byte
     var x int
 
-    a = 3 * 4
-    x = 300 * 4
+    a = 3
+    a = a * 4
+
+    x = 300
+    x = x * 4
 }
 `
 
@@ -776,7 +780,7 @@ fn main() {
 	requireASMAssemblesWith64tass(t, asm)
 }
 
-func TestCodegenStage2ConstantShiftsAreInlineInSpeedMode(t *testing.T) {
+func TestCodegenStage2ConstantShiftsFoldInSpeedMode(t *testing.T) {
 	input := `
 fn main() {
     var a, b byte
@@ -795,15 +799,17 @@ fn main() {
 	})
 
 	requireASM(t, asm,
-		"asl",
-		"lsr",
-		"asl ZP_TMP0",
-		"rol ZP_TMP1",
-		"lsr ZP_TMP1",
-		"ror ZP_TMP0",
+		"lda #8",
+		"lda #32",
+		"lda #<4096",
+		"lda #>4096",
+		"lda #<256",
+		"lda #>256",
 	)
 
 	requireNoASM(t, asm,
+		"asl",
+		"lsr",
 		"jsr peddle_shl_byte",
 		"jsr peddle_shr_byte",
 		"jsr peddle_shl_int",
@@ -814,7 +820,7 @@ fn main() {
 	requireASMAssemblesWith64tass(t, asm)
 }
 
-func TestCodegenStage2ConstantShiftsAreInlineInSizeMode(t *testing.T) {
+func TestCodegenStage2ConstantShiftsFoldInSizeMode(t *testing.T) {
 	input := `
 fn main() {
     var a, b byte
@@ -833,15 +839,17 @@ fn main() {
 	})
 
 	requireASM(t, asm,
-		"asl",
-		"lsr",
-		"asl ZP_TMP0",
-		"rol ZP_TMP1",
-		"lsr ZP_TMP1",
-		"ror ZP_TMP0",
+		"lda #8",
+		"lda #32",
+		"lda #<4096",
+		"lda #>4096",
+		"lda #<256",
+		"lda #>256",
 	)
 
 	requireNoASM(t, asm,
+		"asl",
+		"lsr",
 		"jsr peddle_shl_byte",
 		"jsr peddle_shr_byte",
 		"jsr peddle_shl_int",
@@ -941,14 +949,28 @@ func TestCodegenStage3DivisionAndModuloSpeedMode(t *testing.T) {
 fn main() {
     var a byte
     var b byte
+    var c byte
+    var d byte
     var x int
     var y int
+    var m int
+    var n int
 
-    a = 100 / 5
-    b = 100 % 7
+    a = 100
+    c = 5
+    a = a / c
 
-    x = 1000 / 10
-    y = 1000 % 33
+    b = 100
+    d = 7
+    b = b % d
+
+    x = 1000
+    m = 10
+    x = x / m
+
+    y = 1000
+    n = 33
+    y = y % n
 }
 `
 
@@ -981,14 +1003,28 @@ func TestCodegenStage3DivisionAndModuloSizeMode(t *testing.T) {
 fn main() {
     var a byte
     var b byte
+    var c byte
+    var d byte
     var x int
     var y int
+    var m int
+    var n int
 
-    a = 100 / 5
-    b = 100 % 7
+    a = 100
+    c = 5
+    a = a / c
 
-    x = 1000 / 10
-    y = 1000 % 33
+    b = 100
+    d = 7
+    b = b % d
+
+    x = 1000
+    m = 10
+    x = x / m
+
+    y = 1000
+    n = 33
+    y = y % n
 }
 `
 
@@ -1011,10 +1047,17 @@ func TestCodegenStage3ModuloUsesRemainderRegister(t *testing.T) {
 	input := `
 fn main() {
     var a byte
+    var b byte
     var x int
+    var y int
 
-    a = 13 % 5
-    x = 1000 % 256
+    a = 13
+    b = 5
+    a = a % b
+
+    x = 1000
+    y = 256
+    x = x % y
 }
 `
 
@@ -1035,10 +1078,17 @@ func TestCodegenStage3DivisionByZeroSpeedModeIsInline(t *testing.T) {
 	input := `
 fn main() {
     var a byte
+    var z byte
     var x int
+    var n int
 
-    a = 10 / 0
-    x = 100 / 0
+    a = 10
+    z = 0
+    a = a / z
+
+    x = 100
+    n = 0
+    x = x / n
 }
 `
 
@@ -1068,10 +1118,17 @@ func TestCodegenStage3DivisionByZeroSizeModeRuntimeExists(t *testing.T) {
 	input := `
 fn main() {
     var a byte
+    var z byte
     var x int
+    var n int
 
-    a = 10 / 0
-    x = 100 / 0
+    a = 10
+    z = 0
+    a = a / z
+
+    x = 100
+    n = 0
+    x = x / n
 }
 `
 
@@ -1146,13 +1203,16 @@ fn main() {
 	asm := compileSource(t, input)
 
 	requireASM(t, asm,
-		"lda #<10",
+		"lda #<115",
+		"lda #>115",
 		"lda #15",
-		"lda #255",
-		"and ZP_TMP0",
+		"sta main_b",
 	)
 
 	requireNoASM(t, asm,
+		"lda #<10",
+		"lda #255",
+		"and ZP_TMP0",
 		"unknown variable",
 	)
 

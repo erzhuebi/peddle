@@ -2,82 +2,29 @@ package codegen
 
 import (
 	"fmt"
-	"strconv"
 
 	"peddle/ast"
 )
 
 func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
+	if n, ok, err := g.foldConstExpr(e, target); err != nil {
+		return err
+	} else if ok {
+		g.emitConstExprTo(n, target)
+		return nil
+	}
+
 	switch expr := e.(type) {
 	case *ast.NumberExpr:
-		n, err := strconv.Atoi(expr.Value)
-		if err != nil {
-			return err
-		}
-
-		if target.Name == "int" {
-			g.emit(fmt.Sprintf("    lda #<%d", n))
-			g.emit("    sta ZP_TMP0")
-			g.emit(fmt.Sprintf("    lda #>%d", n))
-			g.emit("    sta ZP_TMP1")
-			g.usedTmp16 = true
-			return nil
-		}
-
-		g.emit(fmt.Sprintf("    lda #%d", n&0xff))
-		return nil
+		return fmt.Errorf("unfoldable number literal %q", expr.Value)
 
 	case *ast.CharExpr:
-		n, err := strconv.Atoi(expr.Value)
-		if err != nil {
-			return err
-		}
-
-		if target.Name == "int" {
-			g.emit(fmt.Sprintf("    lda #<%d", n))
-			g.emit("    sta ZP_TMP0")
-			g.emit(fmt.Sprintf("    lda #>%d", n))
-			g.emit("    sta ZP_TMP1")
-			g.usedTmp16 = true
-			return nil
-		}
-
-		g.emit(fmt.Sprintf("    lda #%d", n&0xff))
-		return nil
+		return fmt.Errorf("unfoldable char literal %q", expr.Value)
 
 	case *ast.BoolExpr:
-		n := 0
-		if expr.Value {
-			n = 1
-		}
-
-		if target.Name == "int" {
-			g.emit(fmt.Sprintf("    lda #<%d", n))
-			g.emit("    sta ZP_TMP0")
-			g.emit(fmt.Sprintf("    lda #>%d", n))
-			g.emit("    sta ZP_TMP1")
-			g.usedTmp16 = true
-			return nil
-		}
-
-		g.emit(fmt.Sprintf("    lda #%d", n))
-		return nil
+		return fmt.Errorf("unfoldable bool literal %t", expr.Value)
 
 	case *ast.IdentExpr:
-		if n, ok := g.constants[expr.Name]; ok {
-			if target.Name == "int" {
-				g.emit(fmt.Sprintf("    lda #<%d", n))
-				g.emit("    sta ZP_TMP0")
-				g.emit(fmt.Sprintf("    lda #>%d", n))
-				g.emit("    sta ZP_TMP1")
-				g.usedTmp16 = true
-				return nil
-			}
-
-			g.emit(fmt.Sprintf("    lda #%d", n&0xff))
-			return nil
-		}
-
 		sym, ok := g.resolve(expr.Name)
 		if !ok {
 			return fmt.Errorf("unknown variable %q", expr.Name)
