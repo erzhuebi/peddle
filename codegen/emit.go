@@ -29,9 +29,17 @@ basic_next:
 * = $0810
 
 start:
+    ; Disable BASIC ROM, keep KERNAL ROM and I/O visible.
     lda #$36
     sta $01
+
     jsr main
+
+    ; Restore normal C64 banking before returning to BASIC.
+    ; BASIC ROM on, KERNAL ROM on, I/O visible.
+    lda #$37
+    sta $01
+
     rts
 `)
 }
@@ -55,6 +63,7 @@ func (g *Generator) emitRuntime() {
 	g.emitCharToScreenTable()
 	g.emitReadLineRuntime()
 	g.emitPutStrRuntime()
+	g.emitNetRuntime()
 }
 
 func (g *Generator) emitRuntimeVariables() {

@@ -1,0 +1,38 @@
+fn main() {
+    var addr char[128]
+    var tx char[128]
+    var rx char[128]
+    var ok bool
+    var n int
+
+    cls()
+    putstr(0, 0, "PEDDLE NET PROBE")
+
+    copy(addr, "192.168.106.57")
+    copy(tx, "GET / HTTP/1.0")
+    append(tx, 13)
+    append(tx, 10)
+    append(tx, "Host: example.com")
+    append(tx, 13)
+    append(tx, 10)
+    append(tx, 13)
+    append(tx, 10)
+
+    putstr(0, 2, "CONNECTING...")
+    ok = netconnect(addr, 6764)
+
+    if ok {
+        putstr(0, 3, "CONNECTED")
+        n = netwrite(tx, len(tx))
+        n = netread(rx, size(rx), 100)
+
+        putstr(0, 5, "RECEIVED:")
+        putstr(0, 6, rx)
+
+        netclose()
+    } else {
+        putstr(0, 3, "CONNECT FAILED")
+    }
+
+    gotoxy(0, 22)
+}

@@ -38,6 +38,21 @@ func (g *Generator) genCall(name string, args []ast.Expr) (ast.Type, error) {
 	case "readline":
 		return g.genReadLine(args)
 
+	case "netconnect":
+		return g.genNetConnect(args)
+
+	case "netread":
+		return g.genNetRead(args)
+
+	case "netwrite":
+		return g.genNetWrite(args)
+
+	case "netclose":
+		return g.genNetClose(args)
+
+	case "netconnected":
+		return g.genNetConnected(args)
+
 	case "itoa":
 		return g.genItoa(args)
 

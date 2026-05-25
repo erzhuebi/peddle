@@ -188,7 +188,13 @@ fn main() {
 `)
 
 	requireASM(t, asm,
-		"start:\n    lda #$36\n    sta $01\n    jsr main",
+		"start:",
+		"lda #$36",
+		"sta $01",
+		"jsr main",
+		"lda #$37",
+		"sta $01",
+		"rts",
 	)
 }
 

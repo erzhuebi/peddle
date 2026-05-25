@@ -1,6 +1,7 @@
 #!/bin/sh
 set -e
 
+SCRIPT_NAME=$(basename "$0")
 C64U_REMOTE_DIR="${C64U_REMOTE_DIR:-/USB1}"
 
 while [ $# -gt 0 ]; do
@@ -19,15 +20,15 @@ while [ $# -gt 0 ]; do
             ;;
         --help|-h)
             echo "usage:"
-            echo "  ./deploy.sh --host HOST path/to/program.prg"
+            echo "  ./$SCRIPT_NAME --host HOST path/to/program.prg"
             echo ""
             echo "environment:"
             echo "  C64U_HOST        C64 Ultimate hostname or IP"
             echo "  C64U_REMOTE_DIR  remote FTP directory, default: /USB1"
             echo ""
             echo "examples:"
-            echo "  ./deploy.sh --host 192.168.1.64 examples/move_joy.prg"
-            echo "  C64U_HOST=192.168.1.64 ./deploy.sh examples/move_joy.prg"
+            echo "  ./$SCRIPT_NAME --host 192.168.1.64 examples/move_joy.prg"
+            echo "  C64U_HOST=192.168.1.64 ./$SCRIPT_NAME examples/move_joy.prg"
             exit 0
             ;;
         --*)
@@ -47,19 +48,19 @@ done
 
 if [ -z "$LOCAL_PRG" ]; then
     echo "usage:"
-    echo "  ./deploy.sh --host HOST path/to/program.prg"
+    echo "  ./$SCRIPT_NAME --host HOST path/to/program.prg"
     echo ""
     echo "examples:"
-    echo "  ./deploy.sh --host 192.168.1.64 examples/move_joy.prg"
-    echo "  C64U_HOST=192.168.1.64 ./deploy.sh examples/move_joy.prg"
+    echo "  ./$SCRIPT_NAME --host 192.168.1.64 examples/move_joy.prg"
+    echo "  C64U_HOST=192.168.1.64 ./$SCRIPT_NAME examples/move_joy.prg"
     exit 1
 fi
 
 if [ -z "$C64U_HOST" ]; then
     echo "deploy error: C64U_HOST is not set"
     echo "use one of:"
-    echo "  ./deploy.sh --host 192.168.1.64 $LOCAL_PRG"
-    echo "  C64U_HOST=192.168.1.64 ./deploy.sh $LOCAL_PRG"
+    echo "  ./$SCRIPT_NAME --host 192.168.1.64 $LOCAL_PRG"
+    echo "  C64U_HOST=192.168.1.64 ./$SCRIPT_NAME $LOCAL_PRG"
     exit 1
 fi
 

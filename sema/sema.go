@@ -740,6 +740,94 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 		}
 
 		return ast.Type{}, nil
+	case "netconnect":
+		if len(args) != 2 {
+			return ast.Type{}, fmt.Errorf("netconnect expects two arguments")
+		}
+
+		addrType, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !(addrType.IsArray && addrType.Name == "char") {
+			return ast.Type{}, fmt.Errorf("netconnect address must be char array")
+		}
+
+		portType, err := c.checkExpr(scope, args[1])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(portType) {
+			return ast.Type{}, fmt.Errorf("netconnect port must be numeric")
+		}
+
+		return ast.Type{Name: "bool"}, nil
+
+	case "netread":
+		if len(args) != 3 {
+			return ast.Type{}, fmt.Errorf("netread expects three arguments")
+		}
+
+		bufferType, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !(bufferType.IsArray && (bufferType.Name == "byte" || bufferType.Name == "char")) {
+			return ast.Type{}, fmt.Errorf("netread buffer must be byte array or char array")
+		}
+
+		maxType, err := c.checkExpr(scope, args[1])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(maxType) {
+			return ast.Type{}, fmt.Errorf("netread max argument must be numeric")
+		}
+
+		timeoutType, err := c.checkExpr(scope, args[2])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(timeoutType) {
+			return ast.Type{}, fmt.Errorf("netread timeout argument must be numeric")
+		}
+
+		return ast.Type{Name: "int"}, nil
+
+	case "netwrite":
+		if len(args) != 2 {
+			return ast.Type{}, fmt.Errorf("netwrite expects two arguments")
+		}
+
+		bufferType, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !(bufferType.IsArray && (bufferType.Name == "byte" || bufferType.Name == "char")) {
+			return ast.Type{}, fmt.Errorf("netwrite buffer must be byte array or char array")
+		}
+
+		lenType, err := c.checkExpr(scope, args[1])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(lenType) {
+			return ast.Type{}, fmt.Errorf("netwrite len argument must be numeric")
+		}
+
+		return ast.Type{Name: "int"}, nil
+
+	case "netclose":
+		if len(args) != 0 {
+			return ast.Type{}, fmt.Errorf("netclose expects no arguments")
+		}
+		return ast.Type{}, nil
+
+	case "netconnected":
+		if len(args) != 0 {
+			return ast.Type{}, fmt.Errorf("netconnected expects no arguments")
+		}
+		return ast.Type{Name: "bool"}, nil
 	case "itoa":
 		if len(args) != 1 {
 			return ast.Type{}, fmt.Errorf("itoa expects one argument")
