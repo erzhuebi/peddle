@@ -108,6 +108,7 @@ fn termeos(x byte, y byte) {
 fn main() {
     var addr char[128]
     var rx byte[192]
+    var ready byte[1]
     var tx char[2]
     var k char
     var b byte
@@ -115,6 +116,7 @@ fn main() {
     var i int
     var ok bool
     var done bool
+    var hadData bool
     var cx byte
     var cy byte
     var tepState byte
@@ -131,6 +133,7 @@ fn main() {
     termclear()
 
     copy(addr, "192.168.106.57")
+    ready[0] = 0
 
     putstr(0, 0, "PEDDLE TERM 40X24")
     putstr(0, 1, "CONNECTING...")
@@ -147,12 +150,15 @@ fn main() {
         tepCmd = 0
         tepArg0 = 0
         tepArg1 = 0
+        n = netwrite(ready, 1)
+        hadData = false
         done = false
 
         while done == false {
             n = netread(rx, size(rx), 0)
 
             if n > 0 {
+                hadData = true
                 i = 0
 
                 for i < n {
@@ -214,52 +220,49 @@ fn main() {
                             }
                         }
                     } else {
-                        if b == 27 {
-                            if tepCmd == 'C' {
-                                termclear()
-                                cx = 0
-                                cy = 0
-                            } else {
-                                if tepCmd == 'H' {
-                                    cx = 0
-                                    cy = 0
+                        if tepState == 4 {
+                            tepState = 0
+                            tepLen = 0
+                        } else {
+                            if tepState == 1 {
+                                tepCmd = b
+                                tepLen = 1
+
+                                if tepCmd == 'M' {
+                                    tepState = 2
                                 } else {
-                                    if tepCmd == 'M' {
-                                        if tepLen >= 3 {
-                                            cx = tepArg0
-                                            cy = tepArg1
-
-                                            if cx >= 40 {
-                                                cx = 39
-                                            }
-
-                                            if cy >= 24 {
-                                                cy = 23
-                                            }
-                                        }
+                                    if tepCmd == 'C' {
+                                        termclear()
+                                        cx = 0
+                                        cy = 0
                                     } else {
-                                        if tepCmd == 'K' {
-                                            termeol(cx, cy)
+                                        if tepCmd == 'H' {
+                                            cx = 0
+                                            cy = 0
                                         } else {
-                                            if tepCmd == 'J' {
-                                                termeos(cx, cy)
+                                            if tepCmd == 'K' {
+                                                termeol(cx, cy)
                                             } else {
-                                                if tepCmd == 'L' {
-                                                    termclearline(cy)
+                                                if tepCmd == 'J' {
+                                                    termeos(cx, cy)
                                                 } else {
-                                                    if tepCmd == 'S' {
-                                                        termscroll()
+                                                    if tepCmd == 'L' {
+                                                        termclearline(cy)
                                                     } else {
-                                                        if tepCmd == 'Q' {
-                                                            done = true
+                                                        if tepCmd == 'S' {
+                                                            termscroll()
                                                         } else {
-                                                            if tepCmd == 'E' {
-                                                                termput(cx, cy, 63)
-                                                                cx = cx + 1
+                                                            if tepCmd == 'Q' {
+                                                                done = true
+                                                            } else {
+                                                                if tepCmd == 'E' {
+                                                                    termput(cx, cy, 63)
+                                                                    cx = cx + 1
 
-                                                                if cx >= 40 {
-                                                                    cx = 0
-                                                                    cy = termnextrow(cy)
+                                                                    if cx >= 40 {
+                                                                        cx = 0
+                                                                        cy = termnextrow(cy)
+                                                                    }
                                                                 }
                                                             }
                                                         }
@@ -268,23 +271,31 @@ fn main() {
                                             }
                                         }
                                     }
-                                }
-                            }
 
-                            tepState = 0
-                            tepLen = 0
-                        } else {
-                            if tepLen == 0 {
-                                tepCmd = b
-                                tepLen = 1
+                                    tepState = 4
+                                }
                             } else {
-                                if tepLen == 1 {
+                                if tepState == 2 {
                                     tepArg0 = b
                                     tepLen = 2
+                                    tepState = 3
                                 } else {
-                                    if tepLen == 2 {
+                                    if tepState == 3 {
                                         tepArg1 = b
                                         tepLen = 3
+
+                                        cx = tepArg0
+                                        cy = tepArg1
+
+                                        if cx >= 40 {
+                                            cx = 39
+                                        }
+
+                                        if cy >= 24 {
+                                            cy = 23
+                                        }
+
+                                        tepState = 4
                                     }
                                 }
                             }
@@ -292,6 +303,11 @@ fn main() {
                     }
 
                     i = i + 1
+                }
+            } else {
+                if hadData {
+                    n = netwrite(ready, 1)
+                    hadData = false
                 }
             }
 

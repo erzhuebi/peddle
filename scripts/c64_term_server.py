@@ -19,9 +19,8 @@ DEFAULT_COLS = 40
 DEFAULT_ROWS = 24
 DEFAULT_RECV_SIZE = 256
 DEFAULT_TERM = "vt100"
-DEFAULT_C64_CHUNK = 16
-DEFAULT_C64_PAUSE = 0.015
-DEFAULT_C64_SLOW_COMMAND_PAUSE = 0.08
+DEFAULT_C64_GRANT = 96
+DEFAULT_C64_QUEUE_LIMIT = 8192
 DEFAULT_TRACE_WIDTH = 16
 
 C64_ESC = 0x1B
@@ -68,43 +67,8 @@ def trace_bytes(args, label, data):
 
 
 def send_c64(conn, data, args, label="S->C64"):
-    i = 0
-
-    while i < len(data):
-        if data[i] == C64_ESC:
-            end = data.find(bytes([C64_ESC]), i + 1)
-
-            if end < 0:
-                packet = data[i:]
-                trace_bytes(args, label, packet)
-                conn.sendall(packet)
-                return
-
-            packet = data[i : end + 1]
-            trace_bytes(args, label, packet)
-            conn.sendall(packet)
-
-            if len(packet) > 1 and chr(packet[1]) in "CJLS":
-                time.sleep(DEFAULT_C64_SLOW_COMMAND_PAUSE)
-            else:
-                time.sleep(DEFAULT_C64_PAUSE)
-
-            i = end + 1
-        else:
-            end = data.find(bytes([C64_ESC]), i)
-            if end < 0:
-                end = len(data)
-
-            while i < end:
-                chunk_end = i + DEFAULT_C64_CHUNK
-                if chunk_end > end:
-                    chunk_end = end
-
-                chunk = data[i:chunk_end]
-                trace_bytes(args, label, chunk)
-                conn.sendall(chunk)
-                time.sleep(DEFAULT_C64_PAUSE)
-                i = chunk_end
+    trace_bytes(args, label, data)
+    conn.sendall(data)
 
 
 class C64TerminalTranslator:
@@ -498,7 +462,7 @@ def send_start_screen(conn, args):
         "TYPE EXIT TO QUIT\r\n"
     ).encode("ascii")
 
-    send_c64(conn, c64_cmd("C") + message, args)
+    return c64_cmd("C") + message
 
 
 def handle_client(conn, addr, args):
@@ -507,6 +471,8 @@ def handle_client(conn, addr, args):
     client_conn = conn
     translator = C64TerminalTranslator(args.cols, args.rows)
     master_fd, proc = spawn_shell(args)
+    c64_ready = False
+    c64_queue = bytearray()
 
     print(f"Client connected from {addr[0]}:{addr[1]}")
 
@@ -515,8 +481,32 @@ def handle_client(conn, addr, args):
     except OSError:
         pass
 
+    def grant_c64():
+        nonlocal c64_ready
+
+        c64_ready = True
+
+    def flush_c64_queue():
+        nonlocal c64_ready
+
+        if not c64_ready or not c64_queue:
+            return
+
+        amount = min(len(c64_queue), args.c64_grant)
+        chunk = bytes(c64_queue[:amount])
+        del c64_queue[:amount]
+        c64_ready = False
+        send_c64(conn, chunk, args)
+
+    def queue_c64(data):
+        if not data:
+            return
+
+        c64_queue.extend(data)
+        flush_c64_queue()
+
     try:
-        send_start_screen(conn, args)
+        queue_c64(send_start_screen(conn, args))
 
         while running:
             if proc.poll() is not None:
@@ -528,7 +518,11 @@ def handle_client(conn, addr, args):
                 break
 
             try:
-                readable, _, _ = select.select([conn, master_fd], [], [], 0.05)
+                read_targets = [conn]
+                if len(c64_queue) < args.c64_queue_limit:
+                    read_targets.append(master_fd)
+
+                readable, _, _ = select.select(read_targets, [], [], 0.05)
             except OSError:
                 break
 
@@ -539,9 +533,16 @@ def handle_client(conn, addr, args):
                     break
 
                 trace_bytes(args, "C64->S", data)
+                ready_count = data.count(0)
+                if ready_count > 0:
+                    grant_c64()
+
                 pty_input = translate_input(data)
                 trace_bytes(args, "S->PTY", pty_input)
-                os.write(master_fd, pty_input)
+                if pty_input:
+                    os.write(master_fd, pty_input)
+
+                flush_c64_queue()
 
             if master_fd in readable:
                 try:
@@ -555,7 +556,7 @@ def handle_client(conn, addr, args):
                 trace_bytes(args, "PTY->S", data)
                 out = translator.feed(data)
                 if out:
-                    send_c64(conn, out, args)
+                    queue_c64(out)
 
     except OSError as e:
         print(f"client error: {e}")
@@ -587,6 +588,8 @@ def parse_args():
     parser.add_argument("--shell", default="", help="shell executable, default: $SHELL or /bin/sh")
     parser.add_argument("--trace-off", action="store_true", help="disable the default hex/ASCII trace output")
     parser.add_argument("--trace-width", type=int, default=DEFAULT_TRACE_WIDTH, help=f"bytes per trace line, default: {DEFAULT_TRACE_WIDTH}")
+    parser.add_argument("--c64-grant", type=int, default=DEFAULT_C64_GRANT, help=f"bytes released per C64 ready signal, default: {DEFAULT_C64_GRANT}")
+    parser.add_argument("--c64-queue-limit", type=int, default=DEFAULT_C64_QUEUE_LIMIT, help=f"PTY backpressure threshold in bytes, default: {DEFAULT_C64_QUEUE_LIMIT}")
 
     args = parser.parse_args()
     args.shell = shell_path(args.shell)
@@ -594,6 +597,10 @@ def parse_args():
 
     if args.trace_width < 1:
         args.trace_width = DEFAULT_TRACE_WIDTH
+    if args.c64_grant < 1:
+        args.c64_grant = DEFAULT_C64_GRANT
+    if args.c64_queue_limit < args.c64_grant:
+        args.c64_queue_limit = args.c64_grant
 
     return args
 
@@ -619,6 +626,7 @@ def main():
     print(f"Shell: {args.shell}")
     print(f"Initial cwd: {args.cwd}")
     print("Protocol: VT100/ANSI PTY -> TEP tiny escape protocol")
+    print(f"C64 flow control: ack-chunk={args.c64_grant} queue-limit={args.c64_queue_limit}")
     print(f"I/O trace: {'off' if args.trace_off else 'on'}")
 
     ips = get_local_ips()
