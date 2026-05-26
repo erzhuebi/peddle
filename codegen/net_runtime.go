@@ -18,6 +18,31 @@ func (g *Generator) emitNetRuntime() {
 ; Status bits used:
 ;   bit 3 = receiver data register full
 ;   bit 4 = transmitter data register empty
+;
+; Public helpers emitted by codegen:
+;   peddle_netconnect
+;   peddle_netread
+;   peddle_netwrite
+;   peddle_netclose
+;
+; Peddle API semantics:
+;   netconnect(addr char[], port int) bool
+;   netread(buffer byte[]|char[], max int, timeoutTicks int) int
+;   netwrite(buffer byte[]|char[], len int) int
+;   netclose()
+;   netconnected() bool
+;
+; Notes:
+;   - Single global connection only.
+;   - Timeout is measured in C64 ticks/jiffies.
+;   - Uses ATDT because that matches the known-good C64U test program.
+;   - Mirrors the working C test:
+;       init ACIA
+;       send +++
+;       send ATH<CR>
+;       send ATDT<addr>:<port><CR>
+;       wait for CONNECT
+;       flush remaining modem response bytes before data mode use
 
 ACIA_DATA    = $de00
 ACIA_STATUS  = $de01
@@ -95,24 +120,26 @@ peddle_net_started:
 peddle_net_force:
     .byte 0
 
-peddle_net_cmd_at:
-    .byte 65, 84, 13
+; "+++"
+peddle_net_cmd_escape:
+    .byte 43, 43, 43
 
-; ATDT
+; "ATH\r"
+peddle_net_cmd_ath:
+    .byte 65, 84, 72, 13
+
+; "ATDT"
 peddle_net_cmd_atdt:
     .byte 65, 84, 68, 84
-
-peddle_net_resp_ok:
-    .byte 79, 75
 
 peddle_net_resp_connect:
     .byte 67, 79, 78, 78, 69, 67, 84
 
 peddle_acia_init:
-    lda #$1f
-    sta ACIA_CONTROL
     lda #$0b
     sta ACIA_COMMAND
+    lda #$1f
+    sta ACIA_CONTROL
     rts
 
 peddle_acia_drop_dtr:
@@ -136,6 +163,7 @@ peddle_acia_read:
 
 peddle_acia_write:
     pha
+
 peddle_acia_write_wait:
     lda ACIA_STATUS
     and #$10
@@ -149,7 +177,24 @@ peddle_acia_flush:
     beq peddle_acia_flush_done
     lda ACIA_DATA
     jmp peddle_acia_flush
+
 peddle_acia_flush_done:
+    rts
+
+peddle_net_guard_delay:
+    lda #0
+    sta peddle_net_count_lo
+    sta peddle_net_count_hi
+
+peddle_net_guard_delay_loop:
+    inc peddle_net_count_lo
+    bne peddle_net_guard_delay_check
+    inc peddle_net_count_hi
+
+peddle_net_guard_delay_check:
+    lda peddle_net_count_hi
+    cmp #4
+    bcc peddle_net_guard_delay_loop
     rts
 
 peddle_netconnect:
@@ -159,9 +204,13 @@ peddle_netconnect:
     lda #0
     sta peddle_net_connected
 
-    lda #<peddle_net_cmd_at
+    ; Match the known-good C test:
+    ; guard delay, "+++", guard delay, "ATH\r", guard delay.
+    jsr peddle_net_guard_delay
+
+    lda #<peddle_net_cmd_escape
     sta ZP_PTR1_LO
-    lda #>peddle_net_cmd_at
+    lda #>peddle_net_cmd_escape
     sta ZP_PTR1_HI
     lda #3
     sta peddle_net_limit_lo
@@ -169,20 +218,22 @@ peddle_netconnect:
     sta peddle_net_limit_hi
     jsr peddle_net_send_raw
 
-    lda #<peddle_net_resp_ok
-    sta peddle_net_pattern_lo
-    lda #>peddle_net_resp_ok
-    sta peddle_net_pattern_hi
-    lda #2
-    sta peddle_net_pattern_len
-    lda #100
-    sta peddle_net_timeout_lo
-    lda #0
-    sta peddle_net_timeout_hi
-    jsr peddle_net_expect
-    cmp #0
-    beq peddle_netconnect_fail
+    jsr peddle_net_guard_delay
 
+    lda #<peddle_net_cmd_ath
+    sta ZP_PTR1_LO
+    lda #>peddle_net_cmd_ath
+    sta ZP_PTR1_HI
+    lda #4
+    sta peddle_net_limit_lo
+    lda #0
+    sta peddle_net_limit_hi
+    jsr peddle_net_send_raw
+
+    jsr peddle_net_guard_delay
+    jsr peddle_acia_flush
+
+    ; Send "ATDT" + addr + ":" + port + "\r".
     lda #<peddle_net_cmd_atdt
     sta ZP_PTR1_LO
     lda #>peddle_net_cmd_atdt
@@ -194,12 +245,16 @@ peddle_netconnect:
     jsr peddle_net_send_raw
 
     jsr peddle_net_send_addr
+
     lda #58
     jsr peddle_acia_write
+
     jsr peddle_net_send_port_decimal
+
     lda #13
     jsr peddle_acia_write
 
+    ; Wait for "CONNECT".
     lda #<peddle_net_resp_connect
     sta peddle_net_pattern_lo
     lda #>peddle_net_resp_connect
@@ -213,6 +268,11 @@ peddle_netconnect:
     jsr peddle_net_expect
     cmp #0
     beq peddle_netconnect_fail
+
+    ; The modem often leaves CR/LF after CONNECT.
+    ; Flush it now so the first netread() sees TCP payload, not modem text.
+    jsr peddle_net_guard_delay
+    jsr peddle_acia_flush
 
     lda #1
     sta peddle_net_connected
@@ -229,6 +289,10 @@ peddle_net_send_addr:
     lda peddle_net_addr_hi
     sta ZP_PTR0_HI
 
+    ; char[] layout:
+    ;   +0/+1 capacity
+    ;   +2/+3 length
+    ;   +4    data
     ldy #2
     lda (ZP_PTR0_LO), y
     sta peddle_net_limit_lo
@@ -309,6 +373,7 @@ peddle_net_send_port_decimal:
     lda #1
     sta peddle_net_force
     jsr peddle_net_send_port_digit
+
     rts
 
 peddle_net_send_port_digit:
@@ -361,6 +426,8 @@ peddle_net_port_digit_emit:
     rts
 
 peddle_net_expect:
+    ; 6502 indexed indirect load requires a zero-page pointer.
+    ; peddle_net_pattern_lo/hi are normal labels, so copy them to ZP_PTR0 first.
     lda peddle_net_pattern_lo
     sta ZP_PTR0_LO
     lda peddle_net_pattern_hi
@@ -432,6 +499,7 @@ peddle_netread:
     sta ZP_PTR0_LO
     lda peddle_net_buf_hi
     sta ZP_PTR0_HI
+
     ldy #2
     lda #0
     sta (ZP_PTR0_LO), y
@@ -451,18 +519,23 @@ peddle_netread_loop:
     beq peddle_netread_no_byte
 
     jsr peddle_acia_read
+
     ldy #0
     sta (ZP_PTR1_LO), y
 
     jsr peddle_net_inc_data_ptr
     jsr peddle_net_inc_count
+
+    ; Reset idle timeout after every received byte.
+    lda $00a2
+    sta peddle_net_start_lo
+    lda $00a1
+    sta peddle_net_start_hi
+
     jmp peddle_netread_loop
 
 peddle_netread_no_byte:
-    lda peddle_net_count_lo
-    ora peddle_net_count_hi
-    bne peddle_netread_done
-
+    ; timeout 0 means non-blocking.
     lda peddle_net_timeout_lo
     ora peddle_net_timeout_hi
     beq peddle_netread_done
@@ -472,6 +545,7 @@ peddle_netread_no_byte:
     beq peddle_netread_loop
 
 peddle_netread_done:
+    ; Store resulting length into destination array.
     lda peddle_net_buf_lo
     sta ZP_PTR0_LO
     lda peddle_net_buf_hi
@@ -520,7 +594,33 @@ peddle_netwrite_done:
     rts
 
 peddle_netclose:
+    jsr peddle_net_guard_delay
+
+    lda #<peddle_net_cmd_escape
+    sta ZP_PTR1_LO
+    lda #>peddle_net_cmd_escape
+    sta ZP_PTR1_HI
+    lda #3
+    sta peddle_net_limit_lo
+    lda #0
+    sta peddle_net_limit_hi
+    jsr peddle_net_send_raw
+
+    jsr peddle_net_guard_delay
+
+    lda #<peddle_net_cmd_ath
+    sta ZP_PTR1_LO
+    lda #>peddle_net_cmd_ath
+    sta ZP_PTR1_HI
+    lda #4
+    sta peddle_net_limit_lo
+    lda #0
+    sta peddle_net_limit_hi
+    jsr peddle_net_send_raw
+
+    jsr peddle_net_guard_delay
     jsr peddle_acia_drop_dtr
+
     lda #0
     sta peddle_net_connected
     rts
@@ -541,6 +641,7 @@ peddle_net_limit_capacity_max:
     lda peddle_net_buf_hi
     sta ZP_PTR0_HI
 
+    ; limit = array capacity
     ldy #0
     lda (ZP_PTR0_LO), y
     sta peddle_net_limit_lo
@@ -548,6 +649,7 @@ peddle_net_limit_capacity_max:
     lda (ZP_PTR0_LO), y
     sta peddle_net_limit_hi
 
+    ; if capacity <= max, keep capacity
     lda peddle_net_limit_hi
     cmp peddle_net_max_hi
     bcc peddle_net_limit_done
@@ -589,6 +691,7 @@ peddle_net_inc_data_ptr:
     inc ZP_PTR1_LO
     bne peddle_net_inc_data_ptr_done
     inc ZP_PTR1_HI
+
 peddle_net_inc_data_ptr_done:
     rts
 
@@ -596,6 +699,7 @@ peddle_net_inc_count:
     inc peddle_net_count_lo
     bne peddle_net_inc_count_done
     inc peddle_net_count_hi
+
 peddle_net_inc_count_done:
     rts
 
@@ -609,6 +713,10 @@ peddle_net_timeout_due:
     rts
 
 peddle_net_timeout_nonzero:
+    ; elapsed = current ticks - start ticks, wrap-safe for normal intervals.
+    ; KERNAL jiffy clock low/high:
+    ;   low  = $A2
+    ;   high = $A1
     lda $00a2
     sec
     sbc peddle_net_start_lo

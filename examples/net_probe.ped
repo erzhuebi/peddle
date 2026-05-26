@@ -2,21 +2,18 @@ fn main() {
     var addr char[128]
     var tx char[128]
     var rx char[128]
+    var line char[128]
     var ok bool
+    var done bool
     var n int
+    var i int
 
     cls()
     putstr(0, 0, "PEDDLE NET PROBE")
 
     copy(addr, "192.168.106.57")
-    copy(tx, "GET / HTTP/1.0")
-    append(tx, 13)
-    append(tx, 10)
-    append(tx, "Host: example.com")
-    append(tx, 13)
-    append(tx, 10)
-    append(tx, 13)
-    append(tx, 10)
+    copy(tx, "HELLO WORLD\r")
+    clear(line)
 
     putstr(0, 2, "CONNECTING...")
     ok = netconnect(addr, 6764)
@@ -24,10 +21,33 @@ fn main() {
     if ok {
         putstr(0, 3, "CONNECTED")
         n = netwrite(tx, len(tx))
-        n = netread(rx, size(rx), 100)
+
+        done = false
+
+        for done == false {
+            n = netread(rx, size(rx), 100)
+
+            if n == 0 {
+                done = true
+            } else {
+                i = 0
+
+                while i < n {
+                    if done == false {
+                        if rx[i] == 13 {
+                            done = true
+                        } else {
+                            append(line, rx[i])
+                        }
+                    }
+
+                    i = i + 1
+                }
+            }
+        }
 
         putstr(0, 5, "RECEIVED:")
-        putstr(0, 6, rx)
+        putstr(0, 6, line)
 
         netclose()
     } else {

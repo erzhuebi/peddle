@@ -3,16 +3,11 @@ import argparse
 import signal
 import socket
 import sys
-import time
 
 
 DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORT = 6764
 DEFAULT_RECV_SIZE = 256
-
-# Important for C64 / ACIA polling:
-# Send echoed bytes slowly so the C64 program can poll and read them.
-DEFAULT_BYTE_DELAY = 0.03
 
 
 running = True
@@ -90,23 +85,7 @@ def signal_handler(signum, frame):
     sys.exit(0)
 
 
-def send_slowly(conn, data, byte_delay):
-    sent = 0
-
-    for b in data:
-        if not running:
-            break
-
-        conn.sendall(bytes([b]))
-        sent += 1
-
-        if byte_delay > 0:
-            time.sleep(byte_delay)
-
-    return sent
-
-
-def handle_client(conn, addr, recv_size, byte_delay):
+def handle_client(conn, addr, recv_size):
     global client_conn
 
     client_conn = conn
@@ -122,8 +101,8 @@ def handle_client(conn, addr, recv_size, byte_delay):
 
             print(f"received {len(data)} bytes: {format_bytes(data)}")
 
-            sent = send_slowly(conn, data, byte_delay)
-            print(f"echoed   {sent} bytes with {byte_delay:.3f}s byte delay")
+            conn.sendall(data)
+            print(f"echoed   {len(data)} bytes")
 
     except OSError as e:
         print(f"client error: {e}")
@@ -141,7 +120,7 @@ def handle_client(conn, addr, recv_size, byte_delay):
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Simple slow TCP echo server for C64 Ultimate / Peddle network tests."
+        description="Simple TCP echo server for C64 Ultimate / Peddle network tests."
     )
 
     parser.add_argument(
@@ -164,13 +143,6 @@ def parse_args():
         help=f"receive buffer size, default: {DEFAULT_RECV_SIZE}",
     )
 
-    parser.add_argument(
-        "--byte-delay",
-        type=float,
-        default=DEFAULT_BYTE_DELAY,
-        help=f"delay between echoed bytes in seconds, default: {DEFAULT_BYTE_DELAY}",
-    )
-
     return parser.parse_args()
 
 
@@ -190,7 +162,6 @@ def main():
 
     print("C64 echo server started")
     print(f"Listening on port {args.port}")
-    print(f"Byte delay: {args.byte_delay:.3f}s")
 
     ips = get_local_ips()
     if ips:
@@ -211,7 +182,7 @@ def main():
             except OSError:
                 break
 
-            handle_client(conn, addr, args.recv_size, args.byte_delay)
+            handle_client(conn, addr, args.recv_size)
 
     finally:
         print("Server stopped")
