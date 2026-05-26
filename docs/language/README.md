@@ -11,6 +11,7 @@ The complete Peddle Language Guide.
 5. [Examples](05-examples.md)
 6. [Optimization, Memory, and Workflow](06-optimization-memory-and-workflow.md)
 7. [Additional Sections](99-additional-sections.md)
+8. [Networking and Terminal](07-networking-and-terminal.md)
 
 ## Complete Guide
 

@@ -1,0 +1,110 @@
+fn main() {
+    var addr char[128]
+    var rx byte[192]
+    var capture byte[192]
+    var line char[40]
+    var ok bool
+    var done bool
+    var n int
+    var i int
+    var total int
+    var idle int
+    var pos int
+    var idx int
+    var j byte
+    var row byte
+    var k char
+
+    cls()
+    border(6)
+    background(0)
+    textcolor(1)
+
+    copy(addr, "192.168.106.57")
+
+    putstr(0, 0, "TERM DBG")
+    putstr(0, 1, "CONNECTING...")
+
+    ok = netconnect(addr, 6764)
+
+    if ok {
+        putstr(0, 2, "CONNECTED")
+
+        total = 0
+        idle = ticks()
+        done = false
+
+        for done == false {
+            n = netread(rx, size(rx), 0)
+
+            if n > 0 {
+                i = 0
+
+                for i < n {
+                    if total < 176 {
+                        capture[total] = rx[i]
+                        total = total + 1
+                    }
+
+                    i = i + 1
+                }
+
+                idle = ticks()
+            } else {
+                if tickdue(idle, 50) {
+                    done = true
+                }
+            }
+
+            if total >= 176 {
+                done = true
+            }
+        }
+
+        cls()
+        putstr(0, 0, "TERM DBG RAW BYTES")
+        putstr(21, 0, "N")
+        putstr(23, 0, itoa(total))
+
+        pos = 0
+        row = 1
+
+        for pos < total {
+            clear(line)
+            append(line, itox(pos))
+            append(line, " ")
+
+            j = 0
+
+            for j < 8 {
+                idx = pos + j
+
+                if idx < total {
+                    append(line, itox(capture[idx]))
+                } else {
+                    append(line, "  ")
+                }
+
+                append(line, " ")
+                j = j + 1
+            }
+
+            putstr(0, row, line)
+
+            pos = pos + 8
+            row = row + 1
+
+            if row >= 24 {
+                break
+            }
+        }
+
+        k = waitkey()
+        netclose()
+    } else {
+        putstr(0, 2, "CONNECT FAILED")
+        k = waitkey()
+    }
+
+    gotoxy(0, 22)
+}

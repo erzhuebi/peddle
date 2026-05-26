@@ -1,0 +1,316 @@
+fn termcode(ch byte) byte {
+    var code byte
+
+    code = ch
+
+    if ch == 64 {
+        code = 0
+    }
+
+    if ch >= 65 {
+        if ch <= 90 {
+            code = ch - 64
+        }
+    }
+
+    if ch >= 97 {
+        if ch <= 122 {
+            code = ch - 32
+        }
+    }
+
+    if ch == 95 {
+        code = 31
+    }
+
+    return code
+}
+
+fn termput(x byte, y byte, ch byte) {
+    var code byte
+
+    code = termcode(ch)
+    putscreen(x, y, code)
+    putcolor(x, y, 1)
+}
+
+fn termclearline(y byte) {
+    var x byte
+
+    for x = 0 to 39 {
+        putscreen(x, y, 32)
+        putcolor(x, y, 1)
+    }
+}
+
+fn termclear() {
+    cls()
+}
+
+fn termscroll() {
+    var x byte
+    var y byte
+    var src int
+    var dst int
+    var ch byte
+
+    for y = 0 to 22 {
+        for x = 0 to 39 {
+            src = 1024 + ((y + 1) * 40) + x
+            dst = 1024 + (y * 40) + x
+            ch = peek(src)
+            poke(dst, ch)
+
+            src = 55296 + ((y + 1) * 40) + x
+            dst = 55296 + (y * 40) + x
+            ch = peek(src)
+            poke(dst, ch)
+        }
+    }
+
+    termclearline(23)
+}
+
+fn termnextrow(y byte) byte {
+    y = y + 1
+
+    if y >= 24 {
+        termscroll()
+        y = 23
+    }
+
+    return y
+}
+
+fn termeol(x byte, y byte) {
+    var col byte
+
+    for col = x to 39 {
+        putscreen(col, y, 32)
+        putcolor(col, y, 1)
+    }
+}
+
+fn termeos(x byte, y byte) {
+    var row byte
+
+    termeol(x, y)
+
+    if y < 23 {
+        row = y + 1
+
+        for row = row to 23 {
+            termclearline(row)
+        }
+    }
+}
+
+fn main() {
+    var addr char[128]
+    var rx byte[192]
+    var tx char[2]
+    var k char
+    var b byte
+    var n int
+    var i int
+    var ok bool
+    var done bool
+    var cx byte
+    var cy byte
+    var tepState byte
+    var tepLen byte
+    var tepCmd byte
+    var tepArg0 byte
+    var tepArg1 byte
+
+    cls()
+    border(6)
+    background(0)
+    textcolor(1)
+    asciifont()
+    termclear()
+
+    copy(addr, "192.168.106.57")
+
+    putstr(0, 0, "PEDDLE TERM 40X24")
+    putstr(0, 1, "CONNECTING...")
+
+    ok = netconnect(addr, 6764)
+
+    if ok {
+        termclear()
+
+        cx = 0
+        cy = 0
+        tepState = 0
+        tepLen = 0
+        tepCmd = 0
+        tepArg0 = 0
+        tepArg1 = 0
+        done = false
+
+        while done == false {
+            n = netread(rx, size(rx), 0)
+
+            if n > 0 {
+                i = 0
+
+                for i < n {
+                    b = rx[i]
+
+                    if tepState == 0 {
+                        if b == 27 {
+                            tepState = 1
+                            tepLen = 0
+                            tepCmd = 0
+                            tepArg0 = 0
+                            tepArg1 = 0
+                        } else {
+                            if b == 13 {
+                                cx = 0
+                            } else {
+                                if b == 10 {
+                                    cy = termnextrow(cy)
+                                } else {
+                                    if b == 8 {
+                                        if cx > 0 {
+                                            cx = cx - 1
+                                        } else {
+                                            if cy > 0 {
+                                                cy = cy - 1
+                                                cx = 39
+                                            }
+                                        }
+                                    } else {
+                                        if b == 9 {
+                                            for {
+                                                termput(cx, cy, 32)
+                                                cx = cx + 1
+
+                                                if cx >= 40 {
+                                                    cx = 0
+                                                    cy = termnextrow(cy)
+                                                }
+
+                                                if (cx & 3) == 0 {
+                                                    break
+                                                }
+                                            }
+                                        } else {
+                                            if b >= 32 {
+                                                if b <= 126 {
+                                                    termput(cx, cy, b)
+                                                    cx = cx + 1
+
+                                                    if cx >= 40 {
+                                                        cx = 0
+                                                        cy = termnextrow(cy)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        if b == 27 {
+                            if tepCmd == 'C' {
+                                termclear()
+                                cx = 0
+                                cy = 0
+                            } else {
+                                if tepCmd == 'H' {
+                                    cx = 0
+                                    cy = 0
+                                } else {
+                                    if tepCmd == 'M' {
+                                        if tepLen >= 3 {
+                                            cx = tepArg0
+                                            cy = tepArg1
+
+                                            if cx >= 40 {
+                                                cx = 39
+                                            }
+
+                                            if cy >= 24 {
+                                                cy = 23
+                                            }
+                                        }
+                                    } else {
+                                        if tepCmd == 'K' {
+                                            termeol(cx, cy)
+                                        } else {
+                                            if tepCmd == 'J' {
+                                                termeos(cx, cy)
+                                            } else {
+                                                if tepCmd == 'L' {
+                                                    termclearline(cy)
+                                                } else {
+                                                    if tepCmd == 'S' {
+                                                        termscroll()
+                                                    } else {
+                                                        if tepCmd == 'Q' {
+                                                            done = true
+                                                        } else {
+                                                            if tepCmd == 'E' {
+                                                                termput(cx, cy, 63)
+                                                                cx = cx + 1
+
+                                                                if cx >= 40 {
+                                                                    cx = 0
+                                                                    cy = termnextrow(cy)
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            tepState = 0
+                            tepLen = 0
+                        } else {
+                            if tepLen == 0 {
+                                tepCmd = b
+                                tepLen = 1
+                            } else {
+                                if tepLen == 1 {
+                                    tepArg0 = b
+                                    tepLen = 2
+                                } else {
+                                    if tepLen == 2 {
+                                        tepArg1 = b
+                                        tepLen = 3
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    i = i + 1
+                }
+            }
+
+            k = key()
+
+            if k != 0 {
+                clear(tx)
+                append(tx, k)
+                toascii(tx)
+                n = netwrite(tx, len(tx))
+            }
+        }
+
+        netclose()
+        termclear()
+        putstr(0, 0, "DISCONNECTED")
+    } else {
+        putstr(0, 2, "CONNECT FAILED")
+    }
+
+    gotoxy(0, 22)
+}

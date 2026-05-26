@@ -611,6 +611,27 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 		}
 		return ast.Type{}, nil
 
+	case "asciifont":
+		if len(args) != 0 {
+			return ast.Type{}, fmt.Errorf("asciifont expects no arguments")
+		}
+		return ast.Type{}, nil
+
+	case "toascii", "topetscii":
+		if len(args) != 1 {
+			return ast.Type{}, fmt.Errorf("%s expects one argument", name)
+		}
+
+		t, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !(t.IsArray && t.Name == "char") {
+			return ast.Type{}, fmt.Errorf("%s expects char array", name)
+		}
+
+		return ast.Type{}, nil
+
 	case "border", "background", "textcolor":
 		if len(args) != 1 {
 			return ast.Type{}, fmt.Errorf("%s expects one argument", name)
@@ -877,6 +898,30 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 			Name:     "char",
 			IsArray:  true,
 			ArrayLen: 6,
+		}, nil
+	case "itox":
+		if len(args) != 1 {
+			return ast.Type{}, fmt.Errorf("itox expects one argument")
+		}
+
+		t, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+
+		if !isNumeric(t) {
+			return ast.Type{}, fmt.Errorf("itox argument must be numeric")
+		}
+
+		width := 2
+		if t.Name == "int" {
+			width = 4
+		}
+
+		return ast.Type{
+			Name:     "char",
+			IsArray:  true,
+			ArrayLen: width,
 		}, nil
 	case "len", "size":
 		if len(args) != 1 {

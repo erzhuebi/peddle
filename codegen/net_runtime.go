@@ -44,7 +44,7 @@ func (g *Generator) emitNetRuntime() {
 ;       send ATH<CR>
 ;       send ATDT<addr>:<port><CR>
 ;       wait for CONNECT
-;       flush remaining modem response bytes before data mode use
+;       enter data mode without flushing TCP payload
 
 ACIA_DATA    = $de00
 ACIA_STATUS  = $de01
@@ -143,8 +143,9 @@ peddle_net_cmd_ath:
 peddle_net_cmd_atdt:
     .byte 65, 84, 68, 84
 
+; "CONNECT\r"
 peddle_net_resp_connect:
-    .byte 67, 79, 78, 78, 69, 67, 84
+    .byte 67, 79, 78, 78, 69, 67, 84, 13
 
 peddle_acia_init:
     lda #$0b
@@ -265,12 +266,13 @@ peddle_netconnect:
     lda #13
     jsr peddle_acia_write
 
-    ; Wait for "CONNECT".
+    ; Wait for the complete modem result line terminator. The first byte
+    ; after this match belongs to TCP payload and must not be flushed.
     lda #<peddle_net_resp_connect
     sta peddle_net_pattern_lo
     lda #>peddle_net_resp_connect
     sta peddle_net_pattern_hi
-    lda #7
+    lda #8
     sta peddle_net_pattern_len
     lda #<600
     sta peddle_net_timeout_lo
@@ -279,11 +281,6 @@ peddle_netconnect:
     jsr peddle_net_expect
     cmp #0
     beq peddle_netconnect_fail
-
-    ; The modem often leaves CR/LF after CONNECT.
-    ; Flush it now so the first netread() sees TCP payload, not modem text.
-    jsr peddle_net_guard_delay
-    jsr peddle_acia_flush
 
     lda #1
     sta peddle_net_connected

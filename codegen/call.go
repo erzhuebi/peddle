@@ -59,6 +59,9 @@ func (g *Generator) genCall(name string, args []ast.Expr) (ast.Type, error) {
 	case "itoa":
 		return g.genItoa(args)
 
+	case "itox":
+		return g.genItox(args)
+
 	case "len":
 		return g.genLen(args)
 
@@ -79,6 +82,15 @@ func (g *Generator) genCall(name string, args []ast.Expr) (ast.Type, error) {
 
 	case "cls":
 		return g.genCls(args)
+
+	case "asciifont":
+		return g.genAsciiFont(args)
+
+	case "toascii":
+		return g.genToASCII(args)
+
+	case "topetscii":
+		return g.genToPETSCII(args)
 
 	case "border":
 		return g.genBorder(args)

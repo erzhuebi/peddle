@@ -31,6 +31,9 @@
 | `ticks()` | read 16-bit system tick counter |
 | `elapsed(last)` | wrap-safe elapsed ticks since `last` |
 | `tickdue(last, interval)` | wrap-safe check if an interval has passed |
+| `asciifont()` | install a RAM font for ASCII-style terminal output |
+| `toascii(buffer)` | convert a `char[]` from C64 keyboard/PETSCII-style text to ASCII-style text |
+| `topetscii(buffer)` | convert a `char[]` from ASCII-style text to C64/PETSCII-style text |
 | `netconnect(addr, port)` | connect using the C64 Ultimate modem simulator |
 | `netread(buffer, max, timeoutTicks)` | read available network bytes |
 | `netreadlf(buffer, max, timeoutTicks)` | read network bytes until CR or LF |
@@ -703,6 +706,34 @@ while true {
 ```
 
 For long-running loops, update the stored tick value whenever the timed slot is reached, even if no movement happened. This avoids keeping an old timestamp for many minutes.
+
+---
+
+# ASCII/PETSCII Helpers
+
+Terminal-style programs often need normal ASCII text when talking to Mac or Linux services.
+
+```peddle
+asciifont()
+toascii(buffer)
+topetscii(buffer)
+```
+
+`asciifont()` installs a RAM character set intended for terminal output. It keeps normal C64 output behavior but patches useful ASCII display cases such as `_` and lowercase `a`..`z`.
+
+`toascii(buffer)` converts a `char[]` in place. It maps C64 keyboard-style `A`..`Z` to ASCII `a`..`z`, which is useful after `readline()` before sending commands to a Unix-like shell.
+
+`topetscii(buffer)` converts a `char[]` in place in the other direction. It maps ASCII `a`..`z` to C64-style `A`..`Z` and maps LF `10` to C64 carriage return `13`.
+
+Example:
+
+```peddle
+var cmd char[80]
+
+asciifont()
+n = readline(cmd, true, 38)
+toascii(cmd)
+```
 
 ---
 

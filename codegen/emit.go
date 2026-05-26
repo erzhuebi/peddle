@@ -59,7 +59,10 @@ func (g *Generator) emitRuntime() {
 	g.emitShiftRuntime()
 	g.emitStringRuntime()
 	g.emitClsRuntime()
+	g.emitAsciiFontRuntime()
+	g.emitAsciiConvertRuntime()
 	g.emitItoaRuntime()
+	g.emitItoxRuntime()
 	g.emitCharToScreenTable()
 	g.emitReadLineRuntime()
 	g.emitPutStrRuntime()
@@ -238,6 +241,97 @@ peddle_itoa_digit_emit:
     sta peddle_itoa_buffer+4, y
 
     inc peddle_itoa_buffer+2
+    rts
+`)
+}
+
+func (g *Generator) emitItoxRuntime() {
+	if !g.usedItoxRuntime {
+		return
+	}
+
+	g.emit(`
+; itox runtime
+peddle_itox_byte_buffer:
+    .word 2
+    .word 0
+    .fill 2, 0
+
+peddle_itox_int_buffer:
+    .word 4
+    .word 0
+    .fill 4, 0
+
+peddle_itox_byte:
+    lda #2
+    sta peddle_itox_byte_buffer+2
+    lda #0
+    sta peddle_itox_byte_buffer+3
+
+    lda ZP_TMP0
+    lsr
+    lsr
+    lsr
+    lsr
+    jsr peddle_itox_nibble
+    ldy #0
+    sta peddle_itox_byte_buffer+4, y
+
+    lda ZP_TMP0
+    and #$0f
+    jsr peddle_itox_nibble
+    ldy #1
+    sta peddle_itox_byte_buffer+4, y
+    rts
+
+peddle_itox_int:
+    lda #4
+    sta peddle_itox_int_buffer+2
+    lda #0
+    sta peddle_itox_int_buffer+3
+
+    lda ZP_TMP1
+    lsr
+    lsr
+    lsr
+    lsr
+    jsr peddle_itox_nibble
+    ldy #0
+    sta peddle_itox_int_buffer+4, y
+
+    lda ZP_TMP1
+    and #$0f
+    jsr peddle_itox_nibble
+    ldy #1
+    sta peddle_itox_int_buffer+4, y
+
+    lda ZP_TMP0
+    lsr
+    lsr
+    lsr
+    lsr
+    jsr peddle_itox_nibble
+    ldy #2
+    sta peddle_itox_int_buffer+4, y
+
+    lda ZP_TMP0
+    and #$0f
+    jsr peddle_itox_nibble
+    ldy #3
+    sta peddle_itox_int_buffer+4, y
+    rts
+
+peddle_itox_nibble:
+    and #$0f
+    cmp #10
+    bcc peddle_itox_digit
+    clc
+    adc #55
+    rts
+
+peddle_itox_digit:
+    clc
+    adc #48
     rts
 `)
 }

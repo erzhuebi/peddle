@@ -48,6 +48,8 @@ type Generator struct {
 
 	usedNetRuntime          bool
 	usedClsRuntime          bool
+	usedAsciiFontRuntime    bool
+	usedAsciiConvertRuntime bool
 	usedArrayCopyRuntime    bool
 	usedFillByteRuntime     bool
 	usedFillIntRuntime      bool
@@ -67,6 +69,7 @@ type Generator struct {
 	usedPutStrColorRuntime  bool
 	usedCharToScreenTable   bool
 	usedItoaRuntime         bool
+	usedItoxRuntime         bool
 	usedReadLineRuntime     bool
 
 	memoryReport MemoryReport

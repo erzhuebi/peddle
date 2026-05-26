@@ -349,6 +349,47 @@ func (g *Generator) genCls(args []ast.Expr) (ast.Type, error) {
 	return ast.Type{}, nil
 }
 
+func (g *Generator) genAsciiFont(args []ast.Expr) (ast.Type, error) {
+	if len(args) != 0 {
+		return ast.Type{}, fmt.Errorf("asciifont expects no arguments")
+	}
+
+	g.emit("    jsr peddle_asciifont")
+	g.usedAsciiFontRuntime = true
+
+	return ast.Type{}, nil
+}
+
+func (g *Generator) genToASCII(args []ast.Expr) (ast.Type, error) {
+	if len(args) != 1 {
+		return ast.Type{}, fmt.Errorf("toascii expects one argument")
+	}
+
+	if err := g.genCharArrayAddress(args[0]); err != nil {
+		return ast.Type{}, err
+	}
+
+	g.emit("    jsr peddle_toascii")
+	g.usedAsciiConvertRuntime = true
+
+	return ast.Type{}, nil
+}
+
+func (g *Generator) genToPETSCII(args []ast.Expr) (ast.Type, error) {
+	if len(args) != 1 {
+		return ast.Type{}, fmt.Errorf("topetscii expects one argument")
+	}
+
+	if err := g.genCharArrayAddress(args[0]); err != nil {
+		return ast.Type{}, err
+	}
+
+	g.emit("    jsr peddle_topetscii")
+	g.usedAsciiConvertRuntime = true
+
+	return ast.Type{}, nil
+}
+
 func (g *Generator) genBorder(args []ast.Expr) (ast.Type, error) {
 	return g.genStoreByteBuiltin("border", args, 0xd020)
 }
@@ -1348,19 +1389,38 @@ func (g *Generator) genArrayAddress(expr ast.Expr) error {
 		return nil
 
 	case *ast.CallExpr:
-		if e.Name != "itoa" {
-			return fmt.Errorf("only itoa() can be used as temporary char array expression")
-		}
+		switch e.Name {
+		case "itoa":
+			if _, err := g.genItoa(e.Args); err != nil {
+				return err
+			}
 
-		if _, err := g.genItoa(e.Args); err != nil {
-			return err
-		}
+			g.emit("    lda #<peddle_itoa_buffer")
+			g.emit("    sta ZP_PTR0_LO")
+			g.emit("    lda #>peddle_itoa_buffer")
+			g.emit("    sta ZP_PTR0_HI")
+			return nil
 
-		g.emit("    lda #<peddle_itoa_buffer")
-		g.emit("    sta ZP_PTR0_LO")
-		g.emit("    lda #>peddle_itoa_buffer")
-		g.emit("    sta ZP_PTR0_HI")
-		return nil
+		case "itox":
+			t, err := g.genItox(e.Args)
+			if err != nil {
+				return err
+			}
+
+			label := "peddle_itox_byte_buffer"
+			if t.ArrayLen == 4 {
+				label = "peddle_itox_int_buffer"
+			}
+
+			g.emit(fmt.Sprintf("    lda #<%s", label))
+			g.emit("    sta ZP_PTR0_LO")
+			g.emit(fmt.Sprintf("    lda #>%s", label))
+			g.emit("    sta ZP_PTR0_HI")
+			return nil
+
+		default:
+			return fmt.Errorf("only itoa() or itox() can be used as temporary char array expression")
+		}
 	}
 
 	return fmt.Errorf("expected array")
@@ -1414,12 +1474,16 @@ func (g *Generator) arrayExprType(expr ast.Expr) (ast.Type, error) {
 		return fieldType, nil
 
 	case *ast.CallExpr:
-		if e.Name == "itoa" {
+		switch e.Name {
+		case "itoa":
 			return ast.Type{
 				Name:     "char",
 				IsArray:  true,
 				ArrayLen: 6,
 			}, nil
+
+		case "itox":
+			return g.itoxReturnType(e.Args)
 		}
 	}
 
@@ -1560,6 +1624,185 @@ func (g *Generator) genItoa(args []ast.Expr) (ast.Type, error) {
 	}, nil
 }
 
+func (g *Generator) genItox(args []ast.Expr) (ast.Type, error) {
+	t, err := g.itoxReturnType(args)
+	if err != nil {
+		return ast.Type{}, err
+	}
+
+	if err := g.genExprTo(args[0], ast.Type{Name: "int"}); err != nil {
+		return ast.Type{}, err
+	}
+
+	if t.ArrayLen == 4 {
+		g.emit("    jsr peddle_itox_int")
+	} else {
+		g.emit("    jsr peddle_itox_byte")
+	}
+
+	g.usedItoxRuntime = true
+
+	return t, nil
+}
+
+func (g *Generator) itoxReturnType(args []ast.Expr) (ast.Type, error) {
+	argType, err := g.itoxArgType(args)
+	if err != nil {
+		return ast.Type{}, err
+	}
+
+	width := 2
+	if argType.Name == "int" {
+		width = 4
+	}
+
+	return ast.Type{
+		Name:     "char",
+		IsArray:  true,
+		ArrayLen: width,
+	}, nil
+}
+
+func (g *Generator) itoxArgType(args []ast.Expr) (ast.Type, error) {
+	if len(args) != 1 {
+		return ast.Type{}, fmt.Errorf("itox expects one argument")
+	}
+
+	t, err := g.exprValueType(args[0])
+	if err != nil {
+		return ast.Type{}, err
+	}
+
+	if !codegenNumericType(t) {
+		return ast.Type{}, fmt.Errorf("itox argument must be numeric")
+	}
+
+	return t, nil
+}
+
+func (g *Generator) exprValueType(expr ast.Expr) (ast.Type, error) {
+	switch e := expr.(type) {
+	case *ast.IdentExpr:
+		if _, ok := g.constants[e.Name]; ok {
+			return ast.Type{Name: "int"}, nil
+		}
+
+		sym, ok := g.resolve(e.Name)
+		if !ok {
+			return ast.Type{}, fmt.Errorf("unknown variable %q", e.Name)
+		}
+		return sym.Type, nil
+
+	case *ast.IndexExpr:
+		sym, ok := g.resolve(e.Name)
+		if !ok {
+			return ast.Type{}, fmt.Errorf("unknown variable %q", e.Name)
+		}
+		if !sym.Type.IsArray {
+			return ast.Type{}, fmt.Errorf("%q is not an array", e.Name)
+		}
+		return ast.Type{Name: sym.Type.Name}, nil
+
+	case *ast.FieldExpr:
+		baseSym, ok := g.resolve(e.Base)
+		if !ok {
+			return ast.Type{}, fmt.Errorf("unknown variable %q", e.Base)
+		}
+		return g.fieldInfoType(baseSym.Type, e.Field)
+
+	case *ast.IndexFieldExpr:
+		arraySym, ok := g.resolve(e.Name)
+		if !ok {
+			return ast.Type{}, fmt.Errorf("unknown array %q", e.Name)
+		}
+		if !arraySym.Type.IsArray {
+			return ast.Type{}, fmt.Errorf("%q is not an array", e.Name)
+		}
+		return g.fieldInfoType(ast.Type{Name: arraySym.Type.Name}, e.Field)
+
+	case *ast.NumberExpr:
+		return ast.Type{Name: "int"}, nil
+
+	case *ast.CharExpr:
+		return ast.Type{Name: "char"}, nil
+
+	case *ast.BoolExpr:
+		return ast.Type{Name: "bool"}, nil
+
+	case *ast.StringExpr:
+		return ast.Type{Name: "char", IsArray: true, ArrayLen: len(e.Value)}, nil
+
+	case *ast.UnaryExpr:
+		t, err := g.exprValueType(e.Expr)
+		if err != nil {
+			return ast.Type{}, err
+		}
+
+		switch e.Op {
+		case "-":
+			if t.Name == "int" {
+				return ast.Type{Name: "int"}, nil
+			}
+			return ast.Type{Name: "byte"}, nil
+
+		case "!":
+			return ast.Type{Name: "bool"}, nil
+		}
+
+	case *ast.BinaryExpr:
+		left, err := g.exprValueType(e.Left)
+		if err != nil {
+			return ast.Type{}, err
+		}
+		right, err := g.exprValueType(e.Right)
+		if err != nil {
+			return ast.Type{}, err
+		}
+
+		if isComparisonOp(e.Op) {
+			return ast.Type{Name: "bool"}, nil
+		}
+
+		if left.Name == "int" || right.Name == "int" {
+			return ast.Type{Name: "int"}, nil
+		}
+		return ast.Type{Name: "byte"}, nil
+
+	case *ast.CallExpr:
+		switch e.Name {
+		case "itoa":
+			return ast.Type{Name: "char", IsArray: true, ArrayLen: 6}, nil
+		case "itox":
+			return g.itoxReturnType(e.Args)
+		case "peek", "ticks", "elapsed", "readline", "netread", "netwrite", "len", "size":
+			return ast.Type{Name: "int"}, nil
+		case "joy":
+			return ast.Type{Name: "byte"}, nil
+		case "key", "waitkey":
+			return ast.Type{Name: "char"}, nil
+		case "tickdue", "netconnect", "netreadlf", "netconnected":
+			return ast.Type{Name: "bool"}, nil
+		default:
+			fn, ok := g.functions[e.Name]
+			if !ok {
+				return ast.Type{}, fmt.Errorf("unknown function %q", e.Name)
+			}
+			return fn.ReturnType, nil
+		}
+	}
+
+	return ast.Type{}, fmt.Errorf("unsupported expression")
+}
+
+func (g *Generator) fieldInfoType(base ast.Type, field string) (ast.Type, error) {
+	t, _, err := g.fieldInfo(base, field)
+	return t, err
+}
+
+func codegenNumericType(t ast.Type) bool {
+	return !t.IsArray && (t.Name == "byte" || t.Name == "char" || t.Name == "int" || t.Name == "bool")
+}
+
 func (g *Generator) emitClsRuntime() {
 	if !g.usedClsRuntime {
 		return
@@ -1596,6 +1839,159 @@ func (g *Generator) emitClsRuntime() {
 	g.emit("    jsr $fff0")
 
 	g.emit("    rts")
+}
+
+func (g *Generator) emitAsciiFontRuntime() {
+	if !g.usedAsciiFontRuntime {
+		return
+	}
+
+	g.emit("")
+	g.emit("; ASCII-ish terminal font runtime")
+	g.emit("; Copies the C64 ROM charset into RAM at $3800 and patches the")
+	g.emit("; PETSCII left-arrow glyph slot so ASCII underscore displays as _.")
+	g.emit("peddle_asciifont:")
+	g.emit("    php")
+	g.emit("    sei")
+	g.emit("    lda $01")
+	g.emit("    pha")
+	g.emit("    lda #$32")
+	g.emit("    sta $01")
+	g.emit("    ldx #0")
+	g.emit("peddle_asciifont_copy:")
+	g.emit("    lda $d000, x")
+	g.emit("    sta $3800, x")
+	g.emit("    lda $d100, x")
+	g.emit("    sta $3900, x")
+	g.emit("    lda $d200, x")
+	g.emit("    sta $3a00, x")
+	g.emit("    lda $d300, x")
+	g.emit("    sta $3b00, x")
+	g.emit("    lda $d400, x")
+	g.emit("    sta $3c00, x")
+	g.emit("    lda $d500, x")
+	g.emit("    sta $3d00, x")
+	g.emit("    lda $d600, x")
+	g.emit("    sta $3e00, x")
+	g.emit("    lda $d700, x")
+	g.emit("    sta $3f00, x")
+	g.emit("    inx")
+	g.emit("    bne peddle_asciifont_copy")
+	g.emit("")
+	g.emit("    ldx #0")
+	g.emit("peddle_asciifont_copy_lowercase:")
+	g.emit("    lda $d808, x")
+	g.emit("    sta $3a08, x")
+	g.emit("    inx")
+	g.emit("    cpx #208")
+	g.emit("    bne peddle_asciifont_copy_lowercase")
+	g.emit("    pla")
+	g.emit("    sta $01")
+	g.emit("    plp")
+	g.emit("")
+	g.emit("    ldx #0")
+	g.emit("peddle_asciifont_patch_underscore:")
+	g.emit("    lda peddle_asciifont_underscore, x")
+	g.emit("    sta $38f8, x")
+	g.emit("    inx")
+	g.emit("    cpx #8")
+	g.emit("    bne peddle_asciifont_patch_underscore")
+	g.emit("")
+	g.emit("    lda $d018")
+	g.emit("    and #$f1")
+	g.emit("    ora #$0e")
+	g.emit("    sta $d018")
+	g.emit("    rts")
+	g.emit("")
+	g.emit("peddle_asciifont_underscore:")
+	g.emit("    .byte 0, 0, 0, 0, 0, 0, 0, 255")
+}
+
+func (g *Generator) emitAsciiConvertRuntime() {
+	if !g.usedAsciiConvertRuntime {
+		return
+	}
+
+	g.emit("")
+	g.emit("; ASCII/PETSCII conversion runtime")
+	g.emit("peddle_toascii:")
+	g.emit("    jsr peddle_ascii_convert_prepare")
+	g.emit("peddle_toascii_loop:")
+	g.emit("    lda peddle_ascii_count_lo")
+	g.emit("    ora peddle_ascii_count_hi")
+	g.emit("    beq peddle_ascii_convert_done")
+	g.emit("    ldy #0")
+	g.emit("    lda (ZP_PTR1_LO), y")
+	g.emit("    cmp #65")
+	g.emit("    bcc peddle_toascii_store")
+	g.emit("    cmp #91")
+	g.emit("    bcs peddle_toascii_store")
+	g.emit("    clc")
+	g.emit("    adc #32")
+	g.emit("peddle_toascii_store:")
+	g.emit("    sta (ZP_PTR1_LO), y")
+	g.emit("    jsr peddle_ascii_convert_next")
+	g.emit("    jmp peddle_toascii_loop")
+	g.emit("")
+	g.emit("peddle_topetscii:")
+	g.emit("    jsr peddle_ascii_convert_prepare")
+	g.emit("peddle_topetscii_loop:")
+	g.emit("    lda peddle_ascii_count_lo")
+	g.emit("    ora peddle_ascii_count_hi")
+	g.emit("    beq peddle_ascii_convert_done")
+	g.emit("    ldy #0")
+	g.emit("    lda (ZP_PTR1_LO), y")
+	g.emit("    cmp #97")
+	g.emit("    bcc peddle_topetscii_check_lf")
+	g.emit("    cmp #123")
+	g.emit("    bcs peddle_topetscii_check_lf")
+	g.emit("    sec")
+	g.emit("    sbc #32")
+	g.emit("    jmp peddle_topetscii_store")
+	g.emit("peddle_topetscii_check_lf:")
+	g.emit("    cmp #10")
+	g.emit("    bne peddle_topetscii_store")
+	g.emit("    lda #13")
+	g.emit("peddle_topetscii_store:")
+	g.emit("    sta (ZP_PTR1_LO), y")
+	g.emit("    jsr peddle_ascii_convert_next")
+	g.emit("    jmp peddle_topetscii_loop")
+	g.emit("")
+	g.emit("peddle_ascii_convert_prepare:")
+	g.emit("    ldy #2")
+	g.emit("    lda (ZP_PTR0_LO), y")
+	g.emit("    sta peddle_ascii_count_lo")
+	g.emit("    iny")
+	g.emit("    lda (ZP_PTR0_LO), y")
+	g.emit("    sta peddle_ascii_count_hi")
+	g.emit("    lda ZP_PTR0_LO")
+	g.emit("    clc")
+	g.emit("    adc #4")
+	g.emit("    sta ZP_PTR1_LO")
+	g.emit("    lda ZP_PTR0_HI")
+	g.emit("    adc #0")
+	g.emit("    sta ZP_PTR1_HI")
+	g.emit("    rts")
+	g.emit("")
+	g.emit("peddle_ascii_convert_next:")
+	g.emit("    inc ZP_PTR1_LO")
+	g.emit("    bne peddle_ascii_convert_dec")
+	g.emit("    inc ZP_PTR1_HI")
+	g.emit("peddle_ascii_convert_dec:")
+	g.emit("    lda peddle_ascii_count_lo")
+	g.emit("    bne peddle_ascii_convert_dec_low")
+	g.emit("    dec peddle_ascii_count_hi")
+	g.emit("peddle_ascii_convert_dec_low:")
+	g.emit("    dec peddle_ascii_count_lo")
+	g.emit("    rts")
+	g.emit("")
+	g.emit("peddle_ascii_convert_done:")
+	g.emit("    rts")
+	g.emit("")
+	g.emit("peddle_ascii_count_lo:")
+	g.emit("    .byte 0")
+	g.emit("peddle_ascii_count_hi:")
+	g.emit("    .byte 0")
 }
 
 func (g *Generator) emitCharToScreenTable() {

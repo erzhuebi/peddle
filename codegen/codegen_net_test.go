@@ -34,12 +34,20 @@ fn main() {
 		"jsr peddle_netclose",
 		"peddle_netconnect:",
 		"ACIA_DATA    = $de00",
+		".byte 67, 79, 78, 78, 69, 67, 84, 13",
 	)
 
 	netconnect := netRuntimeBlock(t, asm, "peddle_netconnect:", "peddle_netconnect_fail:")
 
 	requireContains(t, netconnect,
+		"; Wait for the complete modem result line terminator. The first byte\n    ; after this match belongs to TCP payload and must not be flushed.",
+		"lda #8\n    sta peddle_net_pattern_len",
 		"lda #1\n    sta peddle_net_connected\n    lda #0\n    sta peddle_net_skip_lf\n    lda #1\n    rts",
+	)
+
+	requireNotContains(t, netconnect,
+		"; The modem often leaves CR/LF after CONNECT.",
+		"jsr peddle_net_guard_delay\n    jsr peddle_acia_flush\n\n    lda #1\n    sta peddle_net_connected",
 	)
 
 	netread := netRuntimeBlock(t, asm, "peddle_netread:", "peddle_netwrite:")
