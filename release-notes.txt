@@ -1,11 +1,12 @@
 # Release notes
 
-## v0.9.0 - 2026-05-25
+## v0.10.0 - 2026-05-26
 
-- constant folding added
-- long branch tests added
-- for loop added
-- for loop added
-- documentation updated
-- chore: start 0.9.0-dev
+- network stack fully working.
+- metread works
+- network improved, hello world echo server now working with c64u
+- first net support. Connect is working!
+- deploy script added
+- BASIC ROM disabled on startup.
+- chore: start 0.10.0-dev
 
