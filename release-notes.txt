@@ -1,12 +1,7 @@
 # Release notes
 
-## v0.10.0 - 2026-05-26
+## v0.11.0 - 2026-05-26
 
-- network stack fully working.
-- metread works
-- network improved, hello world echo server now working with c64u
-- first net support. Connect is working!
-- deploy script added
-- BASIC ROM disabled on startup.
-- chore: start 0.10.0-dev
+- netowrk flush bug when connect removed. debuggin prgs written
+- chore: start 0.11.0-dev
 
