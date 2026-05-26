@@ -66,6 +66,12 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 		}
 
 		g.emit("    lda (ZP_PTR0_LO), y")
+		if target.Name == "int" {
+			g.emit("    sta ZP_TMP0")
+			g.emit("    lda #0")
+			g.emit("    sta ZP_TMP1")
+			g.usedTmp16 = true
+		}
 		return nil
 
 	case *ast.IndexFieldExpr:
@@ -117,6 +123,12 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 		}
 
 		g.emit("    lda (ZP_PTR0_LO), y")
+		if target.Name == "int" {
+			g.emit("    sta ZP_TMP0")
+			g.emit("    lda #0")
+			g.emit("    sta ZP_TMP1")
+			g.usedTmp16 = true
+		}
 		return nil
 
 	case *ast.FieldExpr:
@@ -138,7 +150,16 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 			return fmt.Errorf("struct field reads are not implemented yet")
 		}
 
-		return g.loadField(baseSym, fieldType, offset)
+		if err := g.loadField(baseSym, fieldType, offset); err != nil {
+			return err
+		}
+		if target.Name == "int" && fieldType.Name != "int" {
+			g.emit("    sta ZP_TMP0")
+			g.emit("    lda #0")
+			g.emit("    sta ZP_TMP1")
+			g.usedTmp16 = true
+		}
+		return nil
 
 	case *ast.UnaryExpr:
 		switch expr.Op {
@@ -218,6 +239,12 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 		}
 
 		g.loadSymbol(*fnFrame.Return)
+		if target.Name == "int" && retType.Name != "int" {
+			g.emit("    sta ZP_TMP0")
+			g.emit("    lda #0")
+			g.emit("    sta ZP_TMP1")
+			g.usedTmp16 = true
+		}
 		return nil
 
 	case *ast.StringExpr:

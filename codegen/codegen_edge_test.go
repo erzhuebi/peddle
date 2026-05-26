@@ -134,6 +134,41 @@ fn main() {
 	)
 }
 
+func TestCodegenCharArrayIndexComparisonZeroExtendsElement(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    var rx char[16]
+    var i int
+    var ok bool
+
+    rx[0] = 13
+    i = 0
+
+    if rx[i] == 13 {
+        ok = true
+    } else {
+        ok = false
+    }
+}
+`)
+
+	requireASMOrder(t, asm,
+		"    lda (ZP_PTR0_LO), y",
+		"    sta ZP_TMP0",
+		"    lda #0",
+		"    sta ZP_TMP1",
+		"    pla",
+		"    sta peddle_tmp_int0+1",
+		"    pla",
+		"    sta peddle_tmp_int0",
+		"    lda ZP_TMP1",
+		"    cmp peddle_tmp_int0+1",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
 func TestCodegenMultipleReturns(t *testing.T) {
 	asm := compileSource(t, `
 fn choose(x int) int {

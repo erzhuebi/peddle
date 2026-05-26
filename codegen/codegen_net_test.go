@@ -39,14 +39,13 @@ fn main() {
 	netread := netRuntimeBlock(t, asm, "peddle_netread:", "peddle_netwrite:")
 
 	requireContains(t, netread,
-		"jsr peddle_net_inc_count\n\n    ; Reset idle timeout after every received byte.\n    lda $00a2\n    sta peddle_net_start_lo\n    lda $00a1\n    sta peddle_net_start_hi",
+		"; If at least one byte was read, return immediately with the available\n    ; chunk. Timeout only waits for the first byte.\n    lda peddle_net_count_lo\n    ora peddle_net_count_hi\n    bne peddle_netread_done",
 		"ldy #2\n    lda peddle_net_count_lo\n    sta (ZP_PTR0_LO), y\n    iny\n    lda peddle_net_count_hi\n    sta (ZP_PTR0_LO), y",
 		"lda peddle_net_timeout_lo\n    ora peddle_net_timeout_hi\n    beq peddle_netread_done",
 	)
 
 	requireNotContains(t, netread,
-		"If at least one byte was read",
-		"ora peddle_net_count_hi\n    bne peddle_netread_done",
+		"Reset idle timeout after every received byte",
 	)
 
 	requireReferencedLabelsDefined(t, asm)

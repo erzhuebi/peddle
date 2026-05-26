@@ -7,6 +7,11 @@ fn main() {
     var done bool
     var n int
     var i int
+    var lastRead int
+    var startRead int
+    var total int
+    var chunks int
+    var reason byte
 
     cls()
     putstr(0, 0, "PEDDLE NET PROBE")
@@ -23,18 +28,30 @@ fn main() {
         n = netwrite(tx, len(tx))
 
         done = false
+        total = 0
+        chunks = 0
+        reason = 0
+        startRead = ticks()
+        lastRead = ticks()
 
         for done == false {
-            n = netread(rx, size(rx), 100)
+            n = netread(rx, size(rx), 0)
 
             if n == 0 {
-                done = true
+                if tickdue(lastRead, 100) {
+                    reason = 2
+                    done = true
+                }
             } else {
+                total = total + n
+                chunks = chunks + 1
+                lastRead = ticks()
                 i = 0
 
                 while i < n {
                     if done == false {
                         if rx[i] == 13 {
+                            reason = 1
                             done = true
                         } else {
                             append(line, rx[i])
@@ -48,6 +65,25 @@ fn main() {
 
         putstr(0, 5, "RECEIVED:")
         putstr(0, 6, line)
+
+        if reason == 1 {
+            putstr(0, 8, "END: CR")
+        } else {
+            if reason == 2 {
+                putstr(0, 8, "END: TIMEOUT")
+            } else {
+                putstr(0, 8, "END: OTHER")
+            }
+        }
+
+        putstr(0, 9, "BYTES:")
+        putstr(8, 9, itoa(total))
+        putstr(0, 10, "CHUNKS:")
+        putstr(8, 10, itoa(chunks))
+        putstr(0, 11, "LEN:")
+        putstr(8, 11, itoa(len(line)))
+        putstr(0, 12, "TICKS:")
+        putstr(8, 12, itoa(elapsed(startRead)))
 
         netclose()
     } else {

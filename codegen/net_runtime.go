@@ -526,15 +526,15 @@ peddle_netread_loop:
     jsr peddle_net_inc_data_ptr
     jsr peddle_net_inc_count
 
-    ; Reset idle timeout after every received byte.
-    lda $00a2
-    sta peddle_net_start_lo
-    lda $00a1
-    sta peddle_net_start_hi
-
     jmp peddle_netread_loop
 
 peddle_netread_no_byte:
+    ; If at least one byte was read, return immediately with the available
+    ; chunk. Timeout only waits for the first byte.
+    lda peddle_net_count_lo
+    ora peddle_net_count_hi
+    bne peddle_netread_done
+
     ; timeout 0 means non-blocking.
     lda peddle_net_timeout_lo
     ora peddle_net_timeout_hi
