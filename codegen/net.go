@@ -91,6 +91,52 @@ func (g *Generator) genNetRead(args []ast.Expr) (ast.Type, error) {
 	return ast.Type{Name: "int"}, nil
 }
 
+func (g *Generator) genNetReadLF(args []ast.Expr) (ast.Type, error) {
+	if len(args) != 3 {
+		return ast.Type{}, fmt.Errorf("netreadlf expects three arguments")
+	}
+
+	bufferType, err := g.arrayExprType(args[0])
+	if err != nil {
+		return ast.Type{}, err
+	}
+	if !(bufferType.IsArray && (bufferType.Name == "byte" || bufferType.Name == "char")) {
+		return ast.Type{}, fmt.Errorf("netreadlf buffer must be byte array or char array")
+	}
+
+	if err := g.genArrayAddress(args[0]); err != nil {
+		return ast.Type{}, err
+	}
+
+	g.emit("    lda ZP_PTR0_LO")
+	g.emit("    sta peddle_net_buf_lo")
+	g.emit("    lda ZP_PTR0_HI")
+	g.emit("    sta peddle_net_buf_hi")
+
+	if err := g.genExprTo(args[1], ast.Type{Name: "int"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    lda ZP_TMP0")
+	g.emit("    sta peddle_net_max_lo")
+	g.emit("    lda ZP_TMP1")
+	g.emit("    sta peddle_net_max_hi")
+
+	if err := g.genExprTo(args[2], ast.Type{Name: "int"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    lda ZP_TMP0")
+	g.emit("    sta peddle_net_timeout_lo")
+	g.emit("    lda ZP_TMP1")
+	g.emit("    sta peddle_net_timeout_hi")
+
+	g.emit("    jsr peddle_netreadlf")
+
+	g.usedNetRuntime = true
+	g.usedTmp16 = true
+
+	return ast.Type{Name: "bool"}, nil
+}
+
 func (g *Generator) genNetWrite(args []ast.Expr) (ast.Type, error) {
 	if len(args) != 2 {
 		return ast.Type{}, fmt.Errorf("netwrite expects two arguments")

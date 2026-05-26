@@ -794,6 +794,37 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 
 		return ast.Type{Name: "int"}, nil
 
+	case "netreadlf":
+		if len(args) != 3 {
+			return ast.Type{}, fmt.Errorf("netreadlf expects three arguments")
+		}
+
+		bufferType, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !(bufferType.IsArray && (bufferType.Name == "byte" || bufferType.Name == "char")) {
+			return ast.Type{}, fmt.Errorf("netreadlf buffer must be byte array or char array")
+		}
+
+		maxType, err := c.checkExpr(scope, args[1])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(maxType) {
+			return ast.Type{}, fmt.Errorf("netreadlf max argument must be numeric")
+		}
+
+		timeoutType, err := c.checkExpr(scope, args[2])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(timeoutType) {
+			return ast.Type{}, fmt.Errorf("netreadlf timeout argument must be numeric")
+		}
+
+		return ast.Type{Name: "bool"}, nil
+
 	case "netwrite":
 		if len(args) != 2 {
 			return ast.Type{}, fmt.Errorf("netwrite expects two arguments")

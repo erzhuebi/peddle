@@ -44,6 +44,9 @@ func (g *Generator) genCall(name string, args []ast.Expr) (ast.Type, error) {
 	case "netread":
 		return g.genNetRead(args)
 
+	case "netreadlf":
+		return g.genNetReadLF(args)
+
 	case "netwrite":
 		return g.genNetWrite(args)
 

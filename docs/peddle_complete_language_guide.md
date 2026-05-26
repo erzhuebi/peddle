@@ -980,6 +980,12 @@ append(players[0].name, "!")
 | `putcolor(x, y, color)` | write color RAM value at position |
 | `putstr(x, y, text)` | write a string literal or `char[]` directly to screen RAM |
 | `putstrcolor(x, y, text, color)` | write a string literal or `char[]` to screen RAM and color RAM |
+| `netconnect(addr, port)` | connect using the C64 Ultimate modem simulator |
+| `netread(buffer, max, timeoutTicks)` | read available network bytes |
+| `netreadlf(buffer, max, timeoutTicks)` | read network bytes until CR or LF |
+| `netwrite(buffer, len)` | write network bytes |
+| `netclose()` | close the current network connection |
+| `netconnected()` | check whether the global network connection is open |
 
 ---
 
@@ -1370,6 +1376,151 @@ fn main() {
     putcolor(5, 8, 7)
 
     gotoxy(0, 22)
+}
+```
+
+---
+
+# Network Builtins
+
+Peddle provides a first network API for the C64 Ultimate modem simulator.
+
+The current network API uses one global connection:
+
+```peddle
+netconnect(addr char[], port int) bool
+netread(buffer byte[]|char[], max int, timeoutTicks int) int
+netreadlf(buffer byte[]|char[], max int, timeoutTicks int) bool
+netwrite(buffer byte[]|char[], len int) int
+netclose()
+netconnected() bool
+```
+
+There are no socket handles in this version. A program opens one connection with `netconnect()`, uses the read/write helpers, then closes it with `netclose()`.
+
+The C64 Ultimate modem simulator is expected to provide a SwiftLink-style 6551 ACIA at `$de00`.
+
+Timeouts are measured in C64 ticks, not milliseconds:
+
+```text
+PAL C64:  about 50 ticks per second
+NTSC C64: about 60 ticks per second
+```
+
+`timeoutTicks` controls how long a read waits for the first byte.
+
+- `0` means non-blocking
+- if no byte is available and timeout is `0`, the read returns immediately
+- after at least one byte has been read, the read returns as soon as no more bytes are immediately available
+
+This keeps network reads friendly for games and other programs with a main loop.
+
+---
+
+# netconnect()
+
+Open the global network connection.
+
+```peddle
+var addr char[128]
+var ok bool
+
+copy(addr, "192.168.0.10")
+ok = netconnect(addr, 6764)
+```
+
+`netconnect(addr, port)` returns `true` when the modem reports a successful connection.
+
+The address is a `char[]` and the port is an `int`.
+
+---
+
+# netread()
+
+Read currently available network bytes into a `byte[]` or `char[]` buffer.
+
+```peddle
+var rx char[128]
+var n int
+
+n = netread(rx, size(rx), 0)
+```
+
+`netread()` clears the destination array length before reading, writes up to `min(size(buffer), max)` bytes, updates the runtime length, and returns the number of bytes read.
+
+With timeout `0`, `netread()` is non-blocking.
+
+---
+
+# netreadlf()
+
+Read network bytes into an existing buffer until a line terminator is found.
+
+```peddle
+var line char[128]
+var found bool
+
+found = netreadlf(line, size(line), 0)
+```
+
+`netreadlf()` appends into the current buffer. It does not clear the destination first.
+
+It returns:
+
+- `true` if it reads CR `13` or LF `10`
+- `false` if no complete line is available yet
+
+The CR or LF marker is not stored in the buffer. If a CR is followed by LF, the LF is swallowed on the next call so CRLF does not produce an empty line.
+
+This pattern lets a game loop assemble a line over several frames:
+
+```peddle
+var line char[128]
+var found bool
+
+found = netreadlf(line, size(line), 0)
+
+if found {
+    putstr(0, 0, line)
+    clear(line)
+}
+```
+
+---
+
+# netwrite()
+
+Write bytes from a `byte[]` or `char[]` buffer.
+
+```peddle
+var tx char[64]
+var n int
+
+copy(tx, "HELLO WORLD\r")
+n = netwrite(tx, len(tx))
+```
+
+`netwrite(buffer, len)` writes up to `min(size(buffer), len)` bytes and returns the number of bytes written.
+
+---
+
+# netclose()
+
+Close the current network connection.
+
+```peddle
+netclose()
+```
+
+---
+
+# netconnected()
+
+Check whether the global network connection is currently marked open.
+
+```peddle
+if netconnected() {
+    print("ONLINE")
 }
 ```
 

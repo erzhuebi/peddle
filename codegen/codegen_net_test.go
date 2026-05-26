@@ -36,6 +36,12 @@ fn main() {
 		"ACIA_DATA    = $de00",
 	)
 
+	netconnect := netRuntimeBlock(t, asm, "peddle_netconnect:", "peddle_netconnect_fail:")
+
+	requireContains(t, netconnect,
+		"lda #1\n    sta peddle_net_connected\n    lda #0\n    sta peddle_net_skip_lf\n    lda #1\n    rts",
+	)
+
 	netread := netRuntimeBlock(t, asm, "peddle_netread:", "peddle_netwrite:")
 
 	requireContains(t, netread,
@@ -64,6 +70,43 @@ fn main() {
 	requireASM(t, asm,
 		"lda peddle_net_connected",
 	)
+}
+
+func TestCodegenNetReadLF(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    var line char[128]
+    var found bool
+
+    found = netreadlf(line, size(line), 0)
+}
+`)
+
+	requireASM(t, asm,
+		"jsr peddle_netreadlf",
+		"peddle_netreadlf:",
+		"peddle_net_skip_lf:",
+	)
+
+	netreadlf := netRuntimeBlock(t, asm, "peddle_netreadlf:", "peddle_netclose:")
+
+	requireContains(t, netreadlf,
+		"; Start with the existing destination length. netreadlf() appends into",
+		"lda peddle_net_skip_lf\n    beq peddle_netreadlf_check_terminator",
+		"cmp #13\n    beq peddle_netreadlf_found_cr",
+		"cmp #10\n    beq peddle_netreadlf_found_lf",
+		"sta peddle_net_skip_lf\n    sta peddle_net_line_found",
+		"sta (ZP_PTR1_LO), y",
+		"lda peddle_net_had_byte\n    bne peddle_netreadlf_done",
+		"lda peddle_net_line_found\n    rts",
+	)
+
+	requireNotContains(t, netreadlf,
+		"Clear destination array length",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
 }
 
 func netRuntimeBlock(t *testing.T, asm string, start string, end string) string {

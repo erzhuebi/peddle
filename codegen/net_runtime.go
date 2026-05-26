@@ -22,12 +22,14 @@ func (g *Generator) emitNetRuntime() {
 ; Public helpers emitted by codegen:
 ;   peddle_netconnect
 ;   peddle_netread
+;   peddle_netreadlf
 ;   peddle_netwrite
 ;   peddle_netclose
 ;
 ; Peddle API semantics:
 ;   netconnect(addr char[], port int) bool
 ;   netread(buffer byte[]|char[], max int, timeoutTicks int) int
+;   netreadlf(buffer byte[]|char[], max int, timeoutTicks int) bool
 ;   netwrite(buffer byte[]|char[], len int) int
 ;   netclose()
 ;   netconnected() bool
@@ -99,6 +101,15 @@ peddle_net_match_index:
     .byte 0
 
 peddle_net_last_char:
+    .byte 0
+
+peddle_net_line_found:
+    .byte 0
+
+peddle_net_had_byte:
+    .byte 0
+
+peddle_net_skip_lf:
     .byte 0
 
 peddle_net_port_lo:
@@ -276,6 +287,9 @@ peddle_netconnect:
 
     lda #1
     sta peddle_net_connected
+    lda #0
+    sta peddle_net_skip_lf
+    lda #1
     rts
 
 peddle_netconnect_fail:
@@ -593,6 +607,125 @@ peddle_netwrite_done:
     lda ZP_TMP0
     rts
 
+peddle_netreadlf:
+    jsr peddle_net_prepare_buffer
+    jsr peddle_net_limit_capacity_max
+
+    lda #0
+    sta peddle_net_line_found
+    sta peddle_net_had_byte
+
+    ; Start with the existing destination length. netreadlf() appends into
+    ; the caller-owned line buffer and excludes CR/LF terminators.
+    lda peddle_net_buf_lo
+    sta ZP_PTR0_LO
+    lda peddle_net_buf_hi
+    sta ZP_PTR0_HI
+
+    ldy #2
+    lda (ZP_PTR0_LO), y
+    sta peddle_net_count_lo
+    iny
+    lda (ZP_PTR0_LO), y
+    sta peddle_net_count_hi
+
+    lda ZP_PTR1_LO
+    clc
+    adc peddle_net_count_lo
+    sta ZP_PTR1_LO
+    lda ZP_PTR1_HI
+    adc peddle_net_count_hi
+    sta ZP_PTR1_HI
+
+    lda $00a2
+    sta peddle_net_start_lo
+    lda $00a1
+    sta peddle_net_start_hi
+
+peddle_netreadlf_loop:
+    jsr peddle_net_count_reached_limit
+    bne peddle_netreadlf_done
+
+    jsr peddle_acia_can_read
+    beq peddle_netreadlf_no_byte
+
+    lda #1
+    sta peddle_net_had_byte
+
+    jsr peddle_acia_read
+    sta peddle_net_last_char
+
+    ; If the previous line ended with CR, swallow one following LF so CRLF
+    ; does not become an empty next line.
+    lda peddle_net_skip_lf
+    beq peddle_netreadlf_check_terminator
+
+    lda #0
+    sta peddle_net_skip_lf
+
+    lda peddle_net_last_char
+    cmp #10
+    beq peddle_netreadlf_loop
+
+peddle_netreadlf_check_terminator:
+    lda peddle_net_last_char
+    cmp #13
+    beq peddle_netreadlf_found_cr
+
+    cmp #10
+    beq peddle_netreadlf_found_lf
+
+    ldy #0
+    sta (ZP_PTR1_LO), y
+
+    jsr peddle_net_inc_data_ptr
+    jsr peddle_net_inc_count
+
+    jmp peddle_netreadlf_loop
+
+peddle_netreadlf_found_cr:
+    lda #1
+    sta peddle_net_skip_lf
+    sta peddle_net_line_found
+    jmp peddle_netreadlf_done
+
+peddle_netreadlf_found_lf:
+    lda #1
+    sta peddle_net_line_found
+    jmp peddle_netreadlf_done
+
+peddle_netreadlf_no_byte:
+    ; If any byte was read or consumed, return immediately. Timeout only
+    ; waits for the first byte, just like netread().
+    lda peddle_net_had_byte
+    bne peddle_netreadlf_done
+
+    ; timeout 0 means non-blocking.
+    lda peddle_net_timeout_lo
+    ora peddle_net_timeout_hi
+    beq peddle_netreadlf_done
+
+    jsr peddle_net_timeout_due
+    cmp #0
+    beq peddle_netreadlf_loop
+
+peddle_netreadlf_done:
+    ; Store resulting length into destination array.
+    lda peddle_net_buf_lo
+    sta ZP_PTR0_LO
+    lda peddle_net_buf_hi
+    sta ZP_PTR0_HI
+
+    ldy #2
+    lda peddle_net_count_lo
+    sta (ZP_PTR0_LO), y
+    iny
+    lda peddle_net_count_hi
+    sta (ZP_PTR0_LO), y
+
+    lda peddle_net_line_found
+    rts
+
 peddle_netclose:
     jsr peddle_net_guard_delay
 
@@ -622,6 +755,7 @@ peddle_netclose:
     jsr peddle_acia_drop_dtr
 
     lda #0
+    sta peddle_net_skip_lf
     sta peddle_net_connected
     rts
 
