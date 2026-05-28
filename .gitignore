@@ -16,3 +16,4 @@ build/
 /gitsync.sh
 .DS_Store
 /docs/language.zip
+/docs/peddle_complete_language_guide.md

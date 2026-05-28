@@ -1774,7 +1774,7 @@ func (g *Generator) exprValueType(expr ast.Expr) (ast.Type, error) {
 			return ast.Type{Name: "char", IsArray: true, ArrayLen: 6}, nil
 		case "itox":
 			return g.itoxReturnType(e.Args)
-		case "peek", "ticks", "elapsed", "readline", "netread", "netwrite", "len", "size":
+		case "peek", "ticks", "elapsed", "readline", "netavailable", "netread", "netwrite", "len", "size":
 			return ast.Type{Name: "int"}, nil
 		case "joy":
 			return ast.Type{Name: "byte"}, nil

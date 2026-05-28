@@ -35,6 +35,8 @@
 | `toascii(buffer)` | convert a `char[]` from C64 keyboard/PETSCII-style text to ASCII-style text |
 | `topetscii(buffer)` | convert a `char[]` from ASCII-style text to C64/PETSCII-style text |
 | `netconnect(addr, port)` | connect using the C64 Ultimate modem simulator |
+| `netbuffer(backlog)` | reserve a byte array as network receive backlog |
+| `netavailable()` | return bytes currently queued in the network receive backlog |
 | `netread(buffer, max, timeoutTicks)` | read available network bytes |
 | `netreadlf(buffer, max, timeoutTicks)` | read network bytes until CR or LF |
 | `netwrite(buffer, len)` | write network bytes |
@@ -745,6 +747,8 @@ The current network API uses one global connection:
 
 ```peddle
 netconnect(addr char[], port int) bool
+netbuffer(backlog byte[])
+netavailable() int
 netread(buffer byte[]|char[], max int, timeoutTicks int) int
 netreadlf(buffer byte[]|char[], max int, timeoutTicks int) bool
 netwrite(buffer byte[]|char[], len int) int
@@ -768,6 +772,7 @@ NTSC C64: about 60 ticks per second
 - `0` means non-blocking
 - if no byte is available and timeout is `0`, the read returns immediately
 - after at least one byte has been read, the read returns as soon as no more bytes are immediately available
+- if `netbuffer(backlog)` is configured, extra immediately available bytes can be preserved in that backlog
 
 This keeps network reads friendly for games and other programs with a main loop.
 
@@ -791,6 +796,38 @@ The address is a `char[]` and the port is an `int`.
 
 ---
 
+# netbuffer()
+
+Reserve a `byte[]` as exclusive network receive backlog storage.
+
+```peddle
+var backlog byte[2048]
+
+netbuffer(backlog)
+```
+
+After this call, the array belongs to the network runtime. Do not use it for application data.
+
+---
+
+# netavailable()
+
+Return the number of bytes currently queued in the Peddle runtime network backlog.
+
+```peddle
+var n int
+
+n = netavailable()
+```
+
+`netavailable()` reports only bytes already stored in the backlog configured with `netbuffer(backlog)`. It does not include bytes still waiting inside the C64 Ultimate modem/TCP layer.
+
+If `netbuffer(backlog)` has not been called, `netavailable()` returns `0`.
+
+`netclose()` clears the runtime backlog. Read any wanted queued bytes before closing the connection.
+
+---
+
 # netread()
 
 Read currently available network bytes into a `byte[]` or `char[]` buffer.
@@ -803,6 +840,8 @@ n = netread(rx, size(rx), 0)
 ```
 
 `netread()` clears the destination array length before reading, writes up to `min(size(buffer), max)` bytes, updates the runtime length, and returns the number of bytes read.
+
+When a backlog is configured, `netread()` copies old backlog bytes first, then reads immediately available modem bytes into the destination. If the destination fills, it continues draining immediately available modem bytes into the backlog until the backlog is full or no more byte is available.
 
 With timeout `0`, `netread()` is non-blocking.
 
@@ -820,6 +859,8 @@ found = netreadlf(line, size(line), 0)
 ```
 
 `netreadlf()` appends into the current buffer. It does not clear the destination first.
+
+If `netbuffer(backlog)` is configured, `netreadlf()` also reads from and preserves extra bytes in the same backlog.
 
 It returns:
 

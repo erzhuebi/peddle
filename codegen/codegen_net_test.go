@@ -80,6 +80,28 @@ fn main() {
 	)
 }
 
+func TestCodegenNetAvailable(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    var n int
+
+    n = netavailable()
+}
+`)
+
+	requireASM(t, asm,
+		"jsr peddle_netavailable",
+		"peddle_netavailable:",
+		"lda peddle_net_ring_count_lo",
+		"sta ZP_TMP0",
+		"lda peddle_net_ring_count_hi",
+		"sta ZP_TMP1",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
 func TestCodegenNetReadLF(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
@@ -115,6 +137,98 @@ fn main() {
 
 	requireReferencedLabelsDefined(t, asm)
 	requireASMAssemblesWith64tass(t, asm)
+}
+
+func TestCodegenNetBufferSetupAndRuntime(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    var backlog byte[1024]
+    var rx byte[64]
+    var n int
+
+    netbuffer(backlog)
+    n = netread(rx, size(rx), 0)
+}
+`)
+
+	requireASM(t, asm,
+		"jsr peddle_netbuffer",
+		"peddle_net_ring_data_lo:",
+		"peddle_net_ring_cap_lo:",
+		"peddle_net_ring_read_lo:",
+		"peddle_net_ring_count_lo:",
+		"peddle_netbuffer:",
+		"peddle_net_drain_ring_to_buffer:",
+		"peddle_net_drain_acia_to_ring:",
+	)
+
+	netread := netRuntimeBlock(t, asm, "peddle_netread:", "peddle_netwrite:")
+	requireASMOrder(t, netread,
+		"    jsr peddle_net_drain_ring_to_buffer",
+		"    jsr peddle_acia_can_read",
+	)
+	requireContains(t, netread,
+		"peddle_netread_buffer_full:\n    ; The caller buffer is full. Preserve any immediately available extra\n    ; bytes in the user-provided backlog, stopping before ACIA_DATA if the\n    ; backlog is also full.\n    jsr peddle_net_drain_acia_to_ring",
+	)
+
+	drain := netRuntimeBlock(t, asm, "peddle_net_drain_acia_to_ring:", "peddle_net_drain_acia_to_ring_done:")
+	requireContains(t, drain,
+		"jsr peddle_net_ring_has_space\n    beq peddle_net_drain_acia_to_ring_done\n\n    jsr peddle_acia_can_read",
+	)
+	requireASMOrder(t, drain,
+		"    jsr peddle_net_ring_has_space",
+		"    jsr peddle_acia_can_read",
+		"    jsr peddle_acia_read",
+		"    jsr peddle_net_ring_push",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
+func TestCodegenNetReadLFUsesRingBufferSource(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    var backlog byte[1024]
+    var line char[80]
+    var found bool
+
+    netbuffer(backlog)
+    found = netreadlf(line, size(line), 0)
+}
+`)
+
+	netreadlf := netRuntimeBlock(t, asm, "peddle_netreadlf:", "peddle_netclose:")
+
+	requireContains(t, netreadlf,
+		"jsr peddle_net_ring_has_bytes",
+		"jsr peddle_net_ring_pop",
+		"jsr peddle_net_drain_acia_to_ring",
+	)
+	requireASMOrder(t, netreadlf,
+		"    jsr peddle_net_ring_has_bytes",
+		"    jsr peddle_acia_can_read",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
+func TestCodegenNetRuntimeNotEmittedWithoutNetworkBuiltins(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    var x int
+
+    x = 1
+}
+`)
+
+	requireNotContains(t, asm,
+		"peddle_netbuffer:",
+		"peddle_netavailable:",
+		"peddle_net_ring_data_lo:",
+		"peddle_net_drain_ring_to_buffer:",
+	)
 }
 
 func netRuntimeBlock(t *testing.T, asm string, start string, end string) string {

@@ -45,6 +45,47 @@ func (g *Generator) genNetConnect(args []ast.Expr) (ast.Type, error) {
 	return ast.Type{Name: "bool"}, nil
 }
 
+func (g *Generator) genNetBuffer(args []ast.Expr) (ast.Type, error) {
+	if len(args) != 1 {
+		return ast.Type{}, fmt.Errorf("netbuffer expects one argument")
+	}
+
+	bufferType, err := g.arrayExprType(args[0])
+	if err != nil {
+		return ast.Type{}, err
+	}
+	if !(bufferType.IsArray && bufferType.Name == "byte") {
+		return ast.Type{}, fmt.Errorf("netbuffer buffer must be byte array")
+	}
+
+	if err := g.genArrayAddress(args[0]); err != nil {
+		return ast.Type{}, err
+	}
+
+	g.emit("    lda ZP_PTR0_LO")
+	g.emit("    sta peddle_net_buf_lo")
+	g.emit("    lda ZP_PTR0_HI")
+	g.emit("    sta peddle_net_buf_hi")
+
+	g.emit("    jsr peddle_netbuffer")
+
+	g.usedNetRuntime = true
+	g.usedTmp16 = true
+
+	return ast.Type{}, nil
+}
+
+func (g *Generator) genNetAvailable(args []ast.Expr) (ast.Type, error) {
+	if len(args) != 0 {
+		return ast.Type{}, fmt.Errorf("netavailable expects no arguments")
+	}
+
+	g.emit("    jsr peddle_netavailable")
+	g.usedNetRuntime = true
+
+	return ast.Type{Name: "int"}, nil
+}
+
 func (g *Generator) genNetRead(args []ast.Expr) (ast.Type, error) {
 	if len(args) != 3 {
 		return ast.Type{}, fmt.Errorf("netread expects three arguments")

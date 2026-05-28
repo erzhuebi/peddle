@@ -10,6 +10,8 @@ This chapter documents the public Peddle network builtins, the reference Python 
 
 ```peddle
 netconnect(addr char[], port int) bool
+netbuffer(backlog byte[])
+netavailable() int
 netread(buffer byte[]|char[], max int, timeoutTicks int) int
 netreadlf(buffer byte[]|char[], max int, timeoutTicks int) bool
 netwrite(buffer byte[]|char[], len int) int
@@ -23,11 +25,31 @@ The C64 Ultimate modem simulator is accessed through a SwiftLink/6551 ACIA-compa
 
 `netconnect(addr, port)` opens the connection and returns `true` when the modem reports `CONNECT`.
 
+`netbuffer(backlog)` reserves a caller-owned `byte[]` as exclusive network receive backlog storage.
+
+`netavailable()` returns how many bytes are currently queued in that Peddle runtime backlog.
+
 `netwrite(buffer, len)` writes bytes from a `byte[]` or `char[]` buffer.
 
-`netclose()` closes the current connection.
+`netclose()` closes the current connection and clears the runtime backlog.
 
 `netconnected()` returns whether the global connection is currently open.
+
+---
+
+# netavailable()
+
+```peddle
+n = netavailable()
+```
+
+`netavailable()` returns the number of bytes currently queued in the Peddle runtime backlog configured with `netbuffer(backlog)`.
+
+It does not include bytes still waiting inside the C64 Ultimate modem/TCP layer. Those bytes become visible to Peddle only when `netread()` or `netreadlf()` services the ACIA.
+
+If `netbuffer(backlog)` has not been called, `netavailable()` returns `0`.
+
+`netclose()` clears the runtime backlog, so read wanted bytes before closing the connection.
 
 ---
 
@@ -39,6 +61,16 @@ n = netread(rx, size(rx), 0)
 
 `netread(buffer, max, timeoutTicks)` reads available bytes into `buffer` and returns the number of bytes stored.
 
+Optional backlog storage can be configured once:
+
+```peddle
+var backlog byte[2048]
+
+netbuffer(backlog)
+```
+
+After `netbuffer(backlog)`, the supplied `byte[]` belongs to the network runtime. Do not use it for normal application data.
+
 The timeout is measured in C64 ticks/jiffies, not milliseconds.
 
 - `0` means non-blocking
@@ -47,7 +79,10 @@ The timeout is measured in C64 ticks/jiffies, not milliseconds.
 
 Current behavior is intended for games and interactive programs:
 
+- if backlog bytes already exist, copy those oldest bytes into the destination first
 - if at least one byte is already available, read the available burst and return as soon as no more byte is immediately available
+- if the destination fills and a backlog buffer was configured, continue draining immediately available modem bytes into the backlog
+- if both destination and backlog are full, stop reading from the modem so lower network layers can apply backpressure
 - if no byte is available at all, wait up to `timeoutTicks`
 - if `timeoutTicks` is `0`, return immediately
 - the destination array length is updated to the number of bytes read
@@ -63,6 +98,8 @@ found = netreadlf(line, size(line), 0)
 ```
 
 `netreadlf(buffer, max, timeoutTicks)` appends bytes into `buffer` until CR or LF is found, the buffer is full, or the read returns no more bytes.
+
+If `netbuffer(backlog)` is configured, `netreadlf()` also reads from and preserves extra bytes in the same backlog.
 
 It returns:
 

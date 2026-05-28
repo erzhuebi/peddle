@@ -21,6 +21,8 @@ func (g *Generator) emitNetRuntime() {
 ;
 ; Public helpers emitted by codegen:
 ;   peddle_netconnect
+;   peddle_netbuffer
+;   peddle_netavailable
 ;   peddle_netread
 ;   peddle_netreadlf
 ;   peddle_netwrite
@@ -28,6 +30,8 @@ func (g *Generator) emitNetRuntime() {
 ;
 ; Peddle API semantics:
 ;   netconnect(addr char[], port int) bool
+;   netbuffer(buffer byte[])
+;   netavailable() int
 ;   netread(buffer byte[]|char[], max int, timeoutTicks int) int
 ;   netreadlf(buffer byte[]|char[], max int, timeoutTicks int) bool
 ;   netwrite(buffer byte[]|char[], len int) int
@@ -131,6 +135,26 @@ peddle_net_started:
 peddle_net_force:
     .byte 0
 
+peddle_net_ring_data_lo:
+    .byte 0
+peddle_net_ring_data_hi:
+    .byte 0
+
+peddle_net_ring_cap_lo:
+    .byte 0
+peddle_net_ring_cap_hi:
+    .byte 0
+
+peddle_net_ring_read_lo:
+    .byte 0
+peddle_net_ring_read_hi:
+    .byte 0
+
+peddle_net_ring_count_lo:
+    .byte 0
+peddle_net_ring_count_hi:
+    .byte 0
+
 ; "+++"
 peddle_net_cmd_escape:
     .byte 43, 43, 43
@@ -215,6 +239,7 @@ peddle_netconnect:
 
     lda #0
     sta peddle_net_connected
+    jsr peddle_net_ring_reset
 
     ; Match the known-good C test:
     ; guard delay, "+++", guard delay, "ATH\r", guard delay.
@@ -292,6 +317,62 @@ peddle_netconnect:
 peddle_netconnect_fail:
     lda #0
     sta peddle_net_connected
+    rts
+
+peddle_netbuffer:
+    lda peddle_net_buf_lo
+    sta ZP_PTR0_LO
+    lda peddle_net_buf_hi
+    sta ZP_PTR0_HI
+
+    ; byte[] layout:
+    ;   +0/+1 capacity
+    ;   +2/+3 length
+    ;   +4    data
+    ldy #0
+    lda (ZP_PTR0_LO), y
+    sta peddle_net_ring_cap_lo
+    iny
+    lda (ZP_PTR0_LO), y
+    sta peddle_net_ring_cap_hi
+
+    ; The array is now runtime-owned backlog storage, not application data.
+    ldy #2
+    lda #0
+    sta (ZP_PTR0_LO), y
+    iny
+    sta (ZP_PTR0_LO), y
+
+    lda peddle_net_buf_lo
+    clc
+    adc #4
+    sta peddle_net_ring_data_lo
+    lda peddle_net_buf_hi
+    adc #0
+    sta peddle_net_ring_data_hi
+
+    lda #0
+    sta peddle_net_ring_read_lo
+    sta peddle_net_ring_read_hi
+    sta peddle_net_ring_count_lo
+    sta peddle_net_ring_count_hi
+
+    rts
+
+peddle_net_ring_reset:
+    lda #0
+    sta peddle_net_ring_read_lo
+    sta peddle_net_ring_read_hi
+    sta peddle_net_ring_count_lo
+    sta peddle_net_ring_count_hi
+    rts
+
+peddle_netavailable:
+    lda peddle_net_ring_count_lo
+    sta ZP_TMP0
+    lda peddle_net_ring_count_hi
+    sta ZP_TMP1
+    lda ZP_TMP0
     rts
 
 peddle_net_send_addr:
@@ -522,9 +603,12 @@ peddle_netread:
     lda $00a1
     sta peddle_net_start_hi
 
+    ; Runtime backlog is oldest data, so deliver it before newer ACIA bytes.
+    jsr peddle_net_drain_ring_to_buffer
+
 peddle_netread_loop:
     jsr peddle_net_count_reached_limit
-    bne peddle_netread_done
+    bne peddle_netread_buffer_full
 
     jsr peddle_acia_can_read
     beq peddle_netread_no_byte
@@ -538,6 +622,13 @@ peddle_netread_loop:
     jsr peddle_net_inc_count
 
     jmp peddle_netread_loop
+
+peddle_netread_buffer_full:
+    ; The caller buffer is full. Preserve any immediately available extra
+    ; bytes in the user-provided backlog, stopping before ACIA_DATA if the
+    ; backlog is also full.
+    jsr peddle_net_drain_acia_to_ring
+    jmp peddle_netread_done
 
 peddle_netread_no_byte:
     ; If at least one byte was read, return immediately with the available
@@ -553,7 +644,8 @@ peddle_netread_no_byte:
 
     jsr peddle_net_timeout_due
     cmp #0
-    beq peddle_netread_loop
+    bne peddle_netread_done
+    jmp peddle_netread_loop
 
 peddle_netread_done:
     ; Store resulting length into destination array.
@@ -641,7 +733,10 @@ peddle_netreadlf:
 
 peddle_netreadlf_loop:
     jsr peddle_net_count_reached_limit
-    bne peddle_netreadlf_done
+    bne peddle_netreadlf_buffer_full
+
+    jsr peddle_net_ring_has_bytes
+    bne peddle_netreadlf_from_ring
 
     jsr peddle_acia_can_read
     beq peddle_netreadlf_no_byte
@@ -651,6 +746,16 @@ peddle_netreadlf_loop:
 
     jsr peddle_acia_read
     sta peddle_net_last_char
+    jmp peddle_netreadlf_have_byte
+
+peddle_netreadlf_from_ring:
+    lda #1
+    sta peddle_net_had_byte
+
+    jsr peddle_net_ring_pop
+    sta peddle_net_last_char
+
+peddle_netreadlf_have_byte:
 
     ; If the previous line ended with CR, swallow one following LF so CRLF
     ; does not become an empty next line.
@@ -662,7 +767,8 @@ peddle_netreadlf_loop:
 
     lda peddle_net_last_char
     cmp #10
-    beq peddle_netreadlf_loop
+    bne peddle_netreadlf_check_terminator
+    jmp peddle_netreadlf_loop
 
 peddle_netreadlf_check_terminator:
     lda peddle_net_last_char
@@ -684,11 +790,17 @@ peddle_netreadlf_found_cr:
     lda #1
     sta peddle_net_skip_lf
     sta peddle_net_line_found
+    jsr peddle_net_drain_acia_to_ring
     jmp peddle_netreadlf_done
 
 peddle_netreadlf_found_lf:
     lda #1
     sta peddle_net_line_found
+    jsr peddle_net_drain_acia_to_ring
+    jmp peddle_netreadlf_done
+
+peddle_netreadlf_buffer_full:
+    jsr peddle_net_drain_acia_to_ring
     jmp peddle_netreadlf_done
 
 peddle_netreadlf_no_byte:
@@ -704,7 +816,8 @@ peddle_netreadlf_no_byte:
 
     jsr peddle_net_timeout_due
     cmp #0
-    beq peddle_netreadlf_loop
+    bne peddle_netreadlf_done
+    jmp peddle_netreadlf_loop
 
 peddle_netreadlf_done:
     ; Store resulting length into destination array.
@@ -753,6 +866,7 @@ peddle_netclose:
 
     lda #0
     sta peddle_net_skip_lf
+    jsr peddle_net_ring_reset
     sta peddle_net_connected
     rts
 
@@ -816,6 +930,162 @@ peddle_net_count_reached:
 
 peddle_net_count_not_reached:
     lda #0
+    rts
+
+peddle_net_drain_ring_to_buffer:
+    jsr peddle_net_count_reached_limit
+    bne peddle_net_drain_ring_to_buffer_done
+
+    jsr peddle_net_ring_has_bytes
+    beq peddle_net_drain_ring_to_buffer_done
+
+    jsr peddle_net_ring_pop
+
+    ldy #0
+    sta (ZP_PTR1_LO), y
+
+    jsr peddle_net_inc_data_ptr
+    jsr peddle_net_inc_count
+
+    jmp peddle_net_drain_ring_to_buffer
+
+peddle_net_drain_ring_to_buffer_done:
+    rts
+
+peddle_net_drain_acia_to_ring:
+    jsr peddle_net_ring_has_space
+    beq peddle_net_drain_acia_to_ring_done
+
+    jsr peddle_acia_can_read
+    beq peddle_net_drain_acia_to_ring_done
+
+    jsr peddle_acia_read
+    jsr peddle_net_ring_push
+
+    jmp peddle_net_drain_acia_to_ring
+
+peddle_net_drain_acia_to_ring_done:
+    rts
+
+peddle_net_ring_has_bytes:
+    lda peddle_net_ring_count_lo
+    ora peddle_net_ring_count_hi
+    rts
+
+peddle_net_ring_has_space:
+    lda peddle_net_ring_cap_lo
+    ora peddle_net_ring_cap_hi
+    beq peddle_net_ring_no_space
+
+    lda peddle_net_ring_count_hi
+    cmp peddle_net_ring_cap_hi
+    bcc peddle_net_ring_space
+    bne peddle_net_ring_no_space
+
+    lda peddle_net_ring_count_lo
+    cmp peddle_net_ring_cap_lo
+    bcc peddle_net_ring_space
+
+peddle_net_ring_no_space:
+    lda #0
+    rts
+
+peddle_net_ring_space:
+    lda #1
+    rts
+
+peddle_net_ring_pop:
+    lda peddle_net_ring_data_lo
+    clc
+    adc peddle_net_ring_read_lo
+    sta ZP_PTR0_LO
+    lda peddle_net_ring_data_hi
+    adc peddle_net_ring_read_hi
+    sta ZP_PTR0_HI
+
+    ldy #0
+    lda (ZP_PTR0_LO), y
+    sta peddle_net_last_char
+
+    inc peddle_net_ring_read_lo
+    bne peddle_net_ring_pop_check_wrap
+    inc peddle_net_ring_read_hi
+
+peddle_net_ring_pop_check_wrap:
+    lda peddle_net_ring_read_hi
+    cmp peddle_net_ring_cap_hi
+    bcc peddle_net_ring_pop_no_wrap
+    bne peddle_net_ring_pop_wrap
+
+    lda peddle_net_ring_read_lo
+    cmp peddle_net_ring_cap_lo
+    bcc peddle_net_ring_pop_no_wrap
+
+peddle_net_ring_pop_wrap:
+    lda #0
+    sta peddle_net_ring_read_lo
+    sta peddle_net_ring_read_hi
+
+peddle_net_ring_pop_no_wrap:
+    lda peddle_net_ring_count_lo
+    sec
+    sbc #1
+    sta peddle_net_ring_count_lo
+    lda peddle_net_ring_count_hi
+    sbc #0
+    sta peddle_net_ring_count_hi
+
+    lda peddle_net_last_char
+    rts
+
+peddle_net_ring_push:
+    sta peddle_net_last_char
+
+    ; write index = (read index + count) % capacity
+    lda peddle_net_ring_read_lo
+    clc
+    adc peddle_net_ring_count_lo
+    sta ZP_TMP0
+    lda peddle_net_ring_read_hi
+    adc peddle_net_ring_count_hi
+    sta ZP_TMP1
+
+    lda ZP_TMP1
+    cmp peddle_net_ring_cap_hi
+    bcc peddle_net_ring_push_index_done
+    bne peddle_net_ring_push_subtract_cap
+
+    lda ZP_TMP0
+    cmp peddle_net_ring_cap_lo
+    bcc peddle_net_ring_push_index_done
+
+peddle_net_ring_push_subtract_cap:
+    sec
+    lda ZP_TMP0
+    sbc peddle_net_ring_cap_lo
+    sta ZP_TMP0
+    lda ZP_TMP1
+    sbc peddle_net_ring_cap_hi
+    sta ZP_TMP1
+
+peddle_net_ring_push_index_done:
+    lda peddle_net_ring_data_lo
+    clc
+    adc ZP_TMP0
+    sta ZP_PTR0_LO
+    lda peddle_net_ring_data_hi
+    adc ZP_TMP1
+    sta ZP_PTR0_HI
+
+    ldy #0
+    lda peddle_net_last_char
+    sta (ZP_PTR0_LO), y
+
+    inc peddle_net_ring_count_lo
+    bne peddle_net_ring_push_done
+    inc peddle_net_ring_count_hi
+
+peddle_net_ring_push_done:
     rts
 
 peddle_net_inc_data_ptr:

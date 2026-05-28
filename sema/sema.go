@@ -784,6 +784,27 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 
 		return ast.Type{Name: "bool"}, nil
 
+	case "netbuffer":
+		if len(args) != 1 {
+			return ast.Type{}, fmt.Errorf("netbuffer expects one argument")
+		}
+
+		bufferType, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !(bufferType.IsArray && bufferType.Name == "byte") {
+			return ast.Type{}, fmt.Errorf("netbuffer buffer must be byte array")
+		}
+
+		return ast.Type{}, nil
+
+	case "netavailable":
+		if len(args) != 0 {
+			return ast.Type{}, fmt.Errorf("netavailable expects no arguments")
+		}
+		return ast.Type{Name: "int"}, nil
+
 	case "netread":
 		if len(args) != 3 {
 			return ast.Type{}, fmt.Errorf("netread expects three arguments")
