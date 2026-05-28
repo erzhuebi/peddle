@@ -1,0 +1,66 @@
+fn main() {
+    var helperName char[32]
+    var streamName char[32]
+    var msg char[64]
+    var rx char[64]
+    var f byte
+    var saved int
+    var loaded int
+    var wrote int
+    var read int
+
+    cls()
+    putstr(0, 0, "PEDDLE FILE PROBE")
+
+    copy(helperName, "PFILEHLP")
+    copy(streamName, "PFILESTR")
+    copy(msg, "HELLO FROM FILE")
+
+    putstr(0, 2, "FILESAVE/FILELOAD")
+
+    saved = filesave(helperName, msg, len(msg), 8)
+
+    clear(rx)
+    loaded = fileload(helperName, rx, 8)
+
+    putstr(0, 3, "SAVED:")
+    putstr(8, 3, itoa(saved))
+    putstr(0, 4, "LOADED:")
+    putstr(8, 4, itoa(loaded))
+    putstr(0, 5, rx)
+
+    putstr(0, 8, "FILEOPEN/READ/WRITE")
+
+    f = fileopen(streamName, "w", 8)
+    if f != 0 {
+        wrote = filewrite(f, msg, len(msg))
+        fileclose(f)
+    } else {
+        wrote = -1
+    }
+
+    clear(rx)
+
+    f = fileopen(streamName, "r", 8)
+    if f != 0 {
+        read = fileread(f, rx, size(rx))
+        fileclose(f)
+    } else {
+        read = -1
+    }
+
+    putstr(0, 9, "WROTE:")
+    putstr(8, 9, itoa(wrote))
+    putstr(0, 10, "READ:")
+    putstr(8, 10, itoa(read))
+    putstr(0, 11, rx)
+
+    if saved == loaded {
+        if wrote == read {
+            putstr(0, 14, "OK")
+        }
+    }
+
+    waitkey()
+    gotoxy(0, 22)
+}

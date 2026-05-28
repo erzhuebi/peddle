@@ -62,6 +62,24 @@ func (g *Generator) genCall(name string, args []ast.Expr) (ast.Type, error) {
 	case "netconnected":
 		return g.genNetConnected(args)
 
+	case "fileopen":
+		return g.genFileOpen(args)
+
+	case "fileclose":
+		return g.genFileClose(args)
+
+	case "fileread":
+		return g.genFileRead(args)
+
+	case "filewrite":
+		return g.genFileWrite(args)
+
+	case "fileload":
+		return g.genFileLoad(args)
+
+	case "filesave":
+		return g.genFileSave(args)
+
 	case "itoa":
 		return g.genItoa(args)
 

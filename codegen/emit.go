@@ -67,6 +67,7 @@ func (g *Generator) emitRuntime() {
 	g.emitReadLineRuntime()
 	g.emitPutStrRuntime()
 	g.emitNetRuntime()
+	g.emitFileRuntime()
 }
 
 func (g *Generator) emitRuntimeVariables() {

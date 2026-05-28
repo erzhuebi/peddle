@@ -42,6 +42,12 @@
 | `netwrite(buffer, len)` | write network bytes |
 | `netclose()` | close the current network connection |
 | `netconnected()` | check whether the global network connection is open |
+| `fileload(name, buffer, device)` | load a whole file into an array |
+| `filesave(name, buffer, len, device)` | save array bytes to a file |
+| `fileopen(name, mode, device)` | open a file stream |
+| `fileread(handle, buffer, max)` | read bytes from a file stream |
+| `filewrite(handle, buffer, len)` | write bytes to a file stream |
+| `fileclose(handle)` | close a file stream |
 
 ---
 

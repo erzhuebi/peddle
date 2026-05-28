@@ -47,6 +47,7 @@ type Generator struct {
 	usedTmp16 bool
 
 	usedNetRuntime          bool
+	usedFileRuntime         bool
 	usedClsRuntime          bool
 	usedAsciiFontRuntime    bool
 	usedAsciiConvertRuntime bool

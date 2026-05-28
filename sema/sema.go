@@ -901,6 +901,183 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 			return ast.Type{}, fmt.Errorf("netconnected expects no arguments")
 		}
 		return ast.Type{Name: "bool"}, nil
+	case "fileopen":
+		if len(args) != 3 {
+			return ast.Type{}, fmt.Errorf("fileopen expects three arguments")
+		}
+
+		nameType, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !(nameType.IsArray && nameType.Name == "char") {
+			return ast.Type{}, fmt.Errorf("fileopen name must be char array")
+		}
+
+		modeType, err := c.checkExpr(scope, args[1])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !(modeType.IsArray && modeType.Name == "char") {
+			return ast.Type{}, fmt.Errorf("fileopen mode must be char array")
+		}
+
+		deviceType, err := c.checkExpr(scope, args[2])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(deviceType) {
+			return ast.Type{}, fmt.Errorf("fileopen device must be numeric")
+		}
+
+		return ast.Type{Name: "byte"}, nil
+
+	case "fileclose":
+		if len(args) != 1 {
+			return ast.Type{}, fmt.Errorf("fileclose expects one argument")
+		}
+
+		handleType, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(handleType) {
+			return ast.Type{}, fmt.Errorf("fileclose handle must be numeric")
+		}
+
+		return ast.Type{}, nil
+
+	case "fileread":
+		if len(args) != 3 {
+			return ast.Type{}, fmt.Errorf("fileread expects three arguments")
+		}
+
+		handleType, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(handleType) {
+			return ast.Type{}, fmt.Errorf("fileread handle must be numeric")
+		}
+
+		bufferType, err := c.checkExpr(scope, args[1])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !(bufferType.IsArray && (bufferType.Name == "byte" || bufferType.Name == "char")) {
+			return ast.Type{}, fmt.Errorf("fileread buffer must be byte array or char array")
+		}
+
+		maxType, err := c.checkExpr(scope, args[2])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(maxType) {
+			return ast.Type{}, fmt.Errorf("fileread max argument must be numeric")
+		}
+
+		return ast.Type{Name: "int"}, nil
+
+	case "filewrite":
+		if len(args) != 3 {
+			return ast.Type{}, fmt.Errorf("filewrite expects three arguments")
+		}
+
+		handleType, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(handleType) {
+			return ast.Type{}, fmt.Errorf("filewrite handle must be numeric")
+		}
+
+		bufferType, err := c.checkExpr(scope, args[1])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !(bufferType.IsArray && (bufferType.Name == "byte" || bufferType.Name == "char")) {
+			return ast.Type{}, fmt.Errorf("filewrite buffer must be byte array or char array")
+		}
+
+		lenType, err := c.checkExpr(scope, args[2])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(lenType) {
+			return ast.Type{}, fmt.Errorf("filewrite len argument must be numeric")
+		}
+
+		return ast.Type{Name: "int"}, nil
+
+	case "fileload":
+		if len(args) != 3 {
+			return ast.Type{}, fmt.Errorf("fileload expects three arguments")
+		}
+
+		nameType, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !(nameType.IsArray && nameType.Name == "char") {
+			return ast.Type{}, fmt.Errorf("fileload name must be char array")
+		}
+
+		bufferType, err := c.checkExpr(scope, args[1])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !(bufferType.IsArray && (bufferType.Name == "byte" || bufferType.Name == "char")) {
+			return ast.Type{}, fmt.Errorf("fileload buffer must be byte array or char array")
+		}
+
+		deviceType, err := c.checkExpr(scope, args[2])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(deviceType) {
+			return ast.Type{}, fmt.Errorf("fileload device must be numeric")
+		}
+
+		return ast.Type{Name: "int"}, nil
+
+	case "filesave":
+		if len(args) != 4 {
+			return ast.Type{}, fmt.Errorf("filesave expects four arguments")
+		}
+
+		nameType, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !(nameType.IsArray && nameType.Name == "char") {
+			return ast.Type{}, fmt.Errorf("filesave name must be char array")
+		}
+
+		bufferType, err := c.checkExpr(scope, args[1])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !(bufferType.IsArray && (bufferType.Name == "byte" || bufferType.Name == "char")) {
+			return ast.Type{}, fmt.Errorf("filesave buffer must be byte array or char array")
+		}
+
+		lenType, err := c.checkExpr(scope, args[2])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(lenType) {
+			return ast.Type{}, fmt.Errorf("filesave len argument must be numeric")
+		}
+
+		deviceType, err := c.checkExpr(scope, args[3])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(deviceType) {
+			return ast.Type{}, fmt.Errorf("filesave device must be numeric")
+		}
+
+		return ast.Type{Name: "int"}, nil
 	case "itoa":
 		if len(args) != 1 {
 			return ast.Type{}, fmt.Errorf("itoa expects one argument")
