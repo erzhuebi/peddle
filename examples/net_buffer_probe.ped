@@ -1,0 +1,92 @@
+fn main() {
+    var addr char[128]
+    var tx char[256]
+    var rx byte[16]
+    var backlog byte[512]
+    var ok bool
+    var done bool
+    var n int
+    var sent int
+    var total int
+    var chunk int
+    var idle int
+    var i byte
+    var row byte
+    var first byte
+
+    cls()
+    putstr(0, 0, "PEDDLE NETBUFFER PROBE")
+
+    copy(addr, "192.168.106.57")
+
+    clear(tx)
+    for i = 0 to 15 {
+        append(tx, "0123456789ABCDEF")
+    }
+
+    netbuffer(backlog)
+
+    putstr(0, 2, "CONNECTING...")
+    ok = netconnect(addr, 6764)
+
+    if ok {
+        putstr(0, 3, "CONNECTED")
+
+        sent = netwrite(tx, len(tx))
+        putstr(0, 5, "SENT:")
+        putstr(8, 5, itoa(sent))
+
+        total = 0
+        chunk = 0
+        row = 8
+        idle = ticks()
+        done = false
+
+        for done == false {
+            n = netread(rx, size(rx), 0)
+
+            if n > 0 {
+                first = rx[0]
+                total = total + n
+                chunk = chunk + 1
+                idle = ticks()
+
+                if row < 18 {
+                    putstr(0, row, "CH")
+                    putstr(3, row, itoa(chunk))
+                    putstr(8, row, "N")
+                    putstr(10, row, itoa(n))
+                    putstr(16, row, "FIRST")
+                    putstr(22, row, itox(first))
+                    row = row + 1
+                }
+            } else {
+                if tickdue(idle, 100) {
+                    done = true
+                }
+            }
+
+            if total >= sent {
+                done = true
+            }
+        }
+
+        putstr(0, 19, "TOTAL:")
+        putstr(8, 19, itoa(total))
+        putstr(0, 20, "CHUNKS:")
+        putstr(8, 20, itoa(chunk))
+
+        if total == sent {
+            putstr(0, 21, "OK")
+        } else {
+            putstr(0, 21, "MISSING BYTES")
+        }
+
+        netclose()
+    } else {
+        putstr(0, 3, "CONNECT FAILED")
+    }
+
+    waitkey()
+    gotoxy(0, 22)
+}

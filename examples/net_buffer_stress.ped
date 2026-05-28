@@ -1,0 +1,206 @@
+fn expectedByte(pos int) byte {
+    var n int
+
+    n = pos % 16
+
+    if n == 0 {
+        return $30
+    }
+    if n == 1 {
+        return $31
+    }
+    if n == 2 {
+        return $32
+    }
+    if n == 3 {
+        return $33
+    }
+    if n == 4 {
+        return $34
+    }
+    if n == 5 {
+        return $35
+    }
+    if n == 6 {
+        return $36
+    }
+    if n == 7 {
+        return $37
+    }
+    if n == 8 {
+        return $38
+    }
+    if n == 9 {
+        return $39
+    }
+    if n == 10 {
+        return $41
+    }
+    if n == 11 {
+        return $42
+    }
+    if n == 12 {
+        return $43
+    }
+    if n == 13 {
+        return $44
+    }
+    if n == 14 {
+        return $45
+    }
+
+    return $46
+}
+
+fn waitTicks(count int) {
+    var start int
+
+    if count > 0 {
+        start = ticks()
+
+        for tickdue(start, count) == false {
+        }
+    }
+}
+
+fn showStatus(total int, chunks int, avail int, peak int, last byte, want byte) {
+    putstr(0, 9, "TOTAL:     ")
+    putstr(8, 9, itoa(total))
+
+    putstr(0, 10, "CHUNKS:    ")
+    putstr(8, 10, itoa(chunks))
+
+    putstr(0, 11, "AVAIL:     ")
+    putstr(8, 11, itoa(avail))
+
+    putstr(0, 12, "PEAK:      ")
+    putstr(8, 12, itoa(peak))
+
+    putstr(0, 13, "LAST:   ")
+    putstr(8, 13, itox(last))
+
+    putstr(0, 14, "WANT:   ")
+    putstr(8, 14, itox(want))
+}
+
+fn main() {
+    var addr char[128]
+    var tx char[256]
+    var rx byte[1]
+    var backlog byte[512]
+    var ok bool
+    var done bool
+    var n int
+    var sent int
+    var total int
+    var chunks int
+    var avail int
+    var peak int
+    var idle int
+    var firstError int
+    var i byte
+    var last byte
+    var want byte
+    var bad byte
+
+    cls()
+    putstr(0, 0, "PEDDLE NETBUFFER STRESS")
+    putstr(0, 2, "APP RX: 1 BYTE")
+    putstr(0, 3, "BACKLOG: 512 BYTES")
+    putstr(0, 4, "WORK: 1 TICK PER BYTE")
+
+    copy(addr, "192.168.106.57")
+
+    clear(tx)
+    for i = 0 to 15 {
+        append(tx, "0123456789ABCDEF")
+    }
+
+    netbuffer(backlog)
+
+    putstr(0, 6, "CONNECTING...")
+    ok = netconnect(addr, 6764)
+
+    if ok {
+        putstr(0, 6, "CONNECTED     ")
+
+        sent = netwrite(tx, len(tx))
+        putstr(0, 7, "SENT:")
+        putstr(8, 7, itoa(sent))
+
+        total = 0
+        chunks = 0
+        avail = 0
+        peak = 0
+        firstError = -1
+        last = 0
+        want = 0
+        bad = 0
+        idle = ticks()
+        done = false
+
+        showStatus(total, chunks, avail, peak, last, want)
+
+        for done == false {
+            n = netread(rx, size(rx), 0)
+            avail = netavailable()
+
+            if avail > peak {
+                peak = avail
+            }
+
+            if n > 0 {
+                last = rx[0]
+                want = expectedByte(total)
+
+                if last != want {
+                    if firstError < 0 {
+                        firstError = total
+                        bad = last
+                    }
+                }
+
+                total = total + n
+                chunks = chunks + 1
+                idle = ticks()
+
+                if (total % 16) == 0 {
+                    showStatus(total, chunks, avail, peak, last, want)
+                }
+
+                waitTicks(1)
+            } else {
+                if tickdue(idle, 200) {
+                    done = true
+                }
+            }
+
+            if total >= sent {
+                done = true
+            }
+        }
+
+        showStatus(total, chunks, avail, peak, last, want)
+
+        if total == sent {
+            if firstError < 0 {
+                putstr(0, 17, "OK")
+            } else {
+                putstr(0, 17, "BAD ORDER")
+                putstr(0, 18, "AT:")
+                putstr(8, 18, itoa(firstError))
+                putstr(0, 19, "GOT:")
+                putstr(8, 19, itox(bad))
+            }
+        } else {
+            putstr(0, 17, "MISSING BYTES")
+        }
+
+        netclose()
+    } else {
+        putstr(0, 6, "CONNECT FAILED")
+    }
+
+    waitkey()
+    gotoxy(0, 22)
+}
