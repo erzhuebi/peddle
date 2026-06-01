@@ -1,0 +1,59 @@
+fn sound_load(data byte[4]) (uint, int) {
+    var id uint
+    var err int
+
+    data[0] = 42
+    id = 65535
+    err = 0
+    return id, err
+}
+
+fn status() (byte, bool) {
+    var code byte
+    var ok bool
+
+    code = 7
+    ok = true
+    return code, ok
+}
+
+fn main() {
+    var data byte[4]
+    var id uint
+    var err int
+    var code byte
+    var ok bool
+    var pass bool
+
+    pass = true
+
+    id, err = sound_load(data)
+    if id != 65535 {
+        pass = false
+    }
+    if err != 0 {
+        pass = false
+    }
+    if data[0] != 42 {
+        pass = false
+    }
+
+    _, err = sound_load(data)
+    if err != 0 {
+        pass = false
+    }
+
+    code, ok = status()
+    if code != 7 {
+        pass = false
+    }
+    if !ok {
+        pass = false
+    }
+
+    if pass {
+        print("TEST SUCCESSFUL")
+    } else {
+        print("TEST FAILED")
+    }
+}
