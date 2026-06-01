@@ -271,6 +271,10 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 		return g.genBinaryTo(expr, target)
 
 	case *ast.CallExpr:
+		if fnFrame := g.frames[expr.Name]; fnFrame != nil && len(fnFrame.Returns) > 1 {
+			return fmt.Errorf("function %s returns multiple values", expr.Name)
+		}
+
 		retType, err := g.genCall(expr.Name, expr.Args)
 		if err != nil {
 			return err

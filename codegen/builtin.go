@@ -1818,7 +1818,14 @@ func (g *Generator) exprValueType(expr ast.Expr) (ast.Type, error) {
 			if !ok {
 				return ast.Type{}, fmt.Errorf("unknown function %q", e.Name)
 			}
-			return fn.ReturnType, nil
+			returnTypes := functionReturnTypes(fn)
+			if len(returnTypes) > 1 {
+				return ast.Type{}, fmt.Errorf("function %s returns multiple values", e.Name)
+			}
+			if len(returnTypes) == 0 {
+				return ast.Type{}, nil
+			}
+			return returnTypes[0], nil
 		}
 	}
 

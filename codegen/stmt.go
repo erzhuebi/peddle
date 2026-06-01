@@ -88,6 +88,10 @@ func (g *Generator) genContinue(_ *ast.ContinueStmt) error {
 }
 
 func (g *Generator) genAssign(a *ast.AssignStmt) error {
+	if len(a.Targets) > 0 {
+		return g.genMultiAssign(a)
+	}
+
 	switch target := a.Target.(type) {
 	case *ast.VarLValue:
 		sym, ok := g.resolve(target.Name)
@@ -308,7 +312,58 @@ func (g *Generator) genAssign(a *ast.AssignStmt) error {
 	}
 }
 
+func (g *Generator) genMultiAssign(a *ast.AssignStmt) error {
+	call, ok := a.Value.(*ast.CallExpr)
+	if !ok {
+		return fmt.Errorf("multi-assignment requires a function call")
+	}
+
+	if _, err := g.genCall(call.Name, call.Args); err != nil {
+		return err
+	}
+
+	fnFrame := g.frames[call.Name]
+	if fnFrame == nil {
+		return fmt.Errorf("multi-assignment requires a user function call")
+	}
+	if len(fnFrame.Returns) != len(a.Targets) {
+		return fmt.Errorf("multi-assignment has %d targets but %s returns %d values", len(a.Targets), call.Name, len(fnFrame.Returns))
+	}
+
+	for i, target := range a.Targets {
+		if target == "_" {
+			continue
+		}
+
+		sym, ok := g.resolve(target)
+		if !ok {
+			return fmt.Errorf("unknown variable %q", target)
+		}
+
+		targetType := sym.Type
+		if isScalarPointerType(sym.Type) {
+			targetType = pointerPointeeType(sym.Type)
+		}
+
+		g.loadSymbolAs(fnFrame.Returns[i], targetType)
+		if isScalarPointerType(sym.Type) {
+			if err := g.storeIntoScalarPointer(sym); err != nil {
+				return err
+			}
+			continue
+		}
+
+		g.storeAIntoSymbol(sym)
+	}
+
+	return nil
+}
+
 func (g *Generator) genCallStmt(c *ast.CallStmt) error {
+	if fnFrame := g.frames[c.Name]; fnFrame != nil && len(fnFrame.Returns) > 1 {
+		return fmt.Errorf("function %s returns multiple values", c.Name)
+	}
+
 	_, err := g.genCall(c.Name, c.Args)
 	return err
 }
@@ -532,20 +587,26 @@ func (g *Generator) genIf(i *ast.IfStmt) error {
 }
 
 func (g *Generator) genReturn(r *ast.ReturnStmt) error {
-	if g.currentFrame.Return == nil {
+	returnSymbols := g.currentFrame.Returns
+	if len(returnSymbols) == 0 {
 		g.emit("    rts")
 		return nil
 	}
 
-	if r.Value == nil {
+	values := returnValues(r)
+	if len(values) == 0 {
 		return fmt.Errorf("missing return value")
 	}
-
-	if err := g.genExprTo(r.Value, g.currentFrame.Return.Type); err != nil {
-		return err
+	if len(values) != len(returnSymbols) {
+		return fmt.Errorf("function returns %d values, return statement has %d", len(returnSymbols), len(values))
 	}
 
-	g.storeAIntoSymbol(*g.currentFrame.Return)
+	for i, value := range values {
+		if err := g.genExprTo(value, returnSymbols[i].Type); err != nil {
+			return err
+		}
+		g.storeAIntoSymbol(returnSymbols[i])
+	}
 	g.emit("    rts")
 	return nil
 }

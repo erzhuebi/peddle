@@ -37,13 +37,22 @@ func (g *Generator) buildFrame(fn *ast.FunctionDecl) *Frame {
 		}
 	}
 
-	if fn.ReturnType.Name != "" {
-		frame.Return = &Symbol{
-			SourceName: "return",
-			Label:      fn.Name + "_return",
-			Type:       fn.ReturnType,
-			Size:       g.sizeof(fn.ReturnType),
+	returnTypes := functionReturnTypes(fn)
+	for i, returnType := range returnTypes {
+		label := fn.Name + "_return"
+		if len(returnTypes) > 1 {
+			label = fmt.Sprintf("%s_return_%d", fn.Name, i)
 		}
+
+		frame.Returns = append(frame.Returns, Symbol{
+			SourceName: fmt.Sprintf("return_%d", i),
+			Label:      label,
+			Type:       returnType,
+			Size:       g.sizeof(returnType),
+		})
+	}
+	if len(frame.Returns) > 0 {
+		frame.Return = &frame.Returns[0]
 	}
 
 	return frame

@@ -156,9 +156,20 @@ func (p *Parser) parseFunction() *ast.FunctionDecl {
 		return nil
 	}
 
-	if p.peek.Type == lexer.IDENT {
+	switch p.peek.Type {
+	case lexer.IDENT:
 		p.nextToken()
 		fn.ReturnType = p.parseType(false)
+		fn.ReturnTypes = []ast.Type{fn.ReturnType}
+
+	case lexer.LPAREN:
+		fn.ReturnTypes = p.parseReturnTypeList()
+		if len(fn.ReturnTypes) == 1 {
+			p.errorf("single return type must not use parentheses")
+		}
+		if len(fn.ReturnTypes) > 0 {
+			fn.ReturnType = fn.ReturnTypes[0]
+		}
 	}
 
 	if !p.expectPeek(lexer.LBRACE) {
@@ -176,6 +187,36 @@ func (p *Parser) parseFunction() *ast.FunctionDecl {
 
 	p.nextToken()
 	return fn
+}
+
+func (p *Parser) parseReturnTypeList() []ast.Type {
+	var types []ast.Type
+
+	p.nextToken()
+	p.nextToken()
+
+	if p.cur.Type == lexer.RPAREN {
+		p.errorf("return type list cannot be empty")
+		return types
+	}
+
+	for {
+		typ := p.parseType(false)
+		types = append(types, typ)
+
+		if p.peek.Type != lexer.COMMA {
+			break
+		}
+
+		p.nextToken()
+		p.nextToken()
+	}
+
+	if !p.expectPeek(lexer.RPAREN) {
+		return types
+	}
+
+	return types
 }
 
 func (p *Parser) parseParams() []ast.Param {
@@ -373,7 +414,16 @@ func (p *Parser) parseStatement() ast.Stmt {
 func (p *Parser) parseIdentStatement() ast.Stmt {
 	name := p.cur.Literal
 
+	if name == "_" && p.peek.Type != lexer.COMMA {
+		p.errorf("_ can only be used as a multi-assignment target")
+		p.nextToken()
+		return nil
+	}
+
 	switch p.peek.Type {
+	case lexer.COMMA:
+		return p.parseMultiAssign()
+
 	case lexer.ASSIGN, lexer.LBRACK, lexer.DOT:
 		target := p.parseLValue()
 
@@ -400,6 +450,35 @@ func (p *Parser) parseIdentStatement() ast.Stmt {
 		p.errorf("expected assignment or call after identifier %q", name)
 		p.nextToken()
 		return nil
+	}
+}
+
+func (p *Parser) parseMultiAssign() ast.Stmt {
+	targets := []string{p.cur.Literal}
+
+	for p.peek.Type == lexer.COMMA {
+		p.nextToken()
+		p.nextToken()
+
+		if p.cur.Type != lexer.IDENT {
+			p.errorf("expected identifier or _ in multi-assignment target")
+			return nil
+		}
+
+		targets = append(targets, p.cur.Literal)
+	}
+
+	if !p.expectPeek(lexer.ASSIGN) {
+		return nil
+	}
+
+	p.nextToken()
+	value := p.parseExpression(LOWEST)
+	p.nextToken()
+
+	return &ast.AssignStmt{
+		Targets: targets,
+		Value:   value,
 	}
 }
 
@@ -613,10 +692,17 @@ func (p *Parser) parseReturn() ast.Stmt {
 		return &ast.ReturnStmt{}
 	}
 
-	value := p.parseExpression(LOWEST)
+	values := []ast.Expr{p.parseExpression(LOWEST)}
+
+	for p.peek.Type == lexer.COMMA {
+		p.nextToken()
+		p.nextToken()
+		values = append(values, p.parseExpression(LOWEST))
+	}
+
 	p.nextToken()
 
-	return &ast.ReturnStmt{Value: value}
+	return &ast.ReturnStmt{Value: values[0], Values: values}
 }
 
 const (
@@ -684,6 +770,10 @@ func (p *Parser) parseExpression(precedence int) ast.Expr {
 		}
 
 	case lexer.IDENT:
+		if p.cur.Literal == "_" {
+			p.errorf("_ can only be used as a multi-assignment target")
+			return nil
+		}
 		left = &ast.IdentExpr{Name: p.cur.Literal}
 
 	case lexer.NUMBER:

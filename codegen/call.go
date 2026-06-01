@@ -184,5 +184,9 @@ func (g *Generator) genCall(name string, args []ast.Expr) (ast.Type, error) {
 	}
 
 	g.emit(fmt.Sprintf("    jsr %s", name))
-	return fn.ReturnType, nil
+	returnTypes := functionReturnTypes(fn)
+	if len(returnTypes) == 0 {
+		return ast.Type{}, nil
+	}
+	return returnTypes[0], nil
 }

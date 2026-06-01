@@ -22,11 +22,12 @@ type FieldDecl struct {
 }
 
 type FunctionDecl struct {
-	Name       string
-	Params     []Param
-	ReturnType Type
-	Locals     []*VarDecl
-	Body       []Stmt
+	Name        string
+	Params      []Param
+	ReturnType  Type
+	ReturnTypes []Type
+	Locals      []*VarDecl
+	Body        []Stmt
 }
 
 type Param struct {
@@ -62,8 +63,9 @@ type Stmt interface {
 }
 
 type AssignStmt struct {
-	Target LValue
-	Value  Expr
+	Target  LValue
+	Targets []string
+	Value   Expr
 }
 
 func (*AssignStmt) stmtNode() {}
@@ -103,7 +105,8 @@ type IfStmt struct {
 func (*IfStmt) stmtNode() {}
 
 type ReturnStmt struct {
-	Value Expr
+	Value  Expr
+	Values []Expr
 }
 
 func (*ReturnStmt) stmtNode() {}

@@ -19,6 +19,22 @@ func (g *Generator) loadSymbol(sym Symbol) {
 	g.emit(fmt.Sprintf("    lda %s", sym.Label))
 }
 
+func (g *Generator) loadSymbolAs(sym Symbol, target ast.Type) {
+	if !isWordType(target) && isWordSymbol(sym) {
+		g.emit(fmt.Sprintf("    lda %s", sym.Label))
+		return
+	}
+
+	g.loadSymbol(sym)
+
+	if isWordType(target) && !isWordSymbol(sym) {
+		g.emit("    sta ZP_TMP0")
+		g.emit("    lda #0")
+		g.emit("    sta ZP_TMP1")
+		g.usedTmp16 = true
+	}
+}
+
 func (g *Generator) storeAIntoSymbol(sym Symbol) {
 	if isWordSymbol(sym) {
 		g.emit("    lda ZP_TMP0")

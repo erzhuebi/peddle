@@ -82,6 +82,7 @@ type Frame struct {
 	FunctionName string
 	Symbols      map[string]Symbol
 	Return       *Symbol
+	Returns      []Symbol
 }
 
 type Symbol struct {
@@ -164,8 +165,8 @@ func (g *Generator) computeMemoryReport() MemoryReport {
 			report.StaticSymbolCount++
 		}
 
-		if frame.Return != nil {
-			report.StaticDataBytes += frame.Return.Size
+		for _, sym := range frame.Returns {
+			report.StaticDataBytes += sym.Size
 			report.StaticSymbolCount++
 		}
 	}

@@ -2,6 +2,7 @@ package sema
 
 import (
 	"fmt"
+	"strings"
 
 	"peddle/ast"
 )
@@ -236,9 +237,9 @@ func (c *Checker) checkFunction(fn *ast.FunctionDecl) error {
 		scope[local.Name] = local.Type
 	}
 
-	if fn.ReturnType.Name != "" {
-		if err := c.checkType(fn.ReturnType); err != nil {
-			return fmt.Errorf("return type: %w", err)
+	for i, returnType := range functionReturnTypes(fn) {
+		if err := c.checkType(returnType); err != nil {
+			return fmt.Errorf("return type %d: %w", i+1, err)
 		}
 	}
 
@@ -296,6 +297,10 @@ func (c *Checker) checkTypeFor(t ast.Type, allowPointer bool) error {
 func (c *Checker) checkStmt(scope map[string]ast.Type, fn *ast.FunctionDecl, s ast.Stmt, loopDepth int) error {
 	switch stmt := s.(type) {
 	case *ast.AssignStmt:
+		if len(stmt.Targets) > 0 {
+			return c.checkMultiAssign(scope, stmt)
+		}
+
 		targetType, err := c.checkLValue(scope, stmt.Target)
 		if err != nil {
 			return err
@@ -405,27 +410,37 @@ func (c *Checker) checkStmt(scope map[string]ast.Type, fn *ast.FunctionDecl, s a
 		}
 
 	case *ast.ReturnStmt:
-		if fn.ReturnType.Name == "" {
-			if stmt.Value != nil {
+		returnTypes := functionReturnTypes(fn)
+		values := returnValues(stmt)
+
+		if len(returnTypes) == 0 {
+			if len(values) > 0 {
 				return fmt.Errorf("function has no return type but returns a value")
 			}
 			return nil
 		}
 
-		if stmt.Value == nil {
-			return fmt.Errorf("function must return %s", fn.ReturnType.String())
+		if len(values) == 0 {
+			return fmt.Errorf("function must return %s", formatTypeList(returnTypes))
 		}
 
-		valueType, err := c.checkExpr(scope, stmt.Value)
-		if err != nil {
-			return err
+		if len(values) != len(returnTypes) {
+			return fmt.Errorf("function returns %d values, return statement has %d", len(returnTypes), len(values))
 		}
 
-		if !sameType(fn.ReturnType, valueType) && !c.canAssignExpr(fn.ReturnType, valueType, stmt.Value) {
-			return fmt.Errorf("cannot return %s from function returning %s", valueType.String(), fn.ReturnType.String())
-		}
-		if err := c.checkAssignmentValue(fn.ReturnType, stmt.Value); err != nil {
-			return err
+		for i, value := range values {
+			valueType, err := c.checkExpr(scope, value)
+			if err != nil {
+				return err
+			}
+
+			returnType := returnTypes[i]
+			if !sameType(returnType, valueType) && !c.canAssignExpr(returnType, valueType, value) {
+				return fmt.Errorf("cannot return %s as value %d from function returning %s", valueType.String(), i+1, formatTypeList(returnTypes))
+			}
+			if err := c.checkAssignmentValue(returnType, value); err != nil {
+				return err
+			}
 		}
 
 	case *ast.BreakStmt:
@@ -506,6 +521,43 @@ func (c *Checker) checkLValue(scope map[string]ast.Type, lv ast.LValue) (ast.Typ
 	default:
 		return ast.Type{}, fmt.Errorf("unsupported assignment target")
 	}
+}
+
+func (c *Checker) checkMultiAssign(scope map[string]ast.Type, stmt *ast.AssignStmt) error {
+	call, ok := stmt.Value.(*ast.CallExpr)
+	if !ok {
+		return fmt.Errorf("multi-assignment requires a function call")
+	}
+
+	returnTypes, err := c.checkCallReturnTypes(scope, call.Name, call.Args)
+	if err != nil {
+		return err
+	}
+
+	if len(returnTypes) != len(stmt.Targets) {
+		return fmt.Errorf("multi-assignment has %d targets but %s returns %d values", len(stmt.Targets), call.Name, len(returnTypes))
+	}
+
+	for i, target := range stmt.Targets {
+		if target == "_" {
+			continue
+		}
+
+		targetType, err := c.checkLValue(scope, &ast.VarLValue{Name: target})
+		if err != nil {
+			return err
+		}
+		if targetType.IsPointer {
+			return fmt.Errorf("cannot assign to pointer parameter")
+		}
+
+		returnType := returnTypes[i]
+		if !sameType(targetType, returnType) && !c.canAssignExpr(targetType, returnType, stmt.Value) {
+			return fmt.Errorf("cannot assign return value %d (%s) to %s", i+1, returnType.String(), targetType.String())
+		}
+	}
+
+	return nil
 }
 
 func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.Expr) (ast.Type, error) {
@@ -1303,45 +1355,75 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 		return ast.Type{}, fmt.Errorf("unknown function %q", name)
 	}
 
+	returnTypes, err := c.checkUserCall(scope, fn, name, args)
+	if err != nil {
+		return ast.Type{}, err
+	}
+
+	if len(returnTypes) > 1 {
+		return ast.Type{}, fmt.Errorf("function %s returns multiple values; use multi-assignment", name)
+	}
+	if len(returnTypes) == 0 {
+		return ast.Type{}, nil
+	}
+	return returnTypes[0], nil
+}
+
+func (c *Checker) checkCallReturnTypes(scope map[string]ast.Type, name string, args []ast.Expr) ([]ast.Type, error) {
+	if fn, ok := c.functions[name]; ok {
+		return c.checkUserCall(scope, fn, name, args)
+	}
+
+	t, err := c.checkCall(scope, name, args)
+	if err != nil {
+		return nil, err
+	}
+	if t.Name == "" {
+		return nil, nil
+	}
+	return []ast.Type{t}, nil
+}
+
+func (c *Checker) checkUserCall(scope map[string]ast.Type, fn *ast.FunctionDecl, name string, args []ast.Expr) ([]ast.Type, error) {
 	if len(args) != len(fn.Params) {
-		return ast.Type{}, fmt.Errorf("function %s expects %d args, got %d", name, len(fn.Params), len(args))
+		return nil, fmt.Errorf("function %s expects %d args, got %d", name, len(fn.Params), len(args))
 	}
 
 	for i, arg := range args {
 		paramType := fn.Params[i].Type
 		if paramType.IsPointer {
 			if err := c.checkPointerArgument(scope, paramType, arg); err != nil {
-				return ast.Type{}, fmt.Errorf("argument %d to %s: %w", i+1, name, err)
+				return nil, fmt.Errorf("argument %d to %s: %w", i+1, name, err)
 			}
 			continue
 		}
 
 		argType, err := c.checkExpr(scope, arg)
 		if err != nil {
-			return ast.Type{}, err
+			return nil, err
 		}
 
 		if paramType.IsArray {
 			switch arg.(type) {
 			case *ast.IdentExpr, *ast.FieldExpr, *ast.IndexFieldExpr, *ast.CallExpr:
 			default:
-				return ast.Type{}, fmt.Errorf("argument %d to %s: array parameter requires array storage", i+1, name)
+				return nil, fmt.Errorf("argument %d to %s: array parameter requires array storage", i+1, name)
 			}
 			if !sameType(paramType, argType) {
-				return ast.Type{}, fmt.Errorf("argument %d to %s: cannot pass %s as %s", i+1, name, argType.String(), paramType.String())
+				return nil, fmt.Errorf("argument %d to %s: cannot pass %s as %s", i+1, name, argType.String(), paramType.String())
 			}
 			continue
 		}
 
 		if !sameType(paramType, argType) && !c.canAssignExpr(paramType, argType, arg) {
-			return ast.Type{}, fmt.Errorf("argument %d to %s: cannot pass %s as %s", i+1, name, argType.String(), paramType.String())
+			return nil, fmt.Errorf("argument %d to %s: cannot pass %s as %s", i+1, name, argType.String(), paramType.String())
 		}
 		if err := c.checkAssignmentValue(paramType, arg); err != nil {
-			return ast.Type{}, fmt.Errorf("argument %d to %s: %w", i+1, name, err)
+			return nil, fmt.Errorf("argument %d to %s: %w", i+1, name, err)
 		}
 	}
 
-	return fn.ReturnType, nil
+	return functionReturnTypes(fn), nil
 }
 
 func (c *Checker) checkPointerArgument(scope map[string]ast.Type, paramType ast.Type, arg ast.Expr) error {
@@ -1472,6 +1554,41 @@ func (c *Checker) checkAddressOf(scope map[string]ast.Type, e ast.Expr) (ast.Typ
 
 func sameType(a, b ast.Type) bool {
 	return a.Name == b.Name && a.IsArray == b.IsArray && a.ArrayLen == b.ArrayLen && a.IsPointer == b.IsPointer
+}
+
+func functionReturnTypes(fn *ast.FunctionDecl) []ast.Type {
+	if len(fn.ReturnTypes) > 0 {
+		return fn.ReturnTypes
+	}
+	if fn.ReturnType.Name != "" {
+		return []ast.Type{fn.ReturnType}
+	}
+	return nil
+}
+
+func returnValues(stmt *ast.ReturnStmt) []ast.Expr {
+	if len(stmt.Values) > 0 {
+		return stmt.Values
+	}
+	if stmt.Value != nil {
+		return []ast.Expr{stmt.Value}
+	}
+	return nil
+}
+
+func formatTypeList(types []ast.Type) string {
+	if len(types) == 0 {
+		return "no values"
+	}
+
+	parts := make([]string, len(types))
+	for i, typ := range types {
+		parts[i] = typ.String()
+	}
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	return "(" + strings.Join(parts, ", ") + ")"
 }
 
 func pointerPointeeType(t ast.Type) ast.Type {

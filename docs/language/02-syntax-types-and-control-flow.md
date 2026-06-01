@@ -106,6 +106,7 @@ var x byte
 
 border = 0xd020
 addr = &x
+poke(addr, 0)
 ```
 
 `uint` comparisons use unsigned ordering. For example, `65535` is greater than
@@ -113,6 +114,9 @@ addr = &x
 
 Integer literals and constants can be assigned to `uint` when they fit this
 range. Signed `int` variables are not implicitly assignable to `uint`.
+
+Raw addresses are just `uint` values. Use explicit `peek(addr)` and
+`poke(addr, value)` when you want low-level memory access.
 
 ---
 
@@ -515,7 +519,65 @@ fn add(a int, b int) int {
 }
 ```
 
-Scalars such as `byte`, `bool`, `char`, and `int` are passed by value.
+Scalars such as `byte`, `bool`, `char`, `int`, and `uint` are passed by value
+unless the parameter is explicitly declared as a pointer parameter.
+
+Scalar pointer parameters are function-only aliases to caller storage. The call
+site must use `&`, and inside the function the parameter name reads and writes
+the caller's value.
+
+```peddle
+fn inc(score *uint) {
+    score = score + 1
+}
+
+fn main() {
+    var score uint
+
+    score = 10
+    inc(&score)
+    # score is now 11
+}
+```
+
+Scalar pointer parameters are supported for `*byte`, `*bool`, `*char`, `*int`,
+and `*uint`. They can also point at array elements:
+
+```peddle
+fn mark(flag *bool) {
+    flag = true
+}
+
+fn main() {
+    var flags bool[4]
+
+    mark(&flags[2])
+}
+```
+
+Struct pointer parameters let a function mutate a caller-owned struct without
+copying it. Field access uses the normal `p.field` syntax.
+
+```peddle
+struct Player {
+    hp byte
+}
+
+fn damage(p *Player) {
+    p.hp = p.hp - 1
+}
+
+fn main() {
+    var player Player
+
+    player.hp = 10
+    damage(&player)
+}
+```
+
+Pointer parameters are not general pointer values. There are no pointer locals,
+pointer returns, pointer struct fields, pointer arithmetic, or `*p` dereference
+syntax.
 
 Arrays are passed by reference. A function parameter such as `buffer byte[128]`
 refers to the caller's array storage, including its capacity and runtime length.
@@ -559,6 +621,32 @@ fn double(x int) int {
     return x + x
 }
 ```
+
+Functions can return more than one value by grouping the return types in
+parentheses. Parentheses are only used for multiple return values; a single
+return type stays ungrouped.
+
+```peddle
+fn sound_load(data byte[1024]) (uint, int) {
+    var id uint
+    var err int
+
+    return id, err
+}
+
+fn main() {
+    var data byte[1024]
+    var id uint
+    var err int
+
+    id, err = sound_load(data)
+    _, err = sound_load(data)
+}
+```
+
+Multi-return calls must be assigned with one target per returned value. Use `_`
+to ignore a value. Multi-return calls are not tuple values and cannot be used
+inside larger expressions, conditions, arguments, or as plain call statements.
 
 ---
 
