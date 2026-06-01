@@ -960,7 +960,7 @@ func (g *Generator) emitStaticData() {
 	for _, frame := range g.frames {
 		for _, sym := range frame.Symbols {
 			g.emit(fmt.Sprintf("%s:", sym.Label))
-			g.emitStaticValue(sym.Type)
+			g.emitStaticSymbol(sym)
 		}
 
 		if frame.Return != nil {
@@ -971,8 +971,17 @@ func (g *Generator) emitStaticData() {
 
 	for _, sym := range g.forLoopTemps {
 		g.emit(fmt.Sprintf("%s:", sym.Label))
-		g.emitStaticValue(sym.Type)
+		g.emitStaticSymbol(sym)
 	}
+}
+
+func (g *Generator) emitStaticSymbol(sym Symbol) {
+	if sym.IsReference {
+		g.emit(fmt.Sprintf("    .fill %d, 0", sym.Size))
+		return
+	}
+
+	g.emitStaticValue(sym.Type)
 }
 
 func (g *Generator) emitStaticValue(t ast.Type) {

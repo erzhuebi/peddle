@@ -30,7 +30,40 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 			return fmt.Errorf("unknown variable %q", expr.Name)
 		}
 
-		if target.Name == "int" && sym.Type.Name != "int" && !sym.Type.IsArray {
+		if sym.Type.IsPointer {
+			if isScalarPointerType(sym.Type) {
+				pointee := pointerPointeeType(sym.Type)
+				if err := g.loadScalarPointer(sym); err != nil {
+					return err
+				}
+				if !isWordType(target) && isWordType(pointee) {
+					g.emit("    lda ZP_TMP0")
+					return nil
+				}
+				if isWordType(target) && !isWordType(pointee) {
+					g.emit("    sta ZP_TMP0")
+					g.emit("    lda #0")
+					g.emit("    sta ZP_TMP1")
+					g.usedTmp16 = true
+				}
+				return nil
+			}
+			if target.IsPointer {
+				g.loadSymbol(sym)
+				return nil
+			}
+			return fmt.Errorf("pointer value cannot be used as %s", target.String())
+		}
+		if target.IsPointer {
+			return fmt.Errorf("pointer value requires address-of expression")
+		}
+
+		if !isWordType(target) && isWordType(sym.Type) {
+			g.emit(fmt.Sprintf("    lda %s", sym.Label))
+			return nil
+		}
+
+		if isWordType(target) && !isWordType(sym.Type) && !sym.Type.IsArray {
 			g.loadSymbol(sym)
 			g.emit("    sta ZP_TMP0")
 			g.emit("    lda #0")
@@ -43,6 +76,10 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 		return nil
 
 	case *ast.IndexExpr:
+		if target.IsPointer {
+			return fmt.Errorf("pointer value requires address-of expression")
+		}
+
 		arraySym, ok := g.resolve(expr.Name)
 		if !ok {
 			return fmt.Errorf("unknown array %q", expr.Name)
@@ -55,7 +92,7 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 			return err
 		}
 
-		if arraySym.Type.Name == "int" {
+		if isWordType(ast.Type{Name: arraySym.Type.Name}) {
 			g.emit("    lda (ZP_PTR0_LO), y")
 			g.emit("    sta ZP_TMP0")
 			g.emit("    iny")
@@ -66,7 +103,7 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 		}
 
 		g.emit("    lda (ZP_PTR0_LO), y")
-		if target.Name == "int" {
+		if isWordType(target) {
 			g.emit("    sta ZP_TMP0")
 			g.emit("    lda #0")
 			g.emit("    sta ZP_TMP1")
@@ -112,7 +149,7 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 			g.emit("    sta ZP_PTR0_HI")
 		}
 
-		if fieldType.Name == "int" {
+		if isWordType(fieldType) {
 			g.emit("    lda (ZP_PTR0_LO), y")
 			g.emit("    sta ZP_TMP0")
 			g.emit("    iny")
@@ -123,7 +160,7 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 		}
 
 		g.emit("    lda (ZP_PTR0_LO), y")
-		if target.Name == "int" {
+		if isWordType(target) {
 			g.emit("    sta ZP_TMP0")
 			g.emit("    lda #0")
 			g.emit("    sta ZP_TMP1")
@@ -142,6 +179,19 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 			return err
 		}
 
+		if baseSym.Type.IsPointer {
+			if err := g.loadPointerField(baseSym, fieldType, offset); err != nil {
+				return err
+			}
+			if isWordType(target) && !isWordType(fieldType) {
+				g.emit("    sta ZP_TMP0")
+				g.emit("    lda #0")
+				g.emit("    sta ZP_TMP1")
+				g.usedTmp16 = true
+			}
+			return nil
+		}
+
 		if fieldType.IsArray {
 			return fmt.Errorf("array field reads are not implemented yet")
 		}
@@ -153,7 +203,7 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 		if err := g.loadField(baseSym, fieldType, offset); err != nil {
 			return err
 		}
-		if target.Name == "int" && fieldType.Name != "int" {
+		if isWordType(target) && !isWordType(fieldType) {
 			g.emit("    sta ZP_TMP0")
 			g.emit("    lda #0")
 			g.emit("    sta ZP_TMP1")
@@ -163,9 +213,12 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 
 	case *ast.UnaryExpr:
 		switch expr.Op {
+		case "&":
+			return g.genAddressOfTo(expr.Expr, target)
+
 		case "-":
-			if target.Name == "int" {
-				if err := g.genExprTo(expr.Expr, ast.Type{Name: "int"}); err != nil {
+			if isWordType(target) {
+				if err := g.genExprTo(expr.Expr, target); err != nil {
 					return err
 				}
 
@@ -229,7 +282,7 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 
 		fnFrame := g.frames[expr.Name]
 		if fnFrame == nil || fnFrame.Return == nil {
-			if target.Name == "int" && retType.Name != "int" {
+			if isWordType(target) && !isWordType(retType) {
 				g.emit("    sta ZP_TMP0")
 				g.emit("    lda #0")
 				g.emit("    sta ZP_TMP1")
@@ -239,7 +292,7 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 		}
 
 		g.loadSymbol(*fnFrame.Return)
-		if target.Name == "int" && retType.Name != "int" {
+		if isWordType(target) && !isWordType(retType) {
 			g.emit("    sta ZP_TMP0")
 			g.emit("    lda #0")
 			g.emit("    sta ZP_TMP1")
@@ -252,5 +305,99 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 
 	default:
 		return fmt.Errorf("unsupported expression")
+	}
+}
+
+func (g *Generator) genAddressOfTo(e ast.Expr, target ast.Type) error {
+	if !target.IsPointer && target.Name != "uint" {
+		return fmt.Errorf("address-of expression cannot be used as %s", target.String())
+	}
+
+	switch expr := e.(type) {
+	case *ast.IdentExpr:
+		sym, ok := g.resolve(expr.Name)
+		if !ok {
+			return fmt.Errorf("unknown variable %q", expr.Name)
+		}
+		if target.Name == "uint" {
+			if sym.Type.IsPointer {
+				return fmt.Errorf("cannot take address of pointer parameter")
+			}
+			if sym.Type.IsArray && sym.IsReference {
+				g.loadSymbol(sym)
+				return nil
+			}
+
+			g.emit(fmt.Sprintf("    lda #<%s", sym.Label))
+			g.emit("    sta ZP_TMP0")
+			g.emit(fmt.Sprintf("    lda #>%s", sym.Label))
+			g.emit("    sta ZP_TMP1")
+			g.usedTmp16 = true
+			return nil
+		}
+
+		if sym.Type.IsPointer || sym.Type.IsArray {
+			return fmt.Errorf("cannot take address of %s as %s", sym.Type.String(), target.String())
+		}
+		if sym.Type.Name != target.Name {
+			return fmt.Errorf("cannot take address of %s as %s", sym.Type.String(), target.String())
+		}
+		if _, ok := g.structs[sym.Type.Name]; !ok && !isScalarTypeName(sym.Type.Name) {
+			return fmt.Errorf("cannot take address of non-struct %q", expr.Name)
+		}
+
+		g.emit(fmt.Sprintf("    lda #<%s", sym.Label))
+		g.emit("    sta ZP_TMP0")
+		g.emit(fmt.Sprintf("    lda #>%s", sym.Label))
+		g.emit("    sta ZP_TMP1")
+		g.usedTmp16 = true
+		return nil
+
+	case *ast.IndexExpr:
+		arraySym, ok := g.resolve(expr.Name)
+		if !ok {
+			return fmt.Errorf("unknown array %q", expr.Name)
+		}
+		if !arraySym.Type.IsArray {
+			return fmt.Errorf("%q is not an array", expr.Name)
+		}
+		if target.Name == "uint" {
+			if err := g.genUpdateArrayLenFromIndex(arraySym, expr.Index); err != nil {
+				return err
+			}
+			if err := g.genArrayIndexToY(arraySym, expr.Index); err != nil {
+				return err
+			}
+
+			g.emit("    lda ZP_PTR0_LO")
+			g.emit("    sta ZP_TMP0")
+			g.emit("    lda ZP_PTR0_HI")
+			g.emit("    sta ZP_TMP1")
+			g.usedTmp16 = true
+			return nil
+		}
+		if arraySym.Type.Name != target.Name {
+			return fmt.Errorf("cannot take address of %s[] element as %s", arraySym.Type.Name, target.String())
+		}
+		if _, ok := g.structs[arraySym.Type.Name]; !ok && !isScalarTypeName(arraySym.Type.Name) {
+			return fmt.Errorf("cannot take address of non-struct array element %q", expr.Name)
+		}
+
+		if err := g.genUpdateArrayLenFromIndex(arraySym, expr.Index); err != nil {
+			return err
+		}
+		if err := g.genArrayIndexToY(arraySym, expr.Index); err != nil {
+			return err
+		}
+
+		g.emit("    lda ZP_PTR0_LO")
+		g.emit("    sta ZP_TMP0")
+		g.emit("    lda ZP_PTR0_HI")
+		g.emit("    sta ZP_TMP1")
+		g.usedTmp16 = true
+		return nil
+
+	default:
+		return fmt.Errorf("can only take address of variables or array elements")
 	}
 }

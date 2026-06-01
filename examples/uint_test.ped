@@ -1,0 +1,123 @@
+# uint self-test.
+#
+# This checks the cases most likely to break if uint is accidentally treated
+# as signed int: values with bit 15 set, unsigned comparisons against small
+# values, 16-bit wraparound, masks, and storing addresses.
+
+fn main() {
+    var ok bool
+
+    var hi uint
+    var mid uint
+    var low uint
+    var border uint
+    var wrap uint
+    var mask uint
+
+    var x byte
+    var addr uint
+
+    var data byte[4]
+    var data0 uint
+    var data1 uint
+
+    var words uint[2]
+    var word0 uint
+    var word1 uint
+
+    ok = true
+
+    hi = 65535
+    mid = 32768
+    low = 1
+    border = 0xd020
+
+    if hi != 65535 {
+        print("FAIL UINT MAX LOAD\n")
+        ok = false
+    }
+
+    if mid != 32768 {
+        print("FAIL UINT HIGH LOAD\n")
+        ok = false
+    }
+
+    if hi <= low {
+        print("FAIL 65535 <= 1\n")
+        ok = false
+    }
+
+    if low >= hi {
+        print("FAIL 1 >= 65535\n")
+        ok = false
+    }
+
+    if mid <= low {
+        print("FAIL 32768 <= 1\n")
+        ok = false
+    }
+
+    if low >= mid {
+        print("FAIL 1 >= 32768\n")
+        ok = false
+    }
+
+    if border <= low {
+        print("FAIL $D020 <= 1\n")
+        ok = false
+    }
+
+    wrap = hi + low
+    if wrap != 0 {
+        print("FAIL UINT WRAP\n")
+        ok = false
+    }
+
+    mask = hi & 0xff00
+    if mask != 0xff00 {
+        print("FAIL UINT MASK HIGH\n")
+        ok = false
+    }
+
+    mask = hi & 0x000f
+    if mask != 0x000f {
+        print("FAIL UINT MASK LOW\n")
+        ok = false
+    }
+
+    x = 7
+    addr = &x
+    if addr == 0 {
+        print("FAIL SCALAR ADDRESS\n")
+        ok = false
+    }
+
+    data[0] = 11
+    data[1] = 22
+    data0 = &data[0]
+    data1 = &data[1]
+    if data1 != data0 + 1 {
+        print("FAIL BYTE ARRAY ADDRESS\n")
+        ok = false
+    }
+
+    words[0] = 65535
+    words[1] = 32768
+    if words[0] <= words[1] {
+        print("FAIL UINT ARRAY COMPARE\n")
+        ok = false
+    }
+
+    word0 = &words[0]
+    word1 = &words[1]
+    if word1 != word0 + 2 {
+        print("FAIL UINT ARRAY ADDRESS\n")
+        ok = false
+    }
+
+    if ok {
+        print("TEST SUCCESSFUL")
+    } else {
+        print("TEST FAILED")
+    }
+}

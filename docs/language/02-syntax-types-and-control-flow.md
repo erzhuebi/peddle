@@ -8,6 +8,7 @@
 | bool | 1 byte | boolean |
 | char | 1 byte | character |
 | int | 2 bytes | signed 16-bit |
+| uint | 2 bytes | unsigned 16-bit |
 
 ---
 
@@ -90,6 +91,28 @@ Binary literals start with `%`. The same `%` character is also used for modulo w
 mask = %1111_0000
 x = 10 % 3
 ```
+
+---
+
+# Unsigned 16-bit Integers
+
+`uint` stores values from `0` to `65535`. Use it for C64 addresses, handles,
+bitmasks, and other values where the high bit must not be treated as a sign bit.
+
+```peddle
+var border uint
+var addr uint
+var x byte
+
+border = 0xd020
+addr = &x
+```
+
+`uint` comparisons use unsigned ordering. For example, `65535` is greater than
+`32768` when both values are held in `uint` variables.
+
+Integer literals and constants can be assigned to `uint` when they fit this
+range. Signed `int` variables are not implicitly assignable to `uint`.
 
 ---
 
@@ -489,6 +512,25 @@ fn hello() {
 ```peddle
 fn add(a int, b int) int {
     return a + b
+}
+```
+
+Scalars such as `byte`, `bool`, `char`, and `int` are passed by value.
+
+Arrays are passed by reference. A function parameter such as `buffer byte[128]`
+refers to the caller's array storage, including its capacity and runtime length.
+Mutating the array inside the function mutates the caller's array.
+
+```peddle
+fn push(buffer byte[4], value byte) {
+    append(buffer, value)
+}
+
+fn main() {
+    var data byte[4]
+
+    push(data, 7)
+    # len(data) is now 1 and data[0] is 7
 }
 ```
 

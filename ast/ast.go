@@ -40,16 +40,21 @@ type VarDecl struct {
 }
 
 type Type struct {
-	Name     string
-	ArrayLen int
-	IsArray  bool
+	Name      string
+	ArrayLen  int
+	IsArray   bool
+	IsPointer bool
 }
 
 func (t Type) String() string {
+	s := t.Name
 	if t.IsArray {
-		return t.Name + "[]"
+		s += "[]"
 	}
-	return t.Name
+	if t.IsPointer {
+		s = "*" + s
+	}
+	return s
 }
 
 type Stmt interface {

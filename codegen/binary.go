@@ -9,7 +9,7 @@ import (
 func (g *Generator) genBinaryTo(b *ast.BinaryExpr, target ast.Type) error {
 	switch b.Op {
 	case "+", "-", "*", "/", "%", "&", "|", "^", "<<", ">>":
-		if target.Name == "int" {
+		if target.Name == "int" || target.Name == "uint" {
 			return g.genBinaryInt(b)
 		}
 		return g.genBinaryByte(b)
@@ -480,13 +480,19 @@ func (g *Generator) genComparisonJumpTrue(b *ast.BinaryExpr, trueLabel string) e
 		return fmt.Errorf("unsupported comparison operator %q", b.Op)
 	}
 
-	if err := g.genExprToIntValue(b.Right); err != nil {
+	compareType := ast.Type{Name: "int"}
+	unsigned := g.comparisonUsesUnsigned(b)
+	if unsigned {
+		compareType = ast.Type{Name: "uint"}
+	}
+
+	if err := g.genExprToWordValue(b.Right, compareType); err != nil {
 		return err
 	}
 
 	// Preserve the right-hand comparison value while generating the left side.
 	//
-	// genExprToIntValue() and nested binary expressions use peddle_tmp_int0
+	// genExprToWordValue() and nested binary expressions use peddle_tmp_int0
 	// internally. If we stored the right side there before generating the left
 	// side, an expression like:
 	//
@@ -500,7 +506,7 @@ func (g *Generator) genComparisonJumpTrue(b *ast.BinaryExpr, trueLabel string) e
 	g.emit("    lda ZP_TMP1")
 	g.emit("    pha")
 
-	if err := g.genExprToIntValue(b.Left); err != nil {
+	if err := g.genExprToWordValue(b.Left, compareType); err != nil {
 		return err
 	}
 
@@ -528,22 +534,36 @@ func (g *Generator) genComparisonJumpTrue(b *ast.BinaryExpr, trueLabel string) e
 		g.emit(fmt.Sprintf("    bne %s", trueLabel))
 
 	case "<":
+		if unsigned {
+			return g.genUnsignedLessThanJump(trueLabel)
+		}
 		return g.genSignedLessThanJump(trueLabel)
 
 	case ">=":
 		skip := g.newLabel()
-		if err := g.genSignedLessThanJump(skip); err != nil {
+		if unsigned {
+			if err := g.genUnsignedLessThanJump(skip); err != nil {
+				return err
+			}
+		} else if err := g.genSignedLessThanJump(skip); err != nil {
 			return err
 		}
 		g.emit(fmt.Sprintf("    jmp %s", trueLabel))
 		g.emit(skip + ":")
 
 	case ">":
+		if unsigned {
+			return g.genUnsignedGreaterThanJump(trueLabel)
+		}
 		return g.genSignedGreaterThanJump(trueLabel)
 
 	case "<=":
 		skip := g.newLabel()
-		if err := g.genSignedGreaterThanJump(skip); err != nil {
+		if unsigned {
+			if err := g.genUnsignedGreaterThanJump(skip); err != nil {
+				return err
+			}
+		} else if err := g.genSignedGreaterThanJump(skip); err != nil {
 			return err
 		}
 		g.emit(fmt.Sprintf("    jmp %s", trueLabel))
@@ -552,6 +572,16 @@ func (g *Generator) genComparisonJumpTrue(b *ast.BinaryExpr, trueLabel string) e
 
 	g.usedTmp16 = true
 	return nil
+}
+
+func (g *Generator) comparisonUsesUnsigned(b *ast.BinaryExpr) bool {
+	left, err := g.exprValueType(b.Left)
+	if err == nil && left.Name == "uint" && !left.IsArray && !left.IsPointer {
+		return true
+	}
+
+	right, err := g.exprValueType(b.Right)
+	return err == nil && right.Name == "uint" && !right.IsArray && !right.IsPointer
 }
 
 func (g *Generator) genSignedLessThanJump(trueLabel string) error {
@@ -581,6 +611,40 @@ func (g *Generator) genSignedLessThanJump(trueLabel string) error {
 	g.emit(compareLow + ":")
 	g.emit("    lda ZP_TMP0")
 	g.emit("    cmp peddle_tmp_int0")
+	g.emit(fmt.Sprintf("    bcc %s", trueLabel))
+
+	g.emit(done + ":")
+	g.usedTmp16 = true
+	return nil
+}
+
+func (g *Generator) genUnsignedLessThanJump(trueLabel string) error {
+	done := g.newLabel()
+
+	g.emit("    lda ZP_TMP1")
+	g.emit("    cmp peddle_tmp_int0+1")
+	g.emit(fmt.Sprintf("    bcc %s", trueLabel))
+	g.emit("    bne " + done)
+
+	g.emit("    lda ZP_TMP0")
+	g.emit("    cmp peddle_tmp_int0")
+	g.emit(fmt.Sprintf("    bcc %s", trueLabel))
+
+	g.emit(done + ":")
+	g.usedTmp16 = true
+	return nil
+}
+
+func (g *Generator) genUnsignedGreaterThanJump(trueLabel string) error {
+	done := g.newLabel()
+
+	g.emit("    lda peddle_tmp_int0+1")
+	g.emit("    cmp ZP_TMP1")
+	g.emit(fmt.Sprintf("    bcc %s", trueLabel))
+	g.emit("    bne " + done)
+
+	g.emit("    lda peddle_tmp_int0")
+	g.emit("    cmp ZP_TMP0")
 	g.emit(fmt.Sprintf("    bcc %s", trueLabel))
 
 	g.emit(done + ":")
@@ -623,10 +687,14 @@ func (g *Generator) genSignedGreaterThanJump(trueLabel string) error {
 }
 
 func (g *Generator) genExprToIntValue(e ast.Expr) error {
-	if n, ok, err := g.foldConstExpr(e, ast.Type{Name: "int"}); err != nil {
+	return g.genExprToWordValue(e, ast.Type{Name: "int"})
+}
+
+func (g *Generator) genExprToWordValue(e ast.Expr, target ast.Type) error {
+	if n, ok, err := g.foldConstExpr(e, target); err != nil {
 		return err
 	} else if ok {
-		g.emitConstExprTo(n, ast.Type{Name: "int"})
+		g.emitConstExprTo(n, target)
 		return nil
 	}
 
@@ -639,8 +707,23 @@ func (g *Generator) genExprToIntValue(e ast.Expr) error {
 		if !ok {
 			return fmt.Errorf("unknown variable %q", expr.Name)
 		}
+		if sym.Type.IsPointer {
+			if isScalarPointerType(sym.Type) {
+				if err := g.loadScalarPointer(sym); err != nil {
+					return err
+				}
+				if !isWordType(pointerPointeeType(sym.Type)) {
+					g.emit("    sta ZP_TMP0")
+					g.emit("    lda #0")
+					g.emit("    sta ZP_TMP1")
+					g.usedTmp16 = true
+				}
+				return nil
+			}
+			return fmt.Errorf("pointer value cannot be used as %s", target.String())
+		}
 
-		if sym.Type.Name == "int" && !sym.Type.IsArray {
+		if isWordType(sym.Type) {
 			g.loadSymbol(sym)
 			return nil
 		}
@@ -653,14 +736,14 @@ func (g *Generator) genExprToIntValue(e ast.Expr) error {
 		return nil
 
 	case *ast.BinaryExpr:
-		if err := g.genBinaryTo(expr, ast.Type{Name: "int"}); err != nil {
+		if err := g.genBinaryTo(expr, target); err != nil {
 			return err
 		}
 		g.usedTmp16 = true
 		return nil
 
 	default:
-		return g.genExprTo(e, ast.Type{Name: "int"})
+		return g.genExprTo(e, target)
 	}
 }
 

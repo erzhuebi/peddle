@@ -759,7 +759,7 @@ func (g *Generator) genAppend(args []ast.Expr) (ast.Type, error) {
 		return ast.Type{}, err
 	}
 
-	if elemType.Name == "int" {
+	if isWordType(elemType) {
 		g.emit("    lda ZP_TMP0")
 		g.emit("    sta peddle_tmp_int0")
 		g.emit("    lda ZP_TMP1")
@@ -783,7 +783,7 @@ func (g *Generator) genAppend(args []ast.Expr) (ast.Type, error) {
 		return ast.Type{}, err
 	}
 
-	if elemType.Name == "int" {
+	if isWordType(elemType) {
 		g.emit("    lda peddle_tmp_int0")
 		g.emit("    ldy #0")
 		g.emit("    sta (ZP_PTR0_LO), y")
@@ -895,7 +895,7 @@ func (g *Generator) genAppendRuntime(args []ast.Expr, elemType ast.Type) (ast.Ty
 		return ast.Type{}, err
 	}
 
-	if elemType.Name == "int" {
+	if isWordType(elemType) {
 		g.emit("    lda ZP_TMP0")
 		g.emit("    sta peddle_tmp_int0")
 		g.emit("    lda ZP_TMP1")
@@ -909,7 +909,7 @@ func (g *Generator) genAppendRuntime(args []ast.Expr, elemType ast.Type) (ast.Ty
 	}
 
 	switch elemType.Name {
-	case "int":
+	case "int", "uint":
 		g.emit("    jsr peddle_append_int")
 		g.usedAppendIntRuntime = true
 	default:
@@ -1050,7 +1050,7 @@ func (g *Generator) genFill(args []ast.Expr) (ast.Type, error) {
 		return ast.Type{}, err
 	}
 
-	if elemType.Name == "int" {
+	if isWordType(elemType) {
 		g.emit("    lda ZP_TMP0")
 		g.emit("    sta ZP_TMP0")
 		g.emit("    lda ZP_TMP1")
@@ -1091,7 +1091,7 @@ func (g *Generator) genFill(args []ast.Expr) (ast.Type, error) {
 	g.emit("    sta peddle_tmp_int0+1")
 
 	if g.options.OptMode == OptModeSize {
-		if elemType.Name == "int" {
+		if isWordType(elemType) {
 			g.emit("    jsr peddle_fill_int")
 			g.usedFillIntRuntime = true
 		} else {
@@ -1111,7 +1111,7 @@ func (g *Generator) genFill(args []ast.Expr) (ast.Type, error) {
 	g.emit("    ora peddle_tmp_int0+1")
 	g.emit(fmt.Sprintf("    beq %s", done))
 
-	if elemType.Name == "int" {
+	if isWordType(elemType) {
 		g.emit("    ldy #0")
 		g.emit("    lda ZP_TMP0")
 		g.emit("    sta (ZP_PTR0_LO), y")
@@ -1325,10 +1325,7 @@ func (g *Generator) genArrayAddress(expr ast.Expr) error {
 			return fmt.Errorf("expected array")
 		}
 
-		g.emit(fmt.Sprintf("    lda #<%s", sym.Label))
-		g.emit("    sta ZP_PTR0_LO")
-		g.emit(fmt.Sprintf("    lda #>%s", sym.Label))
-		g.emit("    sta ZP_PTR0_HI")
+		g.genArrayHeaderAddress(sym)
 		return nil
 
 	case *ast.FieldExpr:
@@ -1340,6 +1337,10 @@ func (g *Generator) genArrayAddress(expr ast.Expr) error {
 		fieldType, offset, err := g.fieldInfo(baseSym.Type, e.Field)
 		if err != nil {
 			return err
+		}
+
+		if baseSym.Type.IsPointer {
+			return fmt.Errorf("array fields through pointer parameters are not implemented yet")
 		}
 
 		if !fieldType.IsArray {
@@ -1504,20 +1505,42 @@ func (g *Generator) genUpdateArrayLenFromIndex(arraySym Symbol, index ast.Expr) 
 	g.emit("    inc ZP_TMP1")
 	g.emit(noCarry + ":")
 
-	g.emit(fmt.Sprintf("    lda %s+3", arraySym.Label))
-	g.emit("    cmp ZP_TMP1")
-	g.emit(fmt.Sprintf("    bcc %s", update))
-	g.emit(fmt.Sprintf("    bne %s", done))
-	g.emit(fmt.Sprintf("    lda %s+2", arraySym.Label))
-	g.emit("    cmp ZP_TMP0")
-	g.emit(fmt.Sprintf("    bcc %s", update))
-	g.emit(fmt.Sprintf("    jmp %s", done))
+	if arraySym.IsReference {
+		g.genArrayHeaderAddress(arraySym)
+		g.emit("    ldy #3")
+		g.emit("    lda (ZP_PTR0_LO), y")
+		g.emit("    cmp ZP_TMP1")
+		g.emit(fmt.Sprintf("    bcc %s", update))
+		g.emit(fmt.Sprintf("    bne %s", done))
+		g.emit("    dey")
+		g.emit("    lda (ZP_PTR0_LO), y")
+		g.emit("    cmp ZP_TMP0")
+		g.emit(fmt.Sprintf("    bcc %s", update))
+		g.emit(fmt.Sprintf("    jmp %s", done))
 
-	g.emit(update + ":")
-	g.emit("    lda ZP_TMP0")
-	g.emit(fmt.Sprintf("    sta %s+2", arraySym.Label))
-	g.emit("    lda ZP_TMP1")
-	g.emit(fmt.Sprintf("    sta %s+3", arraySym.Label))
+		g.emit(update + ":")
+		g.emit("    ldy #2")
+		g.emit("    lda ZP_TMP0")
+		g.emit("    sta (ZP_PTR0_LO), y")
+		g.emit("    iny")
+		g.emit("    lda ZP_TMP1")
+		g.emit("    sta (ZP_PTR0_LO), y")
+	} else {
+		g.emit(fmt.Sprintf("    lda %s+3", arraySym.Label))
+		g.emit("    cmp ZP_TMP1")
+		g.emit(fmt.Sprintf("    bcc %s", update))
+		g.emit(fmt.Sprintf("    bne %s", done))
+		g.emit(fmt.Sprintf("    lda %s+2", arraySym.Label))
+		g.emit("    cmp ZP_TMP0")
+		g.emit(fmt.Sprintf("    bcc %s", update))
+		g.emit(fmt.Sprintf("    jmp %s", done))
+
+		g.emit(update + ":")
+		g.emit("    lda ZP_TMP0")
+		g.emit(fmt.Sprintf("    sta %s+2", arraySym.Label))
+		g.emit("    lda ZP_TMP1")
+		g.emit(fmt.Sprintf("    sta %s+3", arraySym.Label))
+	}
 
 	g.emit(done + ":")
 	g.usedTmp16 = true
@@ -1652,7 +1675,7 @@ func (g *Generator) itoxReturnType(args []ast.Expr) (ast.Type, error) {
 	}
 
 	width := 2
-	if argType.Name == "int" {
+	if argType.Name == "int" || argType.Name == "uint" {
 		width = 4
 	}
 
@@ -1690,6 +1713,9 @@ func (g *Generator) exprValueType(expr ast.Expr) (ast.Type, error) {
 		sym, ok := g.resolve(e.Name)
 		if !ok {
 			return ast.Type{}, fmt.Errorf("unknown variable %q", e.Name)
+		}
+		if isScalarPointerType(sym.Type) {
+			return pointerPointeeType(sym.Type), nil
 		}
 		return sym.Type, nil
 
@@ -1740,7 +1766,7 @@ func (g *Generator) exprValueType(expr ast.Expr) (ast.Type, error) {
 
 		switch e.Op {
 		case "-":
-			if t.Name == "int" {
+			if t.Name == "int" || t.Name == "uint" {
 				return ast.Type{Name: "int"}, nil
 			}
 			return ast.Type{Name: "byte"}, nil
@@ -1763,6 +1789,9 @@ func (g *Generator) exprValueType(expr ast.Expr) (ast.Type, error) {
 			return ast.Type{Name: "bool"}, nil
 		}
 
+		if left.Name == "uint" || right.Name == "uint" {
+			return ast.Type{Name: "uint"}, nil
+		}
 		if left.Name == "int" || right.Name == "int" {
 			return ast.Type{Name: "int"}, nil
 		}
@@ -1802,7 +1831,7 @@ func (g *Generator) fieldInfoType(base ast.Type, field string) (ast.Type, error)
 }
 
 func codegenNumericType(t ast.Type) bool {
-	return !t.IsArray && (t.Name == "byte" || t.Name == "char" || t.Name == "int" || t.Name == "bool")
+	return !t.IsArray && (t.Name == "byte" || t.Name == "char" || t.Name == "int" || t.Name == "uint" || t.Name == "bool")
 }
 
 func (g *Generator) emitClsRuntime() {

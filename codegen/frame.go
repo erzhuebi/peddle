@@ -13,11 +13,18 @@ func (g *Generator) buildFrame(fn *ast.FunctionDecl) *Frame {
 	}
 
 	for _, p := range fn.Params {
+		size := g.sizeof(p.Type)
+		isReference := p.Type.IsArray
+		if isReference {
+			size = 2
+		}
+
 		frame.Symbols[p.Name] = Symbol{
-			SourceName: p.Name,
-			Label:      fn.Name + "_" + p.Name,
-			Type:       p.Type,
-			Size:       g.sizeof(p.Type),
+			SourceName:  p.Name,
+			Label:       fn.Name + "_" + p.Name,
+			Type:        p.Type,
+			Size:        size,
+			IsReference: isReference,
 		}
 	}
 
@@ -51,12 +58,16 @@ func (g *Generator) resolve(name string) (Symbol, bool) {
 }
 
 func (g *Generator) sizeof(t ast.Type) int {
+	if t.IsPointer {
+		return 2
+	}
+
 	base := 0
 
 	switch t.Name {
 	case "byte", "char", "bool":
 		base = 1
-	case "int":
+	case "int", "uint":
 		base = 2
 	default:
 		if s, ok := g.structs[t.Name]; ok {
@@ -76,6 +87,10 @@ func (g *Generator) sizeof(t ast.Type) int {
 }
 
 func (g *Generator) fieldInfo(base ast.Type, field string) (ast.Type, int, error) {
+	if base.IsPointer {
+		base = ast.Type{Name: base.Name, IsArray: base.IsArray, ArrayLen: base.ArrayLen}
+	}
+
 	if base.IsArray {
 		return ast.Type{}, 0, fmt.Errorf("cannot access field %q on array type %s", field, base.String())
 	}

@@ -95,6 +95,13 @@ func (g *Generator) genAssign(a *ast.AssignStmt) error {
 			return fmt.Errorf("unknown variable %q", target.Name)
 		}
 
+		if isScalarPointerType(sym.Type) {
+			if err := g.genExprTo(a.Value, pointerPointeeType(sym.Type)); err != nil {
+				return err
+			}
+			return g.storeIntoScalarPointer(sym)
+		}
+
 		if str, ok := a.Value.(*ast.StringExpr); ok {
 			if !sym.Type.IsArray || sym.Type.Name != "char" {
 				return fmt.Errorf("cannot assign string to %s", sym.Type.String())
@@ -125,7 +132,7 @@ func (g *Generator) genAssign(a *ast.AssignStmt) error {
 			return err
 		}
 
-		if elemType.Name == "int" {
+		if isWordType(elemType) {
 			g.emit("    lda ZP_TMP0")
 			g.emit("    sta peddle_tmp_int0")
 			g.emit("    lda ZP_TMP1")
@@ -227,7 +234,7 @@ func (g *Generator) genAssign(a *ast.AssignStmt) error {
 			return err
 		}
 
-		if fieldType.Name == "int" {
+		if isWordType(fieldType) {
 			g.emit("    lda ZP_PTR1_LO")
 			g.emit("    sta ZP_PTR0_LO")
 			g.emit("    lda ZP_PTR1_HI")
@@ -265,6 +272,13 @@ func (g *Generator) genAssign(a *ast.AssignStmt) error {
 		fieldType, offset, err := g.fieldInfo(baseSym.Type, target.Field)
 		if err != nil {
 			return err
+		}
+
+		if baseSym.Type.IsPointer {
+			if err := g.genExprTo(a.Value, fieldType); err != nil {
+				return err
+			}
+			return g.storeIntoPointerField(baseSym, fieldType, offset)
 		}
 
 		if fieldType.IsArray {

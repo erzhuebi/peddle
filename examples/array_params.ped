@@ -1,0 +1,80 @@
+struct Player {
+    hp byte
+}
+
+fn push(values byte[4], value byte) {
+    append(values, value)
+}
+
+fn reset(values byte[4]) {
+    clear(values)
+    append(values, 9)
+}
+
+fn hit(players Player[2], idx byte) {
+    players[idx].hp = players[idx].hp - 1
+}
+
+fn main() {
+    var values byte[4]
+    var players Player[2]
+    var ok bool
+
+    ok = true
+
+    push(values, 3)
+    push(values, 7)
+
+    if len(values) == 2 {
+        print("LEN OK ")
+    } else {
+        print("LEN FAIL ")
+        ok = false
+    }
+
+    if values[0] == 3 {
+        print("VALUE 0 OK ")
+    } else {
+        print("VALUE 0 FAIL ")
+        ok = false
+    }
+
+    if values[1] == 7 {
+        print("VALUE 1 OK ")
+    } else {
+        print("VALUE 1 FAIL ")
+        ok = false
+    }
+
+    reset(values)
+
+    if len(values) == 1 {
+        print("RESET LEN OK ")
+    } else {
+        print("RESET LEN FAIL ")
+        ok = false
+    }
+
+    if values[0] == 9 {
+        print("RESET VALUE OK ")
+    } else {
+        print("RESET VALUE FAIL ")
+        ok = false
+    }
+
+    players[1].hp = 5
+    hit(players, 1)
+
+    if players[1].hp == 4 {
+        print("STRUCT ARRAY OK ")
+    } else {
+        print("STRUCT ARRAY FAIL ")
+        ok = false
+    }
+
+    if ok {
+        print("TEST SUCCESSFUL")
+    } else {
+        print("TEST FAILED")
+    }
+}

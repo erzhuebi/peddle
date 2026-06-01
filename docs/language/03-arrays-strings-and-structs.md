@@ -16,6 +16,33 @@ Internally arrays store:
 
 ---
 
+# Arrays As Function Parameters
+
+Array parameters are passed by reference. The callee receives the caller's array
+header and data buffer, not a copy.
+
+```peddle
+fn push(nums byte[4], value byte) {
+    append(nums, value)
+}
+
+fn main() {
+    var nums byte[4]
+
+    push(nums, 10)
+    push(nums, 20)
+
+    # len(nums) is 2
+    # nums[0] is 10
+    # nums[1] is 20
+}
+```
+
+The parameter type includes the array capacity, so `byte[4]` and `byte[8]` are
+different parameter types.
+
+---
+
 # Array Declaration
 
 ## Byte Array

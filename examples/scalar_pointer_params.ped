@@ -1,0 +1,88 @@
+# Scalar pointer parameter self-test.
+#
+# Pointer params for scalars are function-only aliases. The call site uses &,
+# and the function body reads/writes the parameter name as the caller's value.
+
+fn bumpByte(x *byte) {
+    x = x + 1
+}
+
+fn setBool(x *bool) {
+    x = true
+}
+
+fn setChar(x *char) {
+    x = 'Z'
+}
+
+fn bumpInt(x *int) {
+    x = x + 1
+}
+
+fn bumpUint(x *uint) {
+    x = x + 1
+}
+
+fn main() {
+    var ok bool
+    var b byte
+    var flag bool
+    var ch char
+    var i int
+    var u uint
+    var values uint[4]
+    var idx byte
+
+    ok = true
+
+    b = 4
+    flag = false
+    ch = 'A'
+    i = -2
+    u = 65534
+    idx = 2
+    values[idx] = 40
+
+    bumpByte(&b)
+    setBool(&flag)
+    setChar(&ch)
+    bumpInt(&i)
+    bumpUint(&u)
+    bumpUint(&values[idx])
+
+    if b != 5 {
+        print("BYTE FAIL ")
+        ok = false
+    }
+
+    if flag == false {
+        print("BOOL FAIL ")
+        ok = false
+    }
+
+    if ch != 'Z' {
+        print("CHAR FAIL ")
+        ok = false
+    }
+
+    if i != -1 {
+        print("INT FAIL ")
+        ok = false
+    }
+
+    if u != 65535 {
+        print("UINT FAIL ")
+        ok = false
+    }
+
+    if values[2] != 41 {
+        print("ARRAY ELEM FAIL ")
+        ok = false
+    }
+
+    if ok {
+        print("TEST SUCCESSFUL")
+    } else {
+        print("TEST FAILED")
+    }
+}

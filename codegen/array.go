@@ -41,15 +41,49 @@ func (g *Generator) genArrayIndexToY(arraySym Symbol, index ast.Expr) error {
 		g.usedTmp16 = true
 	}
 
-	g.emit(fmt.Sprintf("    lda #<%s+4", arraySym.Label))
-	g.emit("    clc")
-	g.emit("    adc ZP_TMP0")
-	g.emit("    sta ZP_PTR0_LO")
+	if arraySym.IsReference {
+		g.genArrayHeaderAddress(arraySym)
+		g.emit("    lda ZP_PTR0_LO")
+		g.emit("    clc")
+		g.emit("    adc #4")
+		g.emit("    sta ZP_PTR0_LO")
+		g.emit("    lda ZP_PTR0_HI")
+		g.emit("    adc #0")
+		g.emit("    sta ZP_PTR0_HI")
 
-	g.emit(fmt.Sprintf("    lda #>%s+4", arraySym.Label))
-	g.emit("    adc ZP_TMP1")
-	g.emit("    sta ZP_PTR0_HI")
+		g.emit("    lda ZP_PTR0_LO")
+		g.emit("    clc")
+		g.emit("    adc ZP_TMP0")
+		g.emit("    sta ZP_PTR0_LO")
+		g.emit("    lda ZP_PTR0_HI")
+		g.emit("    adc ZP_TMP1")
+		g.emit("    sta ZP_PTR0_HI")
+	} else {
+		g.emit(fmt.Sprintf("    lda #<%s+4", arraySym.Label))
+		g.emit("    clc")
+		g.emit("    adc ZP_TMP0")
+		g.emit("    sta ZP_PTR0_LO")
+
+		g.emit(fmt.Sprintf("    lda #>%s+4", arraySym.Label))
+		g.emit("    adc ZP_TMP1")
+		g.emit("    sta ZP_PTR0_HI")
+	}
 
 	g.emit("    ldy #0")
 	return nil
+}
+
+func (g *Generator) genArrayHeaderAddress(arraySym Symbol) {
+	if arraySym.IsReference {
+		g.emit(fmt.Sprintf("    lda %s", arraySym.Label))
+		g.emit("    sta ZP_PTR0_LO")
+		g.emit(fmt.Sprintf("    lda %s+1", arraySym.Label))
+		g.emit("    sta ZP_PTR0_HI")
+		return
+	}
+
+	g.emit(fmt.Sprintf("    lda #<%s", arraySym.Label))
+	g.emit("    sta ZP_PTR0_LO")
+	g.emit(fmt.Sprintf("    lda #>%s", arraySym.Label))
+	g.emit("    sta ZP_PTR0_HI")
 }

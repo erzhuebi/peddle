@@ -1,0 +1,91 @@
+struct Player {
+    hp byte
+    x byte
+    y byte
+}
+
+fn damage(p *Player, amount byte) {
+    p.hp = p.hp - amount
+}
+
+fn heal(p *Player, amount byte) {
+    p.hp = p.hp + amount
+}
+
+fn move(p *Player, dx byte, dy byte) {
+    p.x = p.x + dx
+    p.y = p.y + dy
+}
+
+fn main() {
+    var hero Player
+    var party Player[4]
+    var i byte
+    var ok bool
+
+    ok = true
+
+    hero.hp = 20
+    hero.x = 4
+    hero.y = 8
+
+    damage(&hero, 3)
+    heal(&hero, 1)
+    move(&hero, 2, 3)
+
+    if hero.hp == 18 {
+        print("HERO HP OK ")
+    } else {
+        print("HERO HP FAIL ")
+        ok = false
+    }
+
+    if hero.x == 6 {
+        print("HERO X OK ")
+    } else {
+        print("HERO X FAIL ")
+        ok = false
+    }
+
+    if hero.y == 11 {
+        print("HERO Y OK ")
+    } else {
+        print("HERO Y FAIL ")
+        ok = false
+    }
+
+    i = 1
+    party[i].hp = 40
+    party[i].x = 10
+    party[i].y = 12
+
+    damage(&party[i], 5)
+    move(&party[i], 1, 2)
+
+    if party[1].hp == 35 {
+        print("ARRAY HP OK ")
+    } else {
+        print("ARRAY HP FAIL ")
+        ok = false
+    }
+
+    if party[1].x == 11 {
+        print("ARRAY X OK ")
+    } else {
+        print("ARRAY X FAIL ")
+        ok = false
+    }
+
+    if party[1].y == 14 {
+        print("ARRAY Y OK ")
+    } else {
+        print("ARRAY Y FAIL ")
+        ok = false
+    }
+
+    if ok {
+        print("TEST SUCCESSFUL")
+    } else {
+        print("TEST FAILED")
+    }
+}

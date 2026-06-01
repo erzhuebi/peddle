@@ -13,6 +13,7 @@ The complete Peddle Language Guide.
 5. [Examples](05-examples.md)
 6. [Optimization, Memory, and Workflow](06-optimization-memory-and-workflow.md)
 7. [Networking and Terminal](07-networking-and-terminal.md)
+8. [File Handling](08-file-handling.md)
 
 ## Complete Guide
 
@@ -118,6 +119,7 @@ Peddle supports single-line comments using `#`.
 | bool | 1 byte | boolean |
 | char | 1 byte | character |
 | int | 2 bytes | signed 16-bit |
+| uint | 2 bytes | unsigned 16-bit |
 
 ---
 
@@ -200,6 +202,28 @@ Binary literals start with `%`. The same `%` character is also used for modulo w
 mask = %1111_0000
 x = 10 % 3
 ```
+
+---
+
+# Unsigned 16-bit Integers
+
+`uint` stores values from `0` to `65535`. Use it for C64 addresses, handles,
+bitmasks, and other values where the high bit must not be treated as a sign bit.
+
+```peddle
+var border uint
+var addr uint
+var x byte
+
+border = 0xd020
+addr = &x
+```
+
+`uint` comparisons use unsigned ordering. For example, `65535` is greater than
+`32768` when both values are held in `uint` variables.
+
+Integer literals and constants can be assigned to `uint` when they fit this
+range. Signed `int` variables are not implicitly assignable to `uint`.
 
 ---
 
@@ -602,6 +626,25 @@ fn add(a int, b int) int {
 }
 ```
 
+Scalars such as `byte`, `bool`, `char`, and `int` are passed by value.
+
+Arrays are passed by reference. A function parameter such as `buffer byte[128]`
+refers to the caller's array storage, including its capacity and runtime length.
+Mutating the array inside the function mutates the caller's array.
+
+```peddle
+fn push(buffer byte[4], value byte) {
+    append(buffer, value)
+}
+
+fn main() {
+    var data byte[4]
+
+    push(data, 7)
+    # len(data) is now 1 and data[0] is 7
+}
+```
+
 ---
 
 ## Calling Functions
@@ -653,6 +696,33 @@ Internally arrays store:
 1. capacity
 2. current runtime length
 3. data buffer
+
+---
+
+# Arrays As Function Parameters
+
+Array parameters are passed by reference. The callee receives the caller's array
+header and data buffer, not a copy.
+
+```peddle
+fn push(nums byte[4], value byte) {
+    append(nums, value)
+}
+
+fn main() {
+    var nums byte[4]
+
+    push(nums, 10)
+    push(nums, 20)
+
+    # len(nums) is 2
+    # nums[0] is 10
+    # nums[1] is 20
+}
+```
+
+The parameter type includes the array capacity, so `byte[4]` and `byte[8]` are
+different parameter types.
 
 ---
 
@@ -1114,11 +1184,18 @@ append(players[0].name, "!")
 | `topetscii(buffer)` | convert a `char[]` from ASCII-style text to C64/PETSCII-style text |
 | `netconnect(addr, port)` | connect using the C64 Ultimate modem simulator |
 | `netbuffer(backlog)` | reserve a byte array as network receive backlog |
+| `netavailable()` | return bytes currently queued in the network receive backlog |
 | `netread(buffer, max, timeoutTicks)` | read available network bytes |
 | `netreadlf(buffer, max, timeoutTicks)` | read network bytes until CR or LF |
 | `netwrite(buffer, len)` | write network bytes |
 | `netclose()` | close the current network connection |
 | `netconnected()` | check whether the global network connection is open |
+| `fileload(name, buffer, device)` | load a whole file into an array |
+| `filesave(name, buffer, len, device)` | save array bytes to a file |
+| `fileopen(name, mode, device)` | open a file stream |
+| `fileread(handle, buffer, max)` | read bytes from a file stream |
+| `filewrite(handle, buffer, len)` | write bytes to a file stream |
+| `fileclose(handle)` | close a file stream |
 
 ---
 
@@ -1825,6 +1902,7 @@ The current network API uses one global connection:
 ```peddle
 netconnect(addr char[], port int) bool
 netbuffer(backlog byte[])
+netavailable() int
 netread(buffer byte[]|char[], max int, timeoutTicks int) int
 netreadlf(buffer byte[]|char[], max int, timeoutTicks int) bool
 netwrite(buffer byte[]|char[], len int) int
@@ -1883,6 +1961,24 @@ netbuffer(backlog)
 ```
 
 After this call, the array belongs to the network runtime. Do not use it for application data.
+
+---
+
+# netavailable()
+
+Return the number of bytes currently queued in the Peddle runtime network backlog.
+
+```peddle
+var n int
+
+n = netavailable()
+```
+
+`netavailable()` reports only bytes already stored in the backlog configured with `netbuffer(backlog)`. It does not include bytes still waiting inside the C64 Ultimate modem/TCP layer.
+
+If `netbuffer(backlog)` has not been called, `netavailable()` returns `0`.
+
+`netclose()` clears the runtime backlog. Read any wanted queued bytes before closing the connection.
 
 ---
 
@@ -2742,6 +2838,7 @@ This means:
 
 - array storage becomes part of the binary
 - large arrays increase PRG size
+- array parameters store only a reference to the caller's array
 - no heap allocator exists yet
 
 Future plans include:
@@ -2884,6 +2981,7 @@ This chapter documents the public Peddle network builtins, the reference Python 
 ```peddle
 netconnect(addr char[], port int) bool
 netbuffer(backlog byte[])
+netavailable() int
 netread(buffer byte[]|char[], max int, timeoutTicks int) int
 netreadlf(buffer byte[]|char[], max int, timeoutTicks int) bool
 netwrite(buffer byte[]|char[], len int) int
@@ -2899,11 +2997,29 @@ The C64 Ultimate modem simulator is accessed through a SwiftLink/6551 ACIA-compa
 
 `netbuffer(backlog)` reserves a caller-owned `byte[]` as exclusive network receive backlog storage.
 
+`netavailable()` returns how many bytes are currently queued in that Peddle runtime backlog.
+
 `netwrite(buffer, len)` writes bytes from a `byte[]` or `char[]` buffer.
 
-`netclose()` closes the current connection.
+`netclose()` closes the current connection and clears the runtime backlog.
 
 `netconnected()` returns whether the global connection is currently open.
+
+---
+
+# netavailable()
+
+```peddle
+n = netavailable()
+```
+
+`netavailable()` returns the number of bytes currently queued in the Peddle runtime backlog configured with `netbuffer(backlog)`.
+
+It does not include bytes still waiting inside the C64 Ultimate modem/TCP layer. Those bytes become visible to Peddle only when `netread()` or `netreadlf()` services the ACIA.
+
+If `netbuffer(backlog)` has not been called, `netavailable()` returns `0`.
+
+`netclose()` clears the runtime backlog, so read wanted bytes before closing the connection.
 
 ---
 
@@ -3067,4 +3183,126 @@ Those coordinate bytes are not ASCII characters. ASCII `"4"` and `"9"` would be 
 Interactive programs such as `top` need a live terminal. They do not fit a command/response model because they constantly redraw the screen using terminal control sequences.
 
 The reference server handles the modern terminal side. The C64 only handles the compact TEP command stream.
+
+
+---
+
+# File Handling
+
+Peddle includes a first file API built on the C64 KERNAL file routines.
+
+The V1 API is:
+
+```peddle
+n = fileload(name, buffer, device)
+n = filesave(name, buffer, len, device)
+
+f = fileopen(name, mode, device)
+n = fileread(f, buffer, max)
+n = filewrite(f, buffer, len)
+fileclose(f)
+```
+
+`name` and `mode` can be `char[]` values or string literals. File buffers can be `byte[]` or `char[]`.
+
+The `device` is usually `8` for the first disk device.
+
+V1 uses one normal logical file number internally. Open one file stream at a time, and call `fileclose(f)` before opening another stream.
+
+---
+
+# Whole-File Helpers
+
+```peddle
+var name char[32]
+var data char[128]
+var n int
+
+copy(name, "SAVEGAME")
+
+n = fileload(name, data, 8)
+```
+
+`fileload(name, buffer, device)` opens `name` for reading, reads up to `size(buffer)` bytes, closes the file, updates `len(buffer)`, and returns the number of bytes loaded.
+
+It returns `-1` when the KERNAL open/read path reports an obvious failure.
+
+```peddle
+var name char[32]
+var data char[128]
+var n int
+
+copy(name, "SAVEGAME")
+copy(data, "HELLO")
+
+n = filesave(name, data, len(data), 8)
+```
+
+`filesave(name, buffer, len, device)` opens `name` for writing, writes up to `min(size(buffer), len)` bytes, closes the file, and returns the number of bytes written.
+
+Write mode uses CBM DOS replace-style naming internally, so saving can replace an existing file with the same name on compatible devices.
+
+---
+
+# Streaming Files
+
+```peddle
+var name char[32]
+var data char[128]
+var f byte
+var n int
+
+copy(name, "LOGFILE")
+copy(data, "HELLO")
+
+f = fileopen(name, "w", 8)
+if f != 0 {
+    n = filewrite(f, data, len(data))
+    fileclose(f)
+}
+```
+
+`fileopen(name, mode, device)` opens a file stream and returns a handle. It returns `0` on failure.
+
+Modes:
+
+- `"r"` opens for reading
+- `"w"` opens for writing
+
+`filewrite(handle, buffer, len)` writes up to `min(size(buffer), len)` bytes and returns the number of bytes written.
+
+```peddle
+var name char[32]
+var data char[128]
+var f byte
+var n int
+
+copy(name, "LOGFILE")
+
+f = fileopen(name, "r", 8)
+if f != 0 {
+    n = fileread(f, data, size(data))
+    fileclose(f)
+}
+```
+
+`fileread(handle, buffer, max)` clears the destination array length, reads up to `min(size(buffer), max)` bytes, updates `len(buffer)`, and returns the number of bytes read.
+
+`fileclose(handle)` closes the stream and clears KERNAL channels.
+
+---
+
+# Notes
+
+The implementation uses C64 KERNAL calls such as `SETLFS`, `SETNAM`, `OPEN`, `CHKIN`, `CHKOUT`, `CHRIN`, `CHROUT`, `READST`, `CLOSE`, and `CLRCHN`.
+
+This is sequential file access. Random access inside a file is not part of V1.
+
+For game assets, maps, levels, and savegames, prefer `fileload()` and `filesave()` unless you specifically need streaming.
+
+See:
+
+```text
+examples/file_save_load.ped
+```
 

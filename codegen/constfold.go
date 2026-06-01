@@ -66,6 +66,9 @@ func (g *Generator) foldConstUnary(expr *ast.UnaryExpr, target ast.Type) (int, b
 		}
 		return normalizeConstValue(0, target), true, nil
 
+	case "&":
+		return 0, false, nil
+
 	default:
 		return 0, false, fmt.Errorf("unsupported unary operator %q", expr.Op)
 	}
@@ -176,7 +179,7 @@ func evalConstBinary(op string, left int, right int, target ast.Type) (int, erro
 }
 
 func (g *Generator) emitConstExprTo(value int, target ast.Type) {
-	if target.Name == "int" {
+	if isWordType(target) {
 		g.emit(fmt.Sprintf("    lda #<%d", value))
 		g.emit("    sta ZP_TMP0")
 		g.emit(fmt.Sprintf("    lda #>%d", value))
@@ -200,11 +203,14 @@ func normalizeConstValue(v int, target ast.Type) int {
 	if target.Name == "int" {
 		return sign16(v)
 	}
+	if target.Name == "uint" {
+		return v & 0xffff
+	}
 	return v & 0xff
 }
 
 func constWidth(target ast.Type) int {
-	if target.Name == "int" {
+	if target.Name == "int" || target.Name == "uint" {
 		return 16
 	}
 	return 8

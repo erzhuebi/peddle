@@ -121,7 +121,7 @@ func (p *Parser) parseStruct() *ast.StructDecl {
 			return nil
 		}
 
-		typ := p.parseType()
+		typ := p.parseType(false)
 
 		s.Fields = append(s.Fields, ast.FieldDecl{
 			Name: name,
@@ -158,7 +158,7 @@ func (p *Parser) parseFunction() *ast.FunctionDecl {
 
 	if p.peek.Type == lexer.IDENT {
 		p.nextToken()
-		fn.ReturnType = p.parseType()
+		fn.ReturnType = p.parseType(false)
 	}
 
 	if !p.expectPeek(lexer.LBRACE) {
@@ -195,11 +195,13 @@ func (p *Parser) parseParams() []ast.Param {
 
 		name := p.cur.Literal
 
-		if !p.expectPeek(lexer.IDENT) {
+		if p.peek.Type == lexer.ASTERISK {
+			p.nextToken()
+		} else if !p.expectPeek(lexer.IDENT) {
 			return params
 		}
 
-		typ := p.parseType()
+		typ := p.parseType(true)
 
 		params = append(params, ast.Param{
 			Name: name,
@@ -258,7 +260,7 @@ func (p *Parser) parseVarDecls() []*ast.VarDecl {
 		return nil
 	}
 
-	typ := p.parseType()
+	typ := p.parseType(false)
 
 	var decls []*ast.VarDecl
 
@@ -272,13 +274,27 @@ func (p *Parser) parseVarDecls() []*ast.VarDecl {
 	return decls
 }
 
-func (p *Parser) parseType() ast.Type {
+func (p *Parser) parseType(allowPointer bool) ast.Type {
+	isPointer := false
+
+	if p.cur.Type == lexer.ASTERISK {
+		if !allowPointer {
+			p.errorf("pointer types are only supported for parameters")
+			return ast.Type{}
+		}
+
+		isPointer = true
+		if !p.expectPeek(lexer.IDENT) {
+			return ast.Type{}
+		}
+	}
+
 	if p.cur.Type != lexer.IDENT {
 		p.errorf("expected type name, got %s", p.cur.Type)
 		return ast.Type{}
 	}
 
-	t := ast.Type{Name: p.cur.Literal}
+	t := ast.Type{Name: p.cur.Literal, IsPointer: isPointer}
 
 	if p.peek.Type == lexer.LBRACK {
 		p.nextToken()
@@ -657,6 +673,13 @@ func (p *Parser) parseExpression(precedence int) ast.Expr {
 		p.nextToken()
 		left = &ast.UnaryExpr{
 			Op:   "!",
+			Expr: p.parseExpression(PREFIX),
+		}
+
+	case lexer.AMP:
+		p.nextToken()
+		left = &ast.UnaryExpr{
+			Op:   "&",
 			Expr: p.parseExpression(PREFIX),
 		}
 

@@ -78,6 +78,9 @@ func (c *Checker) checkExpr(scope map[string]ast.Type, e ast.Expr) (ast.Type, er
 		if !ok {
 			return ast.Type{}, fmt.Errorf("unknown variable %q", expr.Name)
 		}
+		if isScalarPointerType(t) {
+			return pointerPointeeType(t), nil
+		}
 		return t, nil
 
 	case *ast.IndexExpr:
@@ -93,8 +96,8 @@ func (c *Checker) checkExpr(scope map[string]ast.Type, e ast.Expr) (ast.Type, er
 		if err != nil {
 			return ast.Type{}, err
 		}
-		if idxType.Name != "byte" && idxType.Name != "int" {
-			return ast.Type{}, fmt.Errorf("array index must be byte or int")
+		if idxType.Name != "byte" && idxType.Name != "int" && idxType.Name != "uint" {
+			return ast.Type{}, fmt.Errorf("array index must be byte, int, or uint")
 		}
 
 		return ast.Type{Name: t.Name}, nil
@@ -112,8 +115,8 @@ func (c *Checker) checkExpr(scope map[string]ast.Type, e ast.Expr) (ast.Type, er
 		if err != nil {
 			return ast.Type{}, err
 		}
-		if idxType.Name != "byte" && idxType.Name != "int" {
-			return ast.Type{}, fmt.Errorf("array index must be byte or int")
+		if idxType.Name != "byte" && idxType.Name != "int" && idxType.Name != "uint" {
+			return ast.Type{}, fmt.Errorf("array index must be byte, int, or uint")
 		}
 
 		elemType := ast.Type{Name: t.Name}
@@ -139,6 +142,10 @@ func (c *Checker) checkExpr(scope map[string]ast.Type, e ast.Expr) (ast.Type, er
 		return ast.Type{Name: "char", IsArray: true, ArrayLen: len(expr.Value)}, nil
 
 	case *ast.UnaryExpr:
+		if expr.Op == "&" {
+			return c.checkAddressOf(scope, expr.Expr)
+		}
+
 		t, err := c.checkExpr(scope, expr.Expr)
 		if err != nil {
 			return ast.Type{}, err
@@ -149,7 +156,7 @@ func (c *Checker) checkExpr(scope map[string]ast.Type, e ast.Expr) (ast.Type, er
 			if !isNumeric(t) {
 				return ast.Type{}, fmt.Errorf("unary - requires numeric operand")
 			}
-			if t.Name == "int" {
+			if t.Name == "int" || t.Name == "uint" {
 				return ast.Type{Name: "int"}, nil
 			}
 			return ast.Type{Name: "byte"}, nil
@@ -180,19 +187,13 @@ func (c *Checker) checkExpr(scope map[string]ast.Type, e ast.Expr) (ast.Type, er
 			if !isNumeric(left) || !isNumeric(right) {
 				return ast.Type{}, fmt.Errorf("operator %s requires numeric operands", expr.Op)
 			}
-			if left.Name == "int" || right.Name == "int" {
-				return ast.Type{Name: "int"}, nil
-			}
-			return ast.Type{Name: "byte"}, nil
+			return numericResultType(left, right), nil
 
 		case "&", "|", "^":
 			if !isNumeric(left) || !isNumeric(right) {
 				return ast.Type{}, fmt.Errorf("operator %s requires numeric operands", expr.Op)
 			}
-			if left.Name == "int" || right.Name == "int" {
-				return ast.Type{Name: "int"}, nil
-			}
-			return ast.Type{Name: "byte"}, nil
+			return numericResultType(left, right), nil
 
 		case "==", "!=", "<", "<=", ">", ">=":
 			if !compatibleComparable(left, right) {
@@ -219,7 +220,7 @@ func (c *Checker) checkFunction(fn *ast.FunctionDecl) error {
 		if _, exists := scope[param.Name]; exists {
 			return fmt.Errorf("duplicate parameter %q", param.Name)
 		}
-		if err := c.checkType(param.Type); err != nil {
+		if err := c.checkParamType(param.Type); err != nil {
 			return fmt.Errorf("parameter %q: %w", param.Name, err)
 		}
 		scope[param.Name] = param.Type
@@ -251,8 +252,32 @@ func (c *Checker) checkFunction(fn *ast.FunctionDecl) error {
 }
 
 func (c *Checker) checkType(t ast.Type) error {
+	return c.checkTypeFor(t, false)
+}
+
+func (c *Checker) checkParamType(t ast.Type) error {
+	return c.checkTypeFor(t, true)
+}
+
+func (c *Checker) checkTypeFor(t ast.Type, allowPointer bool) error {
+	if t.IsPointer {
+		if !allowPointer {
+			return fmt.Errorf("pointer types are only supported for parameters")
+		}
+		if t.IsArray {
+			return fmt.Errorf("pointer parameters cannot point to array types")
+		}
+		if isScalarTypeName(t.Name) {
+			return nil
+		}
+		if _, ok := c.structs[t.Name]; !ok {
+			return fmt.Errorf("pointer parameters must point to scalar or struct types")
+		}
+		return nil
+	}
+
 	switch t.Name {
-	case "byte", "char", "bool", "int":
+	case "byte", "char", "bool", "int", "uint":
 		if t.IsArray && t.ArrayLen <= 0 {
 			return fmt.Errorf("array length must be positive")
 		}
@@ -275,14 +300,20 @@ func (c *Checker) checkStmt(scope map[string]ast.Type, fn *ast.FunctionDecl, s a
 		if err != nil {
 			return err
 		}
+		if targetType.IsPointer {
+			return fmt.Errorf("cannot assign to pointer parameter")
+		}
 
 		valueType, err := c.checkExpr(scope, stmt.Value)
 		if err != nil {
 			return err
 		}
 
-		if !sameType(targetType, valueType) && !canAssign(targetType, valueType) {
+		if !sameType(targetType, valueType) && !c.canAssignExpr(targetType, valueType, stmt.Value) {
 			return fmt.Errorf("cannot assign %s to %s", valueType.String(), targetType.String())
+		}
+		if err := c.checkAssignmentValue(targetType, stmt.Value); err != nil {
+			return err
 		}
 
 	case *ast.CallStmt:
@@ -291,9 +322,12 @@ func (c *Checker) checkStmt(scope map[string]ast.Type, fn *ast.FunctionDecl, s a
 		}
 
 	case *ast.WhileStmt:
-		_, err := c.checkExpr(scope, stmt.Cond)
+		condType, err := c.checkExpr(scope, stmt.Cond)
 		if err != nil {
 			return err
+		}
+		if condType.IsPointer {
+			return fmt.Errorf("pointer value cannot be used as condition")
 		}
 
 		for _, inner := range stmt.Body {
@@ -334,9 +368,12 @@ func (c *Checker) checkStmt(scope map[string]ast.Type, fn *ast.FunctionDecl, s a
 				return fmt.Errorf("cannot assign for loop end %s to %s", endType.String(), counterType.String())
 			}
 		} else if stmt.Cond != nil {
-			_, err := c.checkExpr(scope, stmt.Cond)
+			condType, err := c.checkExpr(scope, stmt.Cond)
 			if err != nil {
 				return err
+			}
+			if condType.IsPointer {
+				return fmt.Errorf("pointer value cannot be used as condition")
 			}
 		}
 
@@ -347,9 +384,12 @@ func (c *Checker) checkStmt(scope map[string]ast.Type, fn *ast.FunctionDecl, s a
 		}
 
 	case *ast.IfStmt:
-		_, err := c.checkExpr(scope, stmt.Cond)
+		condType, err := c.checkExpr(scope, stmt.Cond)
 		if err != nil {
 			return err
+		}
+		if condType.IsPointer {
+			return fmt.Errorf("pointer value cannot be used as condition")
 		}
 
 		for _, inner := range stmt.Then {
@@ -381,8 +421,11 @@ func (c *Checker) checkStmt(scope map[string]ast.Type, fn *ast.FunctionDecl, s a
 			return err
 		}
 
-		if !sameType(fn.ReturnType, valueType) && !canAssign(fn.ReturnType, valueType) {
+		if !sameType(fn.ReturnType, valueType) && !c.canAssignExpr(fn.ReturnType, valueType, stmt.Value) {
 			return fmt.Errorf("cannot return %s from function returning %s", valueType.String(), fn.ReturnType.String())
+		}
+		if err := c.checkAssignmentValue(fn.ReturnType, stmt.Value); err != nil {
+			return err
 		}
 
 	case *ast.BreakStmt:
@@ -409,6 +452,9 @@ func (c *Checker) checkLValue(scope map[string]ast.Type, lv ast.LValue) (ast.Typ
 		if !ok {
 			return ast.Type{}, fmt.Errorf("unknown variable %q", v.Name)
 		}
+		if isScalarPointerType(t) {
+			return pointerPointeeType(t), nil
+		}
 		return t, nil
 
 	case *ast.IndexLValue:
@@ -424,8 +470,8 @@ func (c *Checker) checkLValue(scope map[string]ast.Type, lv ast.LValue) (ast.Typ
 		if err != nil {
 			return ast.Type{}, err
 		}
-		if idxType.Name != "byte" && idxType.Name != "int" {
-			return ast.Type{}, fmt.Errorf("array index must be byte or int")
+		if idxType.Name != "byte" && idxType.Name != "int" && idxType.Name != "uint" {
+			return ast.Type{}, fmt.Errorf("array index must be byte, int, or uint")
 		}
 
 		return ast.Type{Name: t.Name}, nil
@@ -443,8 +489,8 @@ func (c *Checker) checkLValue(scope map[string]ast.Type, lv ast.LValue) (ast.Typ
 		if err != nil {
 			return ast.Type{}, err
 		}
-		if idxType.Name != "byte" && idxType.Name != "int" {
-			return ast.Type{}, fmt.Errorf("array index must be byte or int")
+		if idxType.Name != "byte" && idxType.Name != "int" && idxType.Name != "uint" {
+			return ast.Type{}, fmt.Errorf("array index must be byte, int, or uint")
 		}
 
 		elemType := ast.Type{Name: t.Name}
@@ -558,9 +604,12 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 		if len(args) != 1 {
 			return ast.Type{}, fmt.Errorf("print expects one argument")
 		}
-		_, err := c.checkExpr(scope, args[0])
+		t, err := c.checkExpr(scope, args[0])
 		if err != nil {
 			return ast.Type{}, err
+		}
+		if t.IsPointer {
+			return ast.Type{}, fmt.Errorf("print argument cannot be pointer")
 		}
 		return ast.Type{}, nil
 
@@ -1161,8 +1210,11 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 		}
 
 		elemType := ast.Type{Name: dst.Name}
-		if !sameType(elemType, valueType) && !canAssign(elemType, valueType) {
+		if !sameType(elemType, valueType) && !c.canAssignExpr(elemType, valueType, args[1]) {
 			return ast.Type{}, fmt.Errorf("append value cannot be %s for %s[]", valueType.String(), dst.Name)
+		}
+		if err := c.checkAssignmentValue(elemType, args[1]); err != nil {
+			return ast.Type{}, err
 		}
 
 		return ast.Type{}, nil
@@ -1220,8 +1272,11 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 		}
 
 		elemType := ast.Type{Name: dst.Name}
-		if !sameType(elemType, valueType) && !canAssign(elemType, valueType) {
+		if !sameType(elemType, valueType) && !c.canAssignExpr(elemType, valueType, args[1]) {
 			return ast.Type{}, fmt.Errorf("fill value cannot be %s for %s[]", valueType.String(), dst.Name)
+		}
+		if err := c.checkAssignmentValue(elemType, args[1]); err != nil {
+			return ast.Type{}, err
 		}
 
 		return ast.Type{}, nil
@@ -1253,21 +1308,105 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 	}
 
 	for i, arg := range args {
+		paramType := fn.Params[i].Type
+		if paramType.IsPointer {
+			if err := c.checkPointerArgument(scope, paramType, arg); err != nil {
+				return ast.Type{}, fmt.Errorf("argument %d to %s: %w", i+1, name, err)
+			}
+			continue
+		}
+
 		argType, err := c.checkExpr(scope, arg)
 		if err != nil {
 			return ast.Type{}, err
 		}
 
-		paramType := fn.Params[i].Type
-		if !sameType(paramType, argType) && !canAssign(paramType, argType) {
+		if paramType.IsArray {
+			switch arg.(type) {
+			case *ast.IdentExpr, *ast.FieldExpr, *ast.IndexFieldExpr, *ast.CallExpr:
+			default:
+				return ast.Type{}, fmt.Errorf("argument %d to %s: array parameter requires array storage", i+1, name)
+			}
+			if !sameType(paramType, argType) {
+				return ast.Type{}, fmt.Errorf("argument %d to %s: cannot pass %s as %s", i+1, name, argType.String(), paramType.String())
+			}
+			continue
+		}
+
+		if !sameType(paramType, argType) && !c.canAssignExpr(paramType, argType, arg) {
 			return ast.Type{}, fmt.Errorf("argument %d to %s: cannot pass %s as %s", i+1, name, argType.String(), paramType.String())
+		}
+		if err := c.checkAssignmentValue(paramType, arg); err != nil {
+			return ast.Type{}, fmt.Errorf("argument %d to %s: %w", i+1, name, err)
 		}
 	}
 
 	return fn.ReturnType, nil
 }
 
+func (c *Checker) checkPointerArgument(scope map[string]ast.Type, paramType ast.Type, arg ast.Expr) error {
+	u, ok := arg.(*ast.UnaryExpr)
+	if !ok || u.Op != "&" {
+		return fmt.Errorf("pointer parameter requires explicit &")
+	}
+
+	targetType, err := c.checkPointerArgumentTarget(scope, u.Expr)
+	if err != nil {
+		return err
+	}
+
+	want := pointerPointeeType(paramType)
+	if !sameType(want, targetType) {
+		return fmt.Errorf("cannot pass &%s as %s", targetType.String(), paramType.String())
+	}
+
+	return nil
+}
+
+func (c *Checker) checkPointerArgumentTarget(scope map[string]ast.Type, e ast.Expr) (ast.Type, error) {
+	switch expr := e.(type) {
+	case *ast.IdentExpr:
+		t, ok := scope[expr.Name]
+		if !ok {
+			return ast.Type{}, fmt.Errorf("unknown variable %q", expr.Name)
+		}
+		if t.IsPointer {
+			return ast.Type{}, fmt.Errorf("cannot take address of pointer parameter")
+		}
+		if t.IsArray {
+			return ast.Type{}, fmt.Errorf("cannot pass array storage as pointer parameter")
+		}
+		return t, nil
+
+	case *ast.IndexExpr:
+		t, ok := scope[expr.Name]
+		if !ok {
+			return ast.Type{}, fmt.Errorf("unknown variable %q", expr.Name)
+		}
+		if !t.IsArray {
+			return ast.Type{}, fmt.Errorf("%q is not an array", expr.Name)
+		}
+
+		idxType, err := c.checkExpr(scope, expr.Index)
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if idxType.Name != "byte" && idxType.Name != "int" && idxType.Name != "uint" {
+			return ast.Type{}, fmt.Errorf("array index must be byte, int, or uint")
+		}
+
+		return ast.Type{Name: t.Name}, nil
+
+	default:
+		return ast.Type{}, fmt.Errorf("can only take address of variables or array elements")
+	}
+}
+
 func (c *Checker) fieldType(base ast.Type, field string) (ast.Type, error) {
+	if base.IsPointer {
+		base = ast.Type{Name: base.Name}
+	}
+
 	if base.IsArray {
 		return ast.Type{}, fmt.Errorf("cannot access field %q on array type %s", field, base.String())
 	}
@@ -1286,11 +1425,104 @@ func (c *Checker) fieldType(base ast.Type, field string) (ast.Type, error) {
 	return ast.Type{}, fmt.Errorf("type %s has no field %q", base.Name, field)
 }
 
+func (c *Checker) checkAddressOf(scope map[string]ast.Type, e ast.Expr) (ast.Type, error) {
+	switch expr := e.(type) {
+	case *ast.IdentExpr:
+		t, ok := scope[expr.Name]
+		if !ok {
+			return ast.Type{}, fmt.Errorf("unknown variable %q", expr.Name)
+		}
+		if t.IsPointer {
+			return ast.Type{}, fmt.Errorf("cannot take address of pointer parameter")
+		}
+		if t.IsArray {
+			return ast.Type{Name: "uint"}, nil
+		}
+		if _, ok := c.structs[t.Name]; !ok {
+			return ast.Type{Name: "uint"}, nil
+		}
+		return ast.Type{Name: t.Name, IsPointer: true}, nil
+
+	case *ast.IndexExpr:
+		t, ok := scope[expr.Name]
+		if !ok {
+			return ast.Type{}, fmt.Errorf("unknown variable %q", expr.Name)
+		}
+		if !t.IsArray {
+			return ast.Type{}, fmt.Errorf("%q is not an array", expr.Name)
+		}
+
+		idxType, err := c.checkExpr(scope, expr.Index)
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if idxType.Name != "byte" && idxType.Name != "int" && idxType.Name != "uint" {
+			return ast.Type{}, fmt.Errorf("array index must be byte, int, or uint")
+		}
+
+		if _, ok := c.structs[t.Name]; !ok {
+			return ast.Type{Name: "uint"}, nil
+		}
+		return ast.Type{Name: t.Name, IsPointer: true}, nil
+
+	default:
+		return ast.Type{}, fmt.Errorf("can only take address of variables or array elements")
+	}
+}
+
 func sameType(a, b ast.Type) bool {
-	return a.Name == b.Name && a.IsArray == b.IsArray && a.ArrayLen == b.ArrayLen
+	return a.Name == b.Name && a.IsArray == b.IsArray && a.ArrayLen == b.ArrayLen && a.IsPointer == b.IsPointer
+}
+
+func pointerPointeeType(t ast.Type) ast.Type {
+	return ast.Type{Name: t.Name}
+}
+
+func isScalarPointerType(t ast.Type) bool {
+	return t.IsPointer && !t.IsArray && isScalarTypeName(t.Name)
+}
+
+func isScalarTypeName(name string) bool {
+	switch name {
+	case "byte", "char", "bool", "int", "uint":
+		return true
+	default:
+		return false
+	}
+}
+
+func numericResultType(a, b ast.Type) ast.Type {
+	if a.Name == "uint" || b.Name == "uint" {
+		return ast.Type{Name: "uint"}
+	}
+	if a.Name == "int" || b.Name == "int" {
+		return ast.Type{Name: "int"}
+	}
+	return ast.Type{Name: "byte"}
+}
+
+func (c *Checker) canAssignExpr(dst, src ast.Type, expr ast.Expr) bool {
+	if canAssign(dst, src) {
+		return true
+	}
+
+	if dst.Name == "uint" && !dst.IsArray && !dst.IsPointer && src.Name == "int" && !src.IsArray && !src.IsPointer {
+		_, ok := c.constIntValue(expr)
+		return ok
+	}
+
+	return false
 }
 
 func canAssign(dst, src ast.Type) bool {
+	if dst.IsPointer {
+		return false
+	}
+
+	if src.IsPointer {
+		return dst.Name == "uint" && !dst.IsArray
+	}
+
 	if dst.IsArray || src.IsArray {
 		if dst.Name == "char" && dst.IsArray && src.Name == "char" && src.IsArray {
 			return src.ArrayLen <= dst.ArrayLen
@@ -1302,16 +1534,20 @@ func canAssign(dst, src ast.Type) bool {
 		return true
 	}
 
-	if dst.Name == "byte" && src.Name == "int" {
+	if dst.Name == "uint" && (src.Name == "byte" || src.Name == "char" || src.Name == "bool") {
+		return true
+	}
+
+	if dst.Name == "byte" && (src.Name == "int" || src.Name == "uint") {
 		// Allow explicit low-byte truncation. Warnings/casts may be added later.
 		return true
 	}
 
-	if dst.Name == "char" && src.Name == "int" {
+	if dst.Name == "char" && (src.Name == "int" || src.Name == "uint") {
 		return true
 	}
 
-	if dst.Name == "bool" && src.Name == "int" {
+	if dst.Name == "bool" && (src.Name == "int" || src.Name == "uint") {
 		// bool is represented as one byte: 0 = false, non-zero = true.
 		return true
 	}
@@ -1320,7 +1556,7 @@ func canAssign(dst, src ast.Type) bool {
 }
 
 func isNumeric(t ast.Type) bool {
-	return !t.IsArray && (t.Name == "byte" || t.Name == "char" || t.Name == "int" || t.Name == "bool")
+	return !t.IsPointer && !t.IsArray && isScalarTypeName(t.Name)
 }
 
 func compatibleComparable(a, b ast.Type) bool {
@@ -1328,4 +1564,122 @@ func compatibleComparable(a, b ast.Type) bool {
 		return false
 	}
 	return isNumeric(a) && isNumeric(b)
+}
+
+func (c *Checker) checkAssignmentValue(dst ast.Type, expr ast.Expr) error {
+	if dst.Name != "uint" || dst.IsArray || dst.IsPointer {
+		return nil
+	}
+
+	v, ok := c.constIntValue(expr)
+	if !ok {
+		return nil
+	}
+
+	if v < 0 || v > 65535 {
+		return fmt.Errorf("uint value %d out of range 0..65535", v)
+	}
+
+	return nil
+}
+
+func (c *Checker) constIntValue(expr ast.Expr) (int, bool) {
+	switch e := expr.(type) {
+	case *ast.NumberExpr:
+		var v int
+		if _, err := fmt.Sscanf(e.Value, "%d", &v); err != nil {
+			return 0, false
+		}
+		return v, true
+
+	case *ast.CharExpr:
+		var v int
+		if _, err := fmt.Sscanf(e.Value, "%d", &v); err != nil {
+			return 0, false
+		}
+		return v, true
+
+	case *ast.BoolExpr:
+		if e.Value {
+			return 1, true
+		}
+		return 0, true
+
+	case *ast.IdentExpr:
+		cn, ok := c.constants[e.Name]
+		if !ok {
+			return 0, false
+		}
+		var v int
+		if _, err := fmt.Sscanf(cn.Value, "%d", &v); err != nil {
+			return 0, false
+		}
+		return v, true
+
+	case *ast.UnaryExpr:
+		v, ok := c.constIntValue(e.Expr)
+		if !ok {
+			return 0, false
+		}
+		switch e.Op {
+		case "-":
+			return -v, true
+		case "!":
+			if v == 0 {
+				return 1, true
+			}
+			return 0, true
+		default:
+			return 0, false
+		}
+
+	case *ast.BinaryExpr:
+		left, ok := c.constIntValue(e.Left)
+		if !ok {
+			return 0, false
+		}
+		right, ok := c.constIntValue(e.Right)
+		if !ok {
+			return 0, false
+		}
+
+		switch e.Op {
+		case "+":
+			return left + right, true
+		case "-":
+			return left - right, true
+		case "*":
+			return left * right, true
+		case "/":
+			if right == 0 {
+				return 0, true
+			}
+			return left / right, true
+		case "%":
+			if right == 0 {
+				return left, true
+			}
+			return left % right, true
+		case "&":
+			return left & right, true
+		case "|":
+			return left | right, true
+		case "^":
+			return left ^ right, true
+		case "<<":
+			if right < 0 {
+				right = 0
+			}
+			return left << right, true
+		case ">>":
+			if right < 0 {
+				right = 0
+			}
+			return left >> right, true
+		default:
+			return 0, false
+		}
+	}
+
+	return 0, false
 }

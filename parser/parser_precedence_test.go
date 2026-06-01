@@ -100,6 +100,11 @@ func TestParserExpressionPrecedence(t *testing.T) {
 			expr: "!done == true",
 			want: "((!done) == true)",
 		},
+		{
+			name: "address-of before call argument",
+			expr: "addr(&player)",
+			want: "addr((&player))",
+		},
 	}
 
 	for _, tt := range tests {

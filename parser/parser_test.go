@@ -216,6 +216,112 @@ fn main() {
 	}
 }
 
+func TestParsePointerParameterAndAddressOfCall(t *testing.T) {
+	prog := parseProgramForTest(t, `
+struct Player {
+    hp byte
+}
+
+fn damage(p *Player) {
+    p.hp = p.hp - 1
+}
+
+fn main() {
+    var player Player
+    damage(&player)
+}
+`)
+
+	if len(prog.Functions) != 2 {
+		t.Fatalf("expected 2 functions, got %d", len(prog.Functions))
+	}
+
+	damage := prog.Functions[0]
+	if len(damage.Params) != 1 {
+		t.Fatalf("expected 1 parameter, got %d", len(damage.Params))
+	}
+	if damage.Params[0].Name != "p" {
+		t.Fatalf("got parameter name %q, want p", damage.Params[0].Name)
+	}
+	if !damage.Params[0].Type.IsPointer || damage.Params[0].Type.Name != "Player" {
+		t.Fatalf("expected *Player parameter, got %#v", damage.Params[0].Type)
+	}
+
+	mainFn := prog.Functions[1]
+	if len(mainFn.Body) != 1 {
+		t.Fatalf("expected 1 main body statement, got %d", len(mainFn.Body))
+	}
+
+	call, ok := mainFn.Body[0].(*ast.CallStmt)
+	if !ok {
+		t.Fatalf("expected CallStmt, got %T", mainFn.Body[0])
+	}
+	if len(call.Args) != 1 {
+		t.Fatalf("expected 1 arg, got %d", len(call.Args))
+	}
+
+	arg, ok := call.Args[0].(*ast.UnaryExpr)
+	if !ok {
+		t.Fatalf("expected address-of UnaryExpr, got %T", call.Args[0])
+	}
+	if arg.Op != "&" {
+		t.Fatalf("got unary op %q, want &", arg.Op)
+	}
+}
+
+func TestParseScalarPointerParameter(t *testing.T) {
+	prog := parseProgramForTest(t, `
+fn bump(x *uint) {
+    x = x + 1
+}
+
+fn main() {
+    var value uint
+    bump(&value)
+}
+`)
+
+	if len(prog.Functions) != 2 {
+		t.Fatalf("expected 2 functions, got %d", len(prog.Functions))
+	}
+
+	bump := prog.Functions[0]
+	if len(bump.Params) != 1 {
+		t.Fatalf("expected 1 parameter, got %d", len(bump.Params))
+	}
+	if !bump.Params[0].Type.IsPointer || bump.Params[0].Type.Name != "uint" {
+		t.Fatalf("expected *uint parameter, got %#v", bump.Params[0].Type)
+	}
+}
+
+func TestParseRejectsPointerVariableType(t *testing.T) {
+	l := lexer.New(`
+fn main() {
+    var p *uint
+}
+`)
+	p := New(l)
+	p.ParseProgram()
+
+	if len(p.Errors()) == 0 {
+		t.Fatalf("expected parser error")
+	}
+}
+
+func TestParseRejectsPointerReturnType(t *testing.T) {
+	l := lexer.New(`
+fn bad() *uint {
+    return 0
+}
+`)
+	p := New(l)
+	p.ParseProgram()
+
+	if len(p.Errors()) == 0 {
+		t.Fatalf("expected parser error")
+	}
+}
+
 func TestParseArrayIndexAssignment(t *testing.T) {
 	prog := parseProgramForTest(t, `
 fn main() {
@@ -260,6 +366,37 @@ fn add(a int, b int) int {
 
 	if fn.ReturnType.Name != "int" {
 		t.Fatalf("got return type %q, want int", fn.ReturnType.Name)
+	}
+}
+
+func TestParseUintType(t *testing.T) {
+	prog := parseProgramForTest(t, `
+fn id(addr uint) uint {
+    var local uint
+    local = addr
+    return local
+}
+`)
+
+	if len(prog.Functions) != 1 {
+		t.Fatalf("expected 1 function, got %d", len(prog.Functions))
+	}
+
+	fn := prog.Functions[0]
+	if len(fn.Params) != 1 {
+		t.Fatalf("expected 1 parameter, got %d", len(fn.Params))
+	}
+	if fn.Params[0].Type.Name != "uint" {
+		t.Fatalf("got parameter type %q, want uint", fn.Params[0].Type.Name)
+	}
+	if fn.ReturnType.Name != "uint" {
+		t.Fatalf("got return type %q, want uint", fn.ReturnType.Name)
+	}
+	if len(fn.Locals) != 1 {
+		t.Fatalf("expected 1 local, got %d", len(fn.Locals))
+	}
+	if fn.Locals[0].Type.Name != "uint" {
+		t.Fatalf("got local type %q, want uint", fn.Locals[0].Type.Name)
 	}
 }
 

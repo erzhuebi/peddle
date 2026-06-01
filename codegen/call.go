@@ -154,11 +154,32 @@ func (g *Generator) genCall(name string, args []ast.Expr) (ast.Type, error) {
 	}
 
 	for i, arg := range args {
+		sym := g.frames[name].Symbols[fn.Params[i].Name]
+
+		if fn.Params[i].Type.IsArray {
+			if err := g.genArrayAddress(arg); err != nil {
+				return ast.Type{}, err
+			}
+
+			g.emit("    lda ZP_PTR0_LO")
+			g.emit("    sta ZP_TMP0")
+			g.emit("    lda ZP_PTR0_HI")
+			g.emit("    sta ZP_TMP1")
+			g.storeAIntoSymbol(sym)
+			continue
+		}
+
+		if fn.Params[i].Type.IsPointer {
+			u, ok := arg.(*ast.UnaryExpr)
+			if !ok || u.Op != "&" {
+				return ast.Type{}, fmt.Errorf("argument %d to %s: pointer parameter requires explicit &", i+1, name)
+			}
+		}
+
 		if err := g.genExprTo(arg, fn.Params[i].Type); err != nil {
 			return ast.Type{}, err
 		}
 
-		sym := g.frames[name].Symbols[fn.Params[i].Name]
 		g.storeAIntoSymbol(sym)
 	}
 

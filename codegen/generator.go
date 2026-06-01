@@ -85,10 +85,11 @@ type Frame struct {
 }
 
 type Symbol struct {
-	SourceName string
-	Label      string
-	Type       ast.Type
-	Size       int
+	SourceName  string
+	Label       string
+	Type        ast.Type
+	Size        int
+	IsReference bool
 }
 
 func New() *Generator {

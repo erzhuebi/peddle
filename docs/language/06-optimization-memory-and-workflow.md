@@ -98,6 +98,7 @@ This means:
 
 - array storage becomes part of the binary
 - large arrays increase PRG size
+- array parameters store only a reference to the caller's array
 - no heap allocator exists yet
 
 Future plans include:
