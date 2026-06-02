@@ -5,3 +5,142 @@
 - added an import mechanism
 - chore: start 0.15.0-dev
 
+## v0.14.0 - 2026-06-02
+
+- chore: start 0.14.0-dev
+- feat: add mem windows
+
+## v0.13.0 - 2026-06-01
+
+- chore: start 0.13.0-dev
+- pointers as function params added, uint added, arrays are references to functions params as default.
+- feat: add multiple return values
+- feat: add multiple return values
+
+## v0.12.0 - 2026-05-28
+
+- chore: start 0.12.0-dev
+- first working terminal server. Tested with ls and top
+- netbuffer added
+- netbuffer added
+- file handling added
+
+## v0.11.0 - 2026-05-26
+
+- chore: start 0.11.0-dev
+- netowrk flush bug when connect removed. debuggin prgs written
+
+## v0.10.0 - 2026-05-26
+
+- chore: start 0.10.0-dev
+- BASIC ROM disabled on startup.
+- deploy script added
+- first net support. Connect is working!
+- network improved, hello world echo server now working with c64u
+- metread works
+- network stack fully working.
+
+## v0.9.0 - 2026-05-25
+
+- chore: start 0.9.0-dev
+- documentation updated
+- for loop added
+- for loop added
+- long branch tests added
+- constant folding added
+
+## v0.8.0 - 2026-05-24
+
+- chore: start 0.8.0-dev
+- timers added, joystick example added
+
+## v0.7.0 - 2026-05-23
+
+- chore: start 0.7.0-dev
+- joystick support added and precedence bug with unary operator fixed
+- precedence bug fixed, joystick example added
+
+## v0.6.0 - 2026-05-23
+
+- chore: start 0.6.0-dev
+- waitkey() and readline() added
+- documentation for waitkey() and readline() added
+
+## v0.5.0 - 2026-05-23
+
+- chore: start 0.5.0-dev
+- boolean literals true and false added
+- boolean literals true and false added to the documentation
+- some ignores
+
+## v0.4.0 - 2026-05-23
+
+- chore: start 0.4.0-dev
+- version added into the compiler binary
+- auto release notes generation
+
+## v0.3.0 - 2026-05-23
+
+- language definition changed: the type for a var or function is not separated by a colon anymore
+- putchar accepts char literals, makefile has now "all" target and all tests are fixed for the new type syntax (without ":")
+- new example ped files
+- cls() fixed for resetting to 0,0; \n newline behaviour fixed.
+- new language features documented
+- putstr() and putstrcolor() added.
+- gotoxy() added
+- putstr and color version is now in the runtime.
+- builtin cleanup
+- put putstr, cls etc as runtime not inline to reduce size.
+- itoa implemented
+- documentation added
+- break and continue added to the language
+- splitted language guide
+- publish wiki script added
+- keyboard input added
+- chore: add versioning
+- chore: ignore macOS metadata files
+- versioning added
+
+## v0.1.0 - 2026-05-09
+
+- Create LICENSE.md
+- Create README.md
+- Update LICENSE.md
+- hello world works!
+- codegen splitted in several files
+- makefile now has demo target to run the hello world
+- bug fixes, language extended (unary operates, etc.) Tests added!
+- tool chain added
+- function return type now indicated by arrow "->"
+- struct code gen added
+- array of structs added
+- struct can have char array
+- struct with char array now working. Added players.ped demo for this.
+- strings now support \n
+- arrays are now with capacity and length
+- Add generic array operations (append, copy, fill, len, size) with a consistent length/capacity model and full support for strings as char[], including struct-array field access. Fix codegen bugs in struct-array assignments and label emission by preserving pointers during index calculations and ensuring all generated labels are valid.
+- new tests added
+- append replaces stradd
+- some files are ignored now.
+- git ignore now in root path
+- ignore improved
+- prg now ignored
+- Update README.md
+- Update README.md
+- strcpy and stradd removed
+- screenshot for docu
+- task list added
+- Stop tracking build artifacts
+- push removed from git
+- clear() for arrays added and strings are not 0 terminated anymore
+- opt param added for size and speed
+- more tests added.
+- compile script added which combines compiler and assembler
+- memory report added
+- compile script which call compiler and assembler and also vice
+- more ignores
+- stage1/3 of new bitwise operators (xor, etc.) completed
+- stage2/3 of operators (bit shift) completed
+- stage3/3 of operators (division and modulo) completed
+- const literals and binary and hex numbers added
+- language guide updated

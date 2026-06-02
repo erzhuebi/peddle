@@ -177,11 +177,7 @@ _write_release_notes:
 		fi; \
 		echo ""; \
 		if [ -f "$(RELEASE_NOTES_FILE)" ]; then \
-			if grep -q '^# Release notes' "$(RELEASE_NOTES_FILE)"; then \
-				awk 'BEGIN{skip=1} /^## /{if (seen){skip=0} else {seen=1; next}} skip==0{print}' "$(RELEASE_NOTES_FILE)"; \
-			else \
-				cat "$(RELEASE_NOTES_FILE)"; \
-			fi; \
+			awk 'NR==1 && $$0 == "# Release notes" {drop_blank=1; next} drop_blank && $$0 == "" {drop_blank=0; next} {drop_blank=0; print}' "$(RELEASE_NOTES_FILE)"; \
 		fi; \
 	} > "$$tmp_notes"; \
 	mv "$$tmp_notes" "$(RELEASE_NOTES_FILE)"
