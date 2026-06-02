@@ -1,5 +1,7 @@
 package ast
 
+import "strconv"
+
 type Program struct {
 	Consts    []*ConstDecl
 	Structs   []*StructDecl
@@ -36,18 +38,25 @@ type Param struct {
 }
 
 type VarDecl struct {
-	Name string
-	Type Type
+	Name         string
+	Type         Type
+	HasAtAddress bool
+	AtAddress    int
 }
 
 type Type struct {
 	Name      string
 	ArrayLen  int
 	IsArray   bool
+	IsMem     bool
 	IsPointer bool
 }
 
 func (t Type) String() string {
+	if t.IsMem {
+		return "mem[" + strconv.Itoa(t.ArrayLen) + "]"
+	}
+
 	s := t.Name
 	if t.IsArray {
 		s += "[]"

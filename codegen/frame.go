@@ -14,7 +14,7 @@ func (g *Generator) buildFrame(fn *ast.FunctionDecl) *Frame {
 
 	for _, p := range fn.Params {
 		size := g.sizeof(p.Type)
-		isReference := p.Type.IsArray
+		isReference := p.Type.IsArray || p.Type.IsMem
 		if isReference {
 			size = 2
 		}
@@ -30,10 +30,12 @@ func (g *Generator) buildFrame(fn *ast.FunctionDecl) *Frame {
 
 	for _, l := range fn.Locals {
 		frame.Symbols[l.Name] = Symbol{
-			SourceName: l.Name,
-			Label:      fn.Name + "_" + l.Name,
-			Type:       l.Type,
-			Size:       g.sizeof(l.Type),
+			SourceName:   l.Name,
+			Label:        fn.Name + "_" + l.Name,
+			Type:         l.Type,
+			Size:         g.sizeof(l.Type),
+			HasAtAddress: l.HasAtAddress,
+			AtAddress:    l.AtAddress,
 		}
 	}
 
@@ -67,6 +69,10 @@ func (g *Generator) resolve(name string) (Symbol, bool) {
 }
 
 func (g *Generator) sizeof(t ast.Type) int {
+	if t.IsMem {
+		return 0
+	}
+
 	if t.IsPointer {
 		return 2
 	}
@@ -98,6 +104,10 @@ func (g *Generator) sizeof(t ast.Type) int {
 func (g *Generator) fieldInfo(base ast.Type, field string) (ast.Type, int, error) {
 	if base.IsPointer {
 		base = ast.Type{Name: base.Name, IsArray: base.IsArray, ArrayLen: base.ArrayLen}
+	}
+
+	if base.IsMem {
+		return ast.Type{}, 0, fmt.Errorf("cannot access field %q on mem type %s", field, base.String())
 	}
 
 	if base.IsArray {

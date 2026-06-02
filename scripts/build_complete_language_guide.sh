@@ -19,7 +19,6 @@ OUT_FILE="$ROOT_DIR/docs/peddle_complete_language_guide.md"
         fi
 
         cat "$file"
-        printf '\n'
         first=0
     done
 } > "$OUT_FILE"

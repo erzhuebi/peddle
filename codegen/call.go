@@ -169,6 +169,15 @@ func (g *Generator) genCall(name string, args []ast.Expr) (ast.Type, error) {
 			continue
 		}
 
+		if fn.Params[i].Type.IsMem {
+			if err := g.genMemAddress(arg); err != nil {
+				return ast.Type{}, err
+			}
+
+			g.storeAIntoSymbol(sym)
+			continue
+		}
+
 		if fn.Params[i].Type.IsPointer {
 			u, ok := arg.(*ast.UnaryExpr)
 			if !ok || u.Op != "&" {

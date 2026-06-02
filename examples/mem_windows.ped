@@ -1,0 +1,86 @@
+fn put(win mem[4], index byte, value byte) {
+    win[index] = value
+}
+
+fn forward(win mem[4]) {
+    put(win, 1, 23)
+}
+
+fn set_byte(x *byte) {
+    x = 99
+}
+
+fn main() {
+    var window mem[4] at $C000
+    var pass bool
+    var addr uint
+    var n int
+
+    pass = true
+
+    window[0] = 7
+    forward(window)
+    set_byte(&window[2])
+    window[3] = window[0] + 1
+
+    if window[0] != 7 {
+        print("FAIL: window[0]\n")
+        pass = false
+    } else {
+        print("OK: window[0]\n")
+    }
+    if window[1] != 23 {
+        print("FAIL: window[1]\n")
+        pass = false
+    } else {
+        print("OK: window[1]\n")
+    }
+    if window[2] != 99 {
+        print("FAIL: window[2]\n")
+        pass = false
+    } else {
+        print("OK: window[2]\n")
+    }
+    if window[3] != 8 {
+        print("FAIL: window[3]\n")
+        pass = false
+    } else {
+        print("OK: window[3]\n")
+    }
+
+    n = len(window)
+    if n != 4 {
+        print("FAIL: len(window)\n")
+        pass = false
+    } else {
+        print("OK: len(window)\n")
+    }
+    n = size(window)
+    if n != 4 {
+        print("FAIL: size(window)\n")
+        pass = false
+    } else {
+        print("OK: size(window)\n")
+    }
+
+    addr = &window
+    if addr != 49152 {
+        print("FAIL: &window\n")
+        pass = false
+    } else {
+        print("OK: &window\n")
+    }
+    addr = &window[2]
+    if addr != 49154 {
+        print("FAIL: &window[2]\n")
+        pass = false
+    } else {
+        print("OK: &window[2]\n")
+    }
+
+    if pass {
+        print("TEST SUCCESSFUL")
+    } else {
+        print("TEST FAILED")
+    }
+}

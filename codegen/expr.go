@@ -85,7 +85,22 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 			return fmt.Errorf("unknown array %q", expr.Name)
 		}
 		if !arraySym.Type.IsArray {
-			return fmt.Errorf("%q is not an array", expr.Name)
+			if !arraySym.Type.IsMem {
+				return fmt.Errorf("%q is not an array or mem", expr.Name)
+			}
+
+			if err := g.genMemIndexToPtr(arraySym, expr.Index); err != nil {
+				return err
+			}
+
+			g.emit("    lda (ZP_PTR0_LO), y")
+			if isWordType(target) {
+				g.emit("    sta ZP_TMP0")
+				g.emit("    lda #0")
+				g.emit("    sta ZP_TMP1")
+				g.usedTmp16 = true
+			}
+			return nil
 		}
 
 		if err := g.genArrayIndexToY(arraySym, expr.Index); err != nil {
@@ -327,6 +342,9 @@ func (g *Generator) genAddressOfTo(e ast.Expr, target ast.Type) error {
 			if sym.Type.IsPointer {
 				return fmt.Errorf("cannot take address of pointer parameter")
 			}
+			if sym.Type.IsMem {
+				return g.genMemBaseToTmp(sym)
+			}
 			if sym.Type.IsArray && sym.IsReference {
 				g.loadSymbol(sym)
 				return nil
@@ -340,7 +358,7 @@ func (g *Generator) genAddressOfTo(e ast.Expr, target ast.Type) error {
 			return nil
 		}
 
-		if sym.Type.IsPointer || sym.Type.IsArray {
+		if sym.Type.IsPointer || sym.Type.IsArray || sym.Type.IsMem {
 			return fmt.Errorf("cannot take address of %s as %s", sym.Type.String(), target.String())
 		}
 		if sym.Type.Name != target.Name {
@@ -363,7 +381,23 @@ func (g *Generator) genAddressOfTo(e ast.Expr, target ast.Type) error {
 			return fmt.Errorf("unknown array %q", expr.Name)
 		}
 		if !arraySym.Type.IsArray {
-			return fmt.Errorf("%q is not an array", expr.Name)
+			if !arraySym.Type.IsMem {
+				return fmt.Errorf("%q is not an array or mem", expr.Name)
+			}
+			if target.Name != "uint" && !(target.IsPointer && target.Name == "byte") {
+				return fmt.Errorf("cannot take address of mem element as %s", target.String())
+			}
+
+			if err := g.genMemIndexToPtr(arraySym, expr.Index); err != nil {
+				return err
+			}
+
+			g.emit("    lda ZP_PTR0_LO")
+			g.emit("    sta ZP_TMP0")
+			g.emit("    lda ZP_PTR0_HI")
+			g.emit("    sta ZP_TMP1")
+			g.usedTmp16 = true
+			return nil
 		}
 		if target.Name == "uint" {
 			if err := g.genUpdateArrayLenFromIndex(arraySym, expr.Index); err != nil {

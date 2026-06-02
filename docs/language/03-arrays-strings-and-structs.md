@@ -116,6 +116,80 @@ n = size(nums)
 
 ---
 
+# Memory Windows
+
+`mem[N] at ADDRESS` declares a fixed byte-addressable memory window. It is for
+C64 memory such as screen RAM, color RAM, hardware registers, or explicit
+buffers.
+
+```peddle
+var screen mem[1000] at $0400
+var color  mem[1000] at $D800
+
+screen[0] = 65
+color[0] = 1
+```
+
+`mem` is not an array. It has no hidden capacity/length header and does not
+claim storage in the program image. Element `0` is exactly the declared address.
+
+```peddle
+var vic mem[47] at $D000
+
+vic[$20] = 0
+```
+
+`len(mem)` and `size(mem)` both return the declared fixed size.
+
+```peddle
+var n int
+
+n = len(screen)
+n = size(screen)
+```
+
+`mem` parameters are passed by reference as a 16-bit base address.
+
+```peddle
+fn clear(buf mem[1000], value byte) {
+    var i int
+
+    for i = 0 to size(buf) - 1 {
+        buf[i] = value
+    }
+}
+
+fn main() {
+    var screen mem[1000] at $0400
+
+    clear(screen, 32)
+}
+```
+
+Use `&mem` to get the base address as `uint`, and `&mem[i]` to get an element
+address. `&mem[i]` can also be passed to `*byte` parameters.
+
+```peddle
+fn set(x *byte) {
+    x = 99
+}
+
+fn main() {
+    var screen mem[1000] at $0400
+    var addr uint
+
+    addr = &screen
+    addr = &screen[10]
+    set(&screen[0])
+}
+```
+
+Array-only operations such as `append()`, `copy()`, `fill()`, file reads, and
+network reads do not accept `mem` in this first pass. Use arrays when you need
+runtime length metadata.
+
+---
+
 # append()
 
 Append values to arrays.

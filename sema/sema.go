@@ -45,6 +45,17 @@ func (c *Checker) Check(p *ast.Program) error {
 		c.structs[s.Name] = s
 	}
 
+	for _, s := range p.Structs {
+		for _, field := range s.Fields {
+			if field.Type.IsMem {
+				return fmt.Errorf("struct %s field %q: mem fields are not supported", s.Name, field.Name)
+			}
+			if err := c.checkType(field.Type); err != nil {
+				return fmt.Errorf("struct %s field %q: %w", s.Name, field.Name, err)
+			}
+		}
+	}
+
 	for _, fn := range p.Functions {
 		if _, exists := c.functions[fn.Name]; exists {
 			return fmt.Errorf("duplicate function %q", fn.Name)
@@ -89,16 +100,18 @@ func (c *Checker) checkExpr(scope map[string]ast.Type, e ast.Expr) (ast.Type, er
 		if !ok {
 			return ast.Type{}, fmt.Errorf("unknown variable %q", expr.Name)
 		}
+		if t.IsMem {
+			if err := c.checkIndexForType(scope, t, expr.Index); err != nil {
+				return ast.Type{}, err
+			}
+			return ast.Type{Name: "byte"}, nil
+		}
 		if !t.IsArray {
 			return ast.Type{}, fmt.Errorf("%q is not an array", expr.Name)
 		}
 
-		idxType, err := c.checkExpr(scope, expr.Index)
-		if err != nil {
+		if err := c.checkIndexForType(scope, t, expr.Index); err != nil {
 			return ast.Type{}, err
-		}
-		if idxType.Name != "byte" && idxType.Name != "int" && idxType.Name != "uint" {
-			return ast.Type{}, fmt.Errorf("array index must be byte, int, or uint")
 		}
 
 		return ast.Type{Name: t.Name}, nil
@@ -231,13 +244,30 @@ func (c *Checker) checkFunction(fn *ast.FunctionDecl) error {
 		if _, exists := scope[local.Name]; exists {
 			return fmt.Errorf("duplicate local %q", local.Name)
 		}
+		if local.Type.IsMem && !local.HasAtAddress {
+			return fmt.Errorf("local %q: mem declarations require at address", local.Name)
+		}
+		if local.HasAtAddress && !local.Type.IsMem {
+			return fmt.Errorf("local %q: at is only supported for mem declarations", local.Name)
+		}
 		if err := c.checkType(local.Type); err != nil {
 			return fmt.Errorf("local %q: %w", local.Name, err)
+		}
+		if local.HasAtAddress {
+			if local.AtAddress < 0 || local.AtAddress > 65535 {
+				return fmt.Errorf("local %q: at address %d out of range 0..65535", local.Name, local.AtAddress)
+			}
+			if local.AtAddress+local.Type.ArrayLen-1 > 65535 {
+				return fmt.Errorf("local %q: mem window exceeds address range", local.Name)
+			}
 		}
 		scope[local.Name] = local.Type
 	}
 
 	for i, returnType := range functionReturnTypes(fn) {
+		if returnType.IsMem {
+			return fmt.Errorf("return type %d: mem return values are not supported", i+1)
+		}
 		if err := c.checkType(returnType); err != nil {
 			return fmt.Errorf("return type %d: %w", i+1, err)
 		}
@@ -265,14 +295,24 @@ func (c *Checker) checkTypeFor(t ast.Type, allowPointer bool) error {
 		if !allowPointer {
 			return fmt.Errorf("pointer types are only supported for parameters")
 		}
-		if t.IsArray {
-			return fmt.Errorf("pointer parameters cannot point to array types")
+		if t.IsArray || t.IsMem {
+			return fmt.Errorf("pointer parameters cannot point to array or mem types")
 		}
 		if isScalarTypeName(t.Name) {
 			return nil
 		}
 		if _, ok := c.structs[t.Name]; !ok {
 			return fmt.Errorf("pointer parameters must point to scalar or struct types")
+		}
+		return nil
+	}
+
+	if t.IsMem {
+		if t.Name != "mem" {
+			return fmt.Errorf("invalid mem type")
+		}
+		if t.ArrayLen <= 0 {
+			return fmt.Errorf("mem length must be positive")
 		}
 		return nil
 	}
@@ -477,16 +517,18 @@ func (c *Checker) checkLValue(scope map[string]ast.Type, lv ast.LValue) (ast.Typ
 		if !ok {
 			return ast.Type{}, fmt.Errorf("unknown variable %q", v.Name)
 		}
+		if t.IsMem {
+			if err := c.checkIndexForType(scope, t, v.Index); err != nil {
+				return ast.Type{}, err
+			}
+			return ast.Type{Name: "byte"}, nil
+		}
 		if !t.IsArray {
 			return ast.Type{}, fmt.Errorf("%q is not an array", v.Name)
 		}
 
-		idxType, err := c.checkExpr(scope, v.Index)
-		if err != nil {
+		if err := c.checkIndexForType(scope, t, v.Index); err != nil {
 			return ast.Type{}, err
-		}
-		if idxType.Name != "byte" && idxType.Name != "int" && idxType.Name != "uint" {
-			return ast.Type{}, fmt.Errorf("array index must be byte, int, or uint")
 		}
 
 		return ast.Type{Name: t.Name}, nil
@@ -521,6 +563,30 @@ func (c *Checker) checkLValue(scope map[string]ast.Type, lv ast.LValue) (ast.Typ
 	default:
 		return ast.Type{}, fmt.Errorf("unsupported assignment target")
 	}
+}
+
+func (c *Checker) checkIndexForType(scope map[string]ast.Type, container ast.Type, index ast.Expr) error {
+	idxType, err := c.checkExpr(scope, index)
+	if err != nil {
+		return err
+	}
+	if idxType.Name != "byte" && idxType.Name != "int" && idxType.Name != "uint" {
+		return fmt.Errorf("index must be byte, int, or uint")
+	}
+
+	if !container.IsMem {
+		return nil
+	}
+
+	v, ok := c.constIntValue(index)
+	if !ok {
+		return nil
+	}
+	if v < 0 || v >= container.ArrayLen {
+		return fmt.Errorf("mem index %d out of range 0..%d", v, container.ArrayLen-1)
+	}
+
+	return nil
 }
 
 func (c *Checker) checkMultiAssign(scope map[string]ast.Type, stmt *ast.AssignStmt) error {
@@ -1232,8 +1298,8 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 			return ast.Type{}, err
 		}
 
-		if !t.IsArray {
-			return ast.Type{}, fmt.Errorf("%s expects array", name)
+		if !t.IsArray && !t.IsMem {
+			return ast.Type{}, fmt.Errorf("%s expects array or mem", name)
 		}
 
 		return ast.Type{Name: "int"}, nil
@@ -1415,6 +1481,16 @@ func (c *Checker) checkUserCall(scope map[string]ast.Type, fn *ast.FunctionDecl,
 			continue
 		}
 
+		if paramType.IsMem {
+			if _, ok := arg.(*ast.IdentExpr); !ok {
+				return nil, fmt.Errorf("argument %d to %s: mem parameter requires mem storage", i+1, name)
+			}
+			if !sameType(paramType, argType) {
+				return nil, fmt.Errorf("argument %d to %s: cannot pass %s as %s", i+1, name, argType.String(), paramType.String())
+			}
+			continue
+		}
+
 		if !sameType(paramType, argType) && !c.canAssignExpr(paramType, argType, arg) {
 			return nil, fmt.Errorf("argument %d to %s: cannot pass %s as %s", i+1, name, argType.String(), paramType.String())
 		}
@@ -1458,6 +1534,9 @@ func (c *Checker) checkPointerArgumentTarget(scope map[string]ast.Type, e ast.Ex
 		if t.IsArray {
 			return ast.Type{}, fmt.Errorf("cannot pass array storage as pointer parameter")
 		}
+		if t.IsMem {
+			return ast.Type{}, fmt.Errorf("cannot pass mem storage as pointer parameter")
+		}
 		return t, nil
 
 	case *ast.IndexExpr:
@@ -1465,16 +1544,18 @@ func (c *Checker) checkPointerArgumentTarget(scope map[string]ast.Type, e ast.Ex
 		if !ok {
 			return ast.Type{}, fmt.Errorf("unknown variable %q", expr.Name)
 		}
+		if t.IsMem {
+			if err := c.checkIndexForType(scope, t, expr.Index); err != nil {
+				return ast.Type{}, err
+			}
+			return ast.Type{Name: "byte"}, nil
+		}
 		if !t.IsArray {
 			return ast.Type{}, fmt.Errorf("%q is not an array", expr.Name)
 		}
 
-		idxType, err := c.checkExpr(scope, expr.Index)
-		if err != nil {
+		if err := c.checkIndexForType(scope, t, expr.Index); err != nil {
 			return ast.Type{}, err
-		}
-		if idxType.Name != "byte" && idxType.Name != "int" && idxType.Name != "uint" {
-			return ast.Type{}, fmt.Errorf("array index must be byte, int, or uint")
 		}
 
 		return ast.Type{Name: t.Name}, nil
@@ -1517,6 +1598,9 @@ func (c *Checker) checkAddressOf(scope map[string]ast.Type, e ast.Expr) (ast.Typ
 		if t.IsPointer {
 			return ast.Type{}, fmt.Errorf("cannot take address of pointer parameter")
 		}
+		if t.IsMem {
+			return ast.Type{Name: "uint"}, nil
+		}
 		if t.IsArray {
 			return ast.Type{Name: "uint"}, nil
 		}
@@ -1530,16 +1614,18 @@ func (c *Checker) checkAddressOf(scope map[string]ast.Type, e ast.Expr) (ast.Typ
 		if !ok {
 			return ast.Type{}, fmt.Errorf("unknown variable %q", expr.Name)
 		}
+		if t.IsMem {
+			if err := c.checkIndexForType(scope, t, expr.Index); err != nil {
+				return ast.Type{}, err
+			}
+			return ast.Type{Name: "uint"}, nil
+		}
 		if !t.IsArray {
 			return ast.Type{}, fmt.Errorf("%q is not an array", expr.Name)
 		}
 
-		idxType, err := c.checkExpr(scope, expr.Index)
-		if err != nil {
+		if err := c.checkIndexForType(scope, t, expr.Index); err != nil {
 			return ast.Type{}, err
-		}
-		if idxType.Name != "byte" && idxType.Name != "int" && idxType.Name != "uint" {
-			return ast.Type{}, fmt.Errorf("array index must be byte, int, or uint")
 		}
 
 		if _, ok := c.structs[t.Name]; !ok {
@@ -1553,7 +1639,7 @@ func (c *Checker) checkAddressOf(scope map[string]ast.Type, e ast.Expr) (ast.Typ
 }
 
 func sameType(a, b ast.Type) bool {
-	return a.Name == b.Name && a.IsArray == b.IsArray && a.ArrayLen == b.ArrayLen && a.IsPointer == b.IsPointer
+	return a.Name == b.Name && a.IsArray == b.IsArray && a.IsMem == b.IsMem && a.ArrayLen == b.ArrayLen && a.IsPointer == b.IsPointer
 }
 
 func functionReturnTypes(fn *ast.FunctionDecl) []ast.Type {
@@ -1596,7 +1682,7 @@ func pointerPointeeType(t ast.Type) ast.Type {
 }
 
 func isScalarPointerType(t ast.Type) bool {
-	return t.IsPointer && !t.IsArray && isScalarTypeName(t.Name)
+	return t.IsPointer && !t.IsArray && !t.IsMem && isScalarTypeName(t.Name)
 }
 
 func isScalarTypeName(name string) bool {
@@ -1623,7 +1709,7 @@ func (c *Checker) canAssignExpr(dst, src ast.Type, expr ast.Expr) bool {
 		return true
 	}
 
-	if dst.Name == "uint" && !dst.IsArray && !dst.IsPointer && src.Name == "int" && !src.IsArray && !src.IsPointer {
+	if dst.Name == "uint" && !dst.IsArray && !dst.IsMem && !dst.IsPointer && src.Name == "int" && !src.IsArray && !src.IsMem && !src.IsPointer {
 		_, ok := c.constIntValue(expr)
 		return ok
 	}
@@ -1638,6 +1724,10 @@ func canAssign(dst, src ast.Type) bool {
 
 	if src.IsPointer {
 		return dst.Name == "uint" && !dst.IsArray
+	}
+
+	if dst.IsMem || src.IsMem {
+		return false
 	}
 
 	if dst.IsArray || src.IsArray {
@@ -1673,18 +1763,18 @@ func canAssign(dst, src ast.Type) bool {
 }
 
 func isNumeric(t ast.Type) bool {
-	return !t.IsPointer && !t.IsArray && isScalarTypeName(t.Name)
+	return !t.IsPointer && !t.IsArray && !t.IsMem && isScalarTypeName(t.Name)
 }
 
 func compatibleComparable(a, b ast.Type) bool {
-	if a.IsArray || b.IsArray {
+	if a.IsArray || b.IsArray || a.IsMem || b.IsMem {
 		return false
 	}
 	return isNumeric(a) && isNumeric(b)
 }
 
 func (c *Checker) checkAssignmentValue(dst ast.Type, expr ast.Expr) error {
-	if dst.Name != "uint" || dst.IsArray || dst.IsPointer {
+	if dst.Name != "uint" || dst.IsArray || dst.IsMem || dst.IsPointer {
 		return nil
 	}
 

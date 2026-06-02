@@ -33,6 +33,7 @@ const (
 	CONTINUE = "CONTINUE"
 	TRUE     = "TRUE"
 	FALSE    = "FALSE"
+	AT       = "AT"
 
 	LPAREN = "("
 	RPAREN = ")"
@@ -81,6 +82,7 @@ var keywords = map[string]TokenType{
 	"continue": CONTINUE,
 	"true":     TRUE,
 	"false":    FALSE,
+	"at":       AT,
 }
 
 func LookupIdent(ident string) TokenType {

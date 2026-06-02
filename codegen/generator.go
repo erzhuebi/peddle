@@ -86,11 +86,13 @@ type Frame struct {
 }
 
 type Symbol struct {
-	SourceName  string
-	Label       string
-	Type        ast.Type
-	Size        int
-	IsReference bool
+	SourceName   string
+	Label        string
+	Type         ast.Type
+	Size         int
+	IsReference  bool
+	HasAtAddress bool
+	AtAddress    int
 }
 
 func New() *Generator {
@@ -161,11 +163,17 @@ func (g *Generator) computeMemoryReport() MemoryReport {
 
 	for _, frame := range g.frames {
 		for _, sym := range frame.Symbols {
+			if sym.Size == 0 {
+				continue
+			}
 			report.StaticDataBytes += sym.Size
 			report.StaticSymbolCount++
 		}
 
 		for _, sym := range frame.Returns {
+			if sym.Size == 0 {
+				continue
+			}
 			report.StaticDataBytes += sym.Size
 			report.StaticSymbolCount++
 		}

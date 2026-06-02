@@ -959,11 +959,17 @@ func (g *Generator) emitStaticData() {
 
 	for _, frame := range g.frames {
 		for _, sym := range frame.Symbols {
+			if sym.Size == 0 {
+				continue
+			}
 			g.emit(fmt.Sprintf("%s:", sym.Label))
 			g.emitStaticSymbol(sym)
 		}
 
 		for _, sym := range frame.Returns {
+			if sym.Size == 0 {
+				continue
+			}
 			g.emit(fmt.Sprintf("%s:", sym.Label))
 			g.emitStaticValue(sym.Type)
 		}

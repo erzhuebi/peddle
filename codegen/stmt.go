@@ -124,7 +124,22 @@ func (g *Generator) genAssign(a *ast.AssignStmt) error {
 	case *ast.IndexLValue:
 		arraySym, ok := g.resolve(target.Name)
 		if !ok {
-			return fmt.Errorf("unknown array %q", target.Name)
+			return fmt.Errorf("unknown array or mem %q", target.Name)
+		}
+		if arraySym.Type.IsMem {
+			if err := g.genExprTo(a.Value, ast.Type{Name: "byte"}); err != nil {
+				return err
+			}
+
+			g.emit("    pha")
+
+			if err := g.genMemIndexToPtr(arraySym, target.Index); err != nil {
+				return err
+			}
+
+			g.emit("    pla")
+			g.emit("    sta (ZP_PTR0_LO), y")
+			return nil
 		}
 		if !arraySym.Type.IsArray {
 			return fmt.Errorf("%q is not an array", target.Name)

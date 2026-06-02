@@ -689,6 +689,15 @@ func (g *Generator) genLen(args []ast.Expr) (ast.Type, error) {
 		return ast.Type{}, fmt.Errorf("len expects one argument")
 	}
 
+	t, err := g.exprValueType(args[0])
+	if err != nil {
+		return ast.Type{}, err
+	}
+	if t.IsMem {
+		g.emitConstExprTo(t.ArrayLen, ast.Type{Name: "int"})
+		return ast.Type{Name: "int"}, nil
+	}
+
 	if err := g.genArrayAddress(args[0]); err != nil {
 		return ast.Type{}, err
 	}
@@ -707,6 +716,15 @@ func (g *Generator) genLen(args []ast.Expr) (ast.Type, error) {
 func (g *Generator) genSize(args []ast.Expr) (ast.Type, error) {
 	if len(args) != 1 {
 		return ast.Type{}, fmt.Errorf("size expects one argument")
+	}
+
+	t, err := g.exprValueType(args[0])
+	if err != nil {
+		return ast.Type{}, err
+	}
+	if t.IsMem {
+		g.emitConstExprTo(t.ArrayLen, ast.Type{Name: "int"})
+		return ast.Type{Name: "int"}, nil
 	}
 
 	if err := g.genArrayAddress(args[0]); err != nil {
@@ -1725,7 +1743,10 @@ func (g *Generator) exprValueType(expr ast.Expr) (ast.Type, error) {
 			return ast.Type{}, fmt.Errorf("unknown variable %q", e.Name)
 		}
 		if !sym.Type.IsArray {
-			return ast.Type{}, fmt.Errorf("%q is not an array", e.Name)
+			if sym.Type.IsMem {
+				return ast.Type{Name: "byte"}, nil
+			}
+			return ast.Type{}, fmt.Errorf("%q is not an array or mem", e.Name)
 		}
 		return ast.Type{Name: sym.Type.Name}, nil
 

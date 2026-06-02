@@ -53,7 +53,7 @@ func isWordSymbol(sym Symbol) bool {
 }
 
 func isWordType(t ast.Type) bool {
-	return t.IsPointer || (!t.IsArray && (t.Name == "int" || t.Name == "uint"))
+	return t.IsPointer || (!t.IsArray && !t.IsMem && (t.Name == "int" || t.Name == "uint"))
 }
 
 func pointerPointeeType(t ast.Type) ast.Type {
@@ -61,7 +61,7 @@ func pointerPointeeType(t ast.Type) ast.Type {
 }
 
 func isScalarPointerType(t ast.Type) bool {
-	return t.IsPointer && !t.IsArray && isScalarTypeName(t.Name)
+	return t.IsPointer && !t.IsArray && !t.IsMem && isScalarTypeName(t.Name)
 }
 
 func isScalarTypeName(name string) bool {

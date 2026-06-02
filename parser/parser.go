@@ -303,12 +303,38 @@ func (p *Parser) parseVarDecls() []*ast.VarDecl {
 
 	typ := p.parseType(false)
 
+	hasAtAddress := false
+	atAddress := 0
+	if p.peek.Type == lexer.AT {
+		p.nextToken()
+
+		hasAtAddress = true
+		if len(names) != 1 {
+			p.errorf("at declarations only support one variable name")
+		}
+		if !typ.IsMem {
+			p.errorf("at is only supported for mem declarations")
+		}
+		if !p.expectPeek(lexer.NUMBER) {
+			return nil
+		}
+
+		n, err := strconv.Atoi(p.cur.Literal)
+		if err != nil {
+			p.errorf("invalid at address %q", p.cur.Literal)
+			return nil
+		}
+		atAddress = n
+	}
+
 	var decls []*ast.VarDecl
 
 	for _, name := range names {
 		decls = append(decls, &ast.VarDecl{
-			Name: name,
-			Type: typ,
+			Name:         name,
+			Type:         typ,
+			HasAtAddress: hasAtAddress,
+			AtAddress:    atAddress,
 		})
 	}
 
@@ -350,12 +376,21 @@ func (p *Parser) parseType(allowPointer bool) ast.Type {
 			return t
 		}
 
-		t.IsArray = true
 		t.ArrayLen = n
+		if t.Name == "mem" {
+			t.IsMem = true
+		} else {
+			t.IsArray = true
+		}
 
 		if !p.expectPeek(lexer.RBRACK) {
 			return t
 		}
+	}
+
+	if t.Name == "mem" && !t.IsMem {
+		p.errorf("mem type requires a length")
+		return ast.Type{}
 	}
 
 	return t
