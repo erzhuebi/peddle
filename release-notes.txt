@@ -1,7 +1,7 @@
 # Release notes
 
-## v0.14.0 - 2026-06-02
+## v0.15.0 - 2026-06-02
 
-- feat: add mem windows
-- chore: start 0.14.0-dev
+- added an import mechanism
+- chore: start 0.15.0-dev
 
