@@ -30,7 +30,10 @@ func (g *Generator) genPrint(args []ast.Expr) (ast.Type, error) {
 		g.usedTmp16 = true
 		return ast.Type{}, nil
 
-	case *ast.IdentExpr, *ast.FieldExpr, *ast.IndexFieldExpr:
+	}
+
+	t, err := g.arrayExprType(args[0])
+	if err == nil && t.IsArray && t.Name == "char" {
 		if err := g.genCharArrayAddress(args[0]); err != nil {
 			return ast.Type{}, err
 		}

@@ -1245,6 +1245,46 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 		}
 
 		return ast.Type{Name: "int"}, nil
+	case "sound_init":
+		if len(args) != 1 {
+			return ast.Type{}, fmt.Errorf("sound_init expects one argument")
+		}
+		if err := c.checkSoundByteArrayArg(scope, args[0], "sound_init pool"); err != nil {
+			return ast.Type{}, err
+		}
+		return ast.Type{}, nil
+
+	case "sound_reset":
+		if len(args) != 0 {
+			return ast.Type{}, fmt.Errorf("sound_reset expects no arguments")
+		}
+		return ast.Type{}, nil
+
+	case "sound_load":
+		if err := c.checkSoundLoadArgs(scope, args); err != nil {
+			return ast.Type{}, err
+		}
+		return ast.Type{}, fmt.Errorf("sound_load returns multiple values; use multi-assignment")
+
+	case "sound_play", "sound_stop":
+		if len(args) != 1 {
+			return ast.Type{}, fmt.Errorf("%s expects one argument", name)
+		}
+		t, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(t) {
+			return ast.Type{}, fmt.Errorf("%s handle must be numeric", name)
+		}
+		return ast.Type{}, nil
+
+	case "sound_num", "sound_memfree":
+		if len(args) != 0 {
+			return ast.Type{}, fmt.Errorf("%s expects no arguments", name)
+		}
+		return ast.Type{Name: "int"}, nil
+
 	case "itoa":
 		if len(args) != 1 {
 			return ast.Type{}, fmt.Errorf("itoa expects one argument")
@@ -1436,6 +1476,13 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 }
 
 func (c *Checker) checkCallReturnTypes(scope map[string]ast.Type, name string, args []ast.Expr) ([]ast.Type, error) {
+	if name == "sound_load" {
+		if err := c.checkSoundLoadArgs(scope, args); err != nil {
+			return nil, err
+		}
+		return []ast.Type{{Name: "uint"}, {Name: "int"}}, nil
+	}
+
 	if fn, ok := c.functions[name]; ok {
 		return c.checkUserCall(scope, fn, name, args)
 	}
@@ -1500,6 +1547,36 @@ func (c *Checker) checkUserCall(scope map[string]ast.Type, fn *ast.FunctionDecl,
 	}
 
 	return functionReturnTypes(fn), nil
+}
+
+func (c *Checker) checkSoundLoadArgs(scope map[string]ast.Type, args []ast.Expr) error {
+	if len(args) != 2 {
+		return fmt.Errorf("sound_load expects two arguments")
+	}
+	if err := c.checkSoundByteArrayArg(scope, args[0], "sound_load data"); err != nil {
+		return err
+	}
+
+	kindType, err := c.checkExpr(scope, args[1])
+	if err != nil {
+		return err
+	}
+	if !isNumeric(kindType) {
+		return fmt.Errorf("sound_load kind must be numeric")
+	}
+
+	return nil
+}
+
+func (c *Checker) checkSoundByteArrayArg(scope map[string]ast.Type, arg ast.Expr, name string) error {
+	t, err := c.checkExpr(scope, arg)
+	if err != nil {
+		return err
+	}
+	if !(t.IsArray && t.Name == "byte") {
+		return fmt.Errorf("%s must be byte array", name)
+	}
+	return nil
 }
 
 func (c *Checker) checkPointerArgument(scope map[string]ast.Type, paramType ast.Type, arg ast.Expr) error {

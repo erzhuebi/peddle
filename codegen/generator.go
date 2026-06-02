@@ -48,6 +48,7 @@ type Generator struct {
 
 	usedNetRuntime          bool
 	usedFileRuntime         bool
+	usedSoundRuntime        bool
 	usedClsRuntime          bool
 	usedAsciiFontRuntime    bool
 	usedAsciiConvertRuntime bool
@@ -133,6 +134,8 @@ func (g *Generator) Generate(p *ast.Program) (string, error) {
 		g.frames[fn.Name] = g.buildFrame(fn)
 	}
 
+	g.scanSoundRuntimeUse(p)
+
 	g.emitHeader()
 
 	for _, fn := range p.Functions {
@@ -206,4 +209,74 @@ func (g *Generator) genFunction(fn *ast.FunctionDecl) error {
 	g.emit("    rts")
 	g.emit("")
 	return nil
+}
+
+func (g *Generator) scanSoundRuntimeUse(p *ast.Program) {
+	for _, fn := range p.Functions {
+		for _, stmt := range fn.Body {
+			g.scanSoundStmt(stmt)
+		}
+	}
+}
+
+func (g *Generator) scanSoundStmt(stmt ast.Stmt) {
+	switch s := stmt.(type) {
+	case *ast.AssignStmt:
+		g.scanSoundExpr(s.Value)
+		if target, ok := s.Target.(*ast.IndexLValue); ok {
+			g.scanSoundExpr(target.Index)
+		}
+	case *ast.CallStmt:
+		if isSoundBuiltin(s.Name) {
+			g.usedSoundRuntime = true
+		}
+		for _, arg := range s.Args {
+			g.scanSoundExpr(arg)
+		}
+	case *ast.WhileStmt:
+		g.scanSoundExpr(s.Cond)
+		for _, inner := range s.Body {
+			g.scanSoundStmt(inner)
+		}
+	case *ast.ForStmt:
+		g.scanSoundExpr(s.Cond)
+		g.scanSoundExpr(s.Start)
+		g.scanSoundExpr(s.End)
+		for _, inner := range s.Body {
+			g.scanSoundStmt(inner)
+		}
+	case *ast.IfStmt:
+		g.scanSoundExpr(s.Cond)
+		for _, inner := range s.Then {
+			g.scanSoundStmt(inner)
+		}
+		for _, inner := range s.Else {
+			g.scanSoundStmt(inner)
+		}
+	case *ast.ReturnStmt:
+		for _, value := range returnValues(s) {
+			g.scanSoundExpr(value)
+		}
+	}
+}
+
+func (g *Generator) scanSoundExpr(expr ast.Expr) {
+	switch e := expr.(type) {
+	case *ast.CallExpr:
+		if isSoundBuiltin(e.Name) {
+			g.usedSoundRuntime = true
+		}
+		for _, arg := range e.Args {
+			g.scanSoundExpr(arg)
+		}
+	case *ast.UnaryExpr:
+		g.scanSoundExpr(e.Expr)
+	case *ast.BinaryExpr:
+		g.scanSoundExpr(e.Left)
+		g.scanSoundExpr(e.Right)
+	case *ast.IndexExpr:
+		g.scanSoundExpr(e.Index)
+	case *ast.IndexFieldExpr:
+		g.scanSoundExpr(e.Index)
+	}
 }

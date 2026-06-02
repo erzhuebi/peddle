@@ -337,6 +337,13 @@ func (g *Generator) genMultiAssign(a *ast.AssignStmt) error {
 		return err
 	}
 
+	if returns, ok := g.builtinReturnSymbols(call.Name); ok {
+		if len(returns) != len(a.Targets) {
+			return fmt.Errorf("multi-assignment has %d targets but %s returns %d values", len(a.Targets), call.Name, len(returns))
+		}
+		return g.copyReturnSymbolsToTargets(returns, a.Targets)
+	}
+
 	fnFrame := g.frames[call.Name]
 	if fnFrame == nil {
 		return fmt.Errorf("multi-assignment requires a user function call")
@@ -345,7 +352,11 @@ func (g *Generator) genMultiAssign(a *ast.AssignStmt) error {
 		return fmt.Errorf("multi-assignment has %d targets but %s returns %d values", len(a.Targets), call.Name, len(fnFrame.Returns))
 	}
 
-	for i, target := range a.Targets {
+	return g.copyReturnSymbolsToTargets(fnFrame.Returns, a.Targets)
+}
+
+func (g *Generator) copyReturnSymbolsToTargets(returns []Symbol, targets []string) error {
+	for i, target := range targets {
 		if target == "_" {
 			continue
 		}
@@ -360,7 +371,7 @@ func (g *Generator) genMultiAssign(a *ast.AssignStmt) error {
 			targetType = pointerPointeeType(sym.Type)
 		}
 
-		g.loadSymbolAs(fnFrame.Returns[i], targetType)
+		g.loadSymbolAs(returns[i], targetType)
 		if isScalarPointerType(sym.Type) {
 			if err := g.storeIntoScalarPointer(sym); err != nil {
 				return err

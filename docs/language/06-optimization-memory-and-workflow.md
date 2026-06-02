@@ -162,6 +162,7 @@ Implemented:
 - arrays of structs
 - struct string fields
 - peek/poke
+- sound runtime API
 - memory reporting
 - optimization modes
 - source-level imports
@@ -176,7 +177,7 @@ Not implemented yet:
 - heap allocation
 - generic pointer values
 - disk IO
-- sprites/sound libraries
+- sprite libraries
 - recursion safety
 - dynamic arrays
 - multiple simultaneous independent temporary string results from `itoa()`

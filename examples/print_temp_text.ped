@@ -1,0 +1,67 @@
+# Test direct printing of temporary char[] values returned by itoa() and itox().
+#
+# If codegen does not support print(itoa(...)) / print(itox(...)), this file
+# fails to compile. The copied buffers below self-check the conversion results
+# and the direct print calls exercise the new print path visibly.
+
+fn main() {
+    var pass bool
+    var dec char[6]
+    var hx char[2]
+    var score int
+    var color byte
+
+    pass = true
+    score = -123
+    color = 27
+
+    cls()
+
+    print("DEC ")
+    print(itoa(score))
+    print("\nHEX ")
+    print(itox(color))
+    print("\n")
+
+    copy(dec, itoa(score))
+    if len(dec) != 4 {
+        print("FAIL: itoa len\n")
+        pass = false
+    }
+    if dec[0] != '-' {
+        print("FAIL: itoa sign\n")
+        pass = false
+    }
+    if dec[1] != '1' {
+        print("FAIL: itoa digit 1\n")
+        pass = false
+    }
+    if dec[2] != '2' {
+        print("FAIL: itoa digit 2\n")
+        pass = false
+    }
+    if dec[3] != '3' {
+        print("FAIL: itoa digit 3\n")
+        pass = false
+    }
+
+    copy(hx, itox(color))
+    if len(hx) != 2 {
+        print("FAIL: itox len\n")
+        pass = false
+    }
+    if hx[0] != '1' {
+        print("FAIL: itox digit 1\n")
+        pass = false
+    }
+    if hx[1] != 'B' {
+        print("FAIL: itox digit B\n")
+        pass = false
+    }
+
+    if pass {
+        print("TEST SUCCESSFUL")
+    } else {
+        print("TEST FAILED")
+    }
+}

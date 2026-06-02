@@ -332,6 +332,7 @@ This is safe because the value is consumed immediately:
 
 ```peddle
 append(line, itoa(score))
+print(itoa(score))
 putstr(0, 0, itoa(score))
 ```
 
@@ -418,6 +419,15 @@ print("READY")
 
 ```peddle
 print(title)
+```
+
+## Print Temporary Text
+
+Temporary `char[]` values from conversion builtins can be printed directly.
+
+```peddle
+print(itoa(score))
+print(itox(color))
 ```
 
 ---

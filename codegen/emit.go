@@ -34,6 +34,13 @@ start:
     sta $01
 
     jsr main
+`)
+
+	if g.usedSoundRuntime {
+		g.emit("    jsr peddle_sound_shutdown")
+	}
+
+	g.emit(`
 
     ; Restore normal C64 banking before returning to BASIC.
     ; BASIC ROM on, KERNAL ROM on, I/O visible.
@@ -68,6 +75,7 @@ func (g *Generator) emitRuntime() {
 	g.emitPutStrRuntime()
 	g.emitNetRuntime()
 	g.emitFileRuntime()
+	g.emitSoundRuntime()
 }
 
 func (g *Generator) emitRuntimeVariables() {

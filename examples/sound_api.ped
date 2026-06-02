@@ -1,0 +1,116 @@
+const SOUND_REGSTREAM = 1
+const ERR_OK = 0
+
+fn waitTicks(count int) {
+    var start int
+
+    if count > 0 {
+        start = ticks()
+
+        for tickdue(start, count) == false {
+        }
+    }
+}
+
+fn main() {
+    var pool byte[128]
+    var data byte[32]
+
+    var id uint
+    var err int
+    var pass bool
+    var free0 int
+    var free1 int
+    var count int
+
+    pass = true
+
+    # SID register stream:
+    # volume, frequency, envelope, gate on, wait, gate off, end.
+    data[0] = 2
+    data[1] = 24
+    data[2] = 15
+
+    data[3] = 2
+    data[4] = 0
+    data[5] = 34
+
+    data[6] = 2
+    data[7] = 1
+    data[8] = 17
+
+    data[9] = 2
+    data[10] = 5
+    data[11] = 9
+
+    data[12] = 2
+    data[13] = 6
+    data[14] = 240
+
+    data[15] = 2
+    data[16] = 4
+    data[17] = 33
+
+    data[18] = 1
+    data[19] = 90
+
+    data[20] = 2
+    data[21] = 4
+    data[22] = 32
+
+    data[23] = 0
+
+    sound_init(pool)
+
+    free0 = sound_memfree()
+    id, err = sound_load(data, SOUND_REGSTREAM)
+    free1 = sound_memfree()
+    count = sound_num()
+
+    if err != ERR_OK {
+        pass = false
+    }
+
+    if id == 0 {
+        pass = false
+    }
+
+    if count != 1 {
+        pass = false
+    }
+
+    if free0 != size(pool) {
+        pass = false
+    }
+
+    if free1 != free0 - len(data) {
+        pass = false
+    }
+
+    if len(pool) != len(data) {
+        pass = false
+    }
+
+    sound_play(id)
+    waitTicks(110)
+    sound_stop(id)
+    sound_reset()
+
+    if sound_num() != 0 {
+        pass = false
+    }
+
+    if sound_memfree() != size(pool) {
+        pass = false
+    }
+
+    if len(pool) != 0 {
+        pass = false
+    }
+
+    if pass {
+        print("TEST SUCCESSFUL")
+    } else {
+        print("TEST FAILED")
+    }
+}

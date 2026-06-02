@@ -56,6 +56,33 @@ fn main() {
 	requireASMAssemblesWith64tass(t, asm)
 }
 
+func TestCodegenPrintAcceptsTemporaryCharArrays(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    var score int
+    var b byte
+
+    score = -123
+    b = 27
+    print(itoa(score))
+    print(itox(b))
+}
+`)
+
+	requireASM(t, asm,
+		"jsr peddle_itoa",
+		"lda #<peddle_itoa_buffer",
+		"jsr peddle_itox_byte",
+		"lda #<peddle_itox_byte_buffer",
+		"jsr peddle_print_counted_string",
+		"peddle_itoa_buffer:",
+		"peddle_itox_byte_buffer:",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
 func TestCodegenItoxRuntimeEmittedOnlyWhenUsed(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {

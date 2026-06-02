@@ -80,6 +80,27 @@ func (g *Generator) genCall(name string, args []ast.Expr) (ast.Type, error) {
 	case "filesave":
 		return g.genFileSave(args)
 
+	case "sound_init":
+		return g.genSoundInit(args)
+
+	case "sound_reset":
+		return g.genSoundReset(args)
+
+	case "sound_load":
+		return g.genSoundLoad(args)
+
+	case "sound_play":
+		return g.genSoundPlay(args)
+
+	case "sound_stop":
+		return g.genSoundStop(args)
+
+	case "sound_num":
+		return g.genSoundNum(args)
+
+	case "sound_memfree":
+		return g.genSoundMemFree(args)
+
 	case "itoa":
 		return g.genItoa(args)
 

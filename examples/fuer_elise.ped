@@ -1,0 +1,143 @@
+const SOUND_REGSTREAM = 1
+
+const A3_LO = 162
+const A3_HI = 14
+const C4_LO = 103
+const C4_HI = 17
+const E4_LO = 237
+const E4_HI = 21
+const A4_LO = 69
+const A4_HI = 29
+const B4_LO = 218
+const B4_HI = 32
+const C5_LO = 206
+const C5_HI = 34
+const D5_LO = 17
+const D5_HI = 39
+const DS5_LO = 100
+const DS5_HI = 41
+const E5_LO = 218
+const E5_HI = 43
+const GS4_LO = 160
+const GS4_HI = 27
+
+fn waitTicks(count int) {
+    var start int
+
+    if count > 0 {
+        start = ticks()
+
+        for tickdue(start, count) == false {
+        }
+    }
+}
+
+fn sid(song byte[1024], reg byte, value byte) {
+    append(song, 2)
+    append(song, reg)
+    append(song, value)
+}
+
+fn pause(song byte[1024], frames byte) {
+    append(song, 1)
+    append(song, frames)
+}
+
+fn note(song byte[1024], lo byte, hi byte, frames byte) {
+    sid(song, 0, lo)
+    sid(song, 1, hi)
+    sid(song, 4, 17)
+    pause(song, frames)
+    sid(song, 4, 16)
+    pause(song, 2)
+}
+
+fn buildFuerElise(song byte[1024]) {
+    sid(song, 24, 15)
+    sid(song, 5, 9)
+    sid(song, 6, 240)
+
+    note(song, E5_LO, E5_HI, 8)
+    note(song, DS5_LO, DS5_HI, 8)
+    note(song, E5_LO, E5_HI, 8)
+    note(song, DS5_LO, DS5_HI, 8)
+    note(song, E5_LO, E5_HI, 8)
+    note(song, B4_LO, B4_HI, 8)
+    note(song, D5_LO, D5_HI, 8)
+    note(song, C5_LO, C5_HI, 8)
+    note(song, A4_LO, A4_HI, 18)
+
+    note(song, C5_LO, C5_HI, 8)
+    note(song, E5_LO, E5_HI, 8)
+    note(song, A4_LO, A4_HI, 8)
+    note(song, B4_LO, B4_HI, 18)
+
+    note(song, E5_LO, E5_HI, 8)
+    note(song, GS4_LO, GS4_HI, 8)
+    note(song, B4_LO, B4_HI, 8)
+    note(song, C5_LO, C5_HI, 18)
+
+    note(song, E5_LO, E5_HI, 8)
+    note(song, DS5_LO, DS5_HI, 8)
+    note(song, E5_LO, E5_HI, 8)
+    note(song, DS5_LO, DS5_HI, 8)
+    note(song, E5_LO, E5_HI, 8)
+    note(song, B4_LO, B4_HI, 8)
+    note(song, D5_LO, D5_HI, 8)
+    note(song, C5_LO, C5_HI, 8)
+    note(song, A4_LO, A4_HI, 24)
+
+    note(song, A3_LO, A3_HI, 10)
+    note(song, E4_LO, E4_HI, 10)
+    note(song, A4_LO, A4_HI, 10)
+    note(song, C5_LO, C5_HI, 10)
+    note(song, E5_LO, E5_HI, 10)
+    note(song, A4_LO, A4_HI, 10)
+    note(song, C5_LO, C5_HI, 10)
+    note(song, B4_LO, B4_HI, 22)
+
+    note(song, E4_LO, E4_HI, 10)
+    note(song, GS4_LO, GS4_HI, 10)
+    note(song, B4_LO, B4_HI, 10)
+    note(song, E5_LO, E5_HI, 10)
+    note(song, GS4_LO, GS4_HI, 10)
+    note(song, B4_LO, B4_HI, 10)
+    note(song, C5_LO, C5_HI, 22)
+
+    note(song, A3_LO, A3_HI, 10)
+    note(song, E4_LO, E4_HI, 10)
+    note(song, A4_LO, A4_HI, 10)
+    note(song, E5_LO, E5_HI, 8)
+    note(song, DS5_LO, DS5_HI, 8)
+    note(song, E5_LO, E5_HI, 8)
+    note(song, DS5_LO, DS5_HI, 8)
+    note(song, E5_LO, E5_HI, 8)
+
+    append(song, 0)
+}
+
+fn main() {
+    var pool byte[2048]
+    var song byte[1024]
+    var id uint
+    var err int
+    var free int
+
+    buildFuerElise(song)
+
+    sound_init(pool)
+    id, err = sound_load(song, SOUND_REGSTREAM)
+    free = sound_memfree()
+
+    if err == 0 {
+        print("FUER ELISE\nMEM FREE ")
+        print(itoa(free))
+        sound_play(id)
+        waitTicks(560)
+        sound_stop(id)
+        print("\nDONE")
+    } else {
+        print("SOUND LOAD FAILED ")
+        print(itoa(err))
+    }
+}

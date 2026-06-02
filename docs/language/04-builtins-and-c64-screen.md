@@ -48,6 +48,13 @@
 | `fileread(handle, buffer, max)` | read bytes from a file stream |
 | `filewrite(handle, buffer, len)` | write bytes to a file stream |
 | `fileclose(handle)` | close a file stream |
+| `sound_init(pool)` | initialize sound runtime with a user-provided byte pool |
+| `sound_reset()` | stop playback and clear loaded sounds |
+| `sound_load(data, kind)` | load sound data and return `(uint, int)` |
+| `sound_play(id)` | play a loaded sound handle |
+| `sound_stop(id)` | stop the active sound if it matches the handle |
+| `sound_num()` | return number of loaded sounds |
+| `sound_memfree()` | return remaining sound pool bytes |
 
 ---
 
@@ -926,6 +933,52 @@ if netconnected() {
     print("ONLINE")
 }
 ```
+
+---
+
+# Sound
+
+Peddle sound is a runtime API, not language syntax. The program provides the
+large memory pool explicitly, and the runtime stores loaded sound bytes there.
+
+```peddle
+const SOUND_REGSTREAM = 1
+
+var pool byte[4096]
+var data byte[128]
+
+var id uint
+var err int
+
+sound_init(pool)
+id, err = sound_load(data, SOUND_REGSTREAM)
+sound_play(id)
+```
+
+`sound_init(pool)` can be called again with the same or another `byte[]`. It
+stops playback, clears loaded sounds, resets the pool length to zero, and
+installs the IRQ player.
+
+`sound_reset()` keeps the current pool, stops playback, clears loaded sounds,
+and resets the pool length to zero.
+
+`sound_load(data, kind)` appends `len(data)` bytes into the pool and returns a
+`uint` handle plus an `int` error code. There is no per-sound free in this first
+version, so memory is reclaimed with `sound_reset()` or another `sound_init()`.
+
+`sound_num()` returns the number of loaded sounds. `sound_memfree()` returns the
+remaining bytes in the current pool.
+
+The first supported format is `SOUND_REGSTREAM`, a SID register stream:
+
+```text
+0               end
+1, frames       wait frames IRQ ticks
+2, reg, value   write value to SID register $D400 + reg
+```
+
+Valid register offsets are `0..24`. The runtime supports one active sound at a
+time; calling `sound_play(id)` replaces the currently playing sound.
 
 ---
 
