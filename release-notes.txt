@@ -1,9 +1,7 @@
 # Release notes
 
-## v0.13.0 - 2026-06-01
+## v0.14.0 - 2026-06-02
 
-- feat: add multiple return values
-- feat: add multiple return values
-- pointers as function params added, uint added, arrays are references to functions params as default.
-- chore: start 0.13.0-dev
+- feat: add mem windows
+- chore: start 0.14.0-dev
 
