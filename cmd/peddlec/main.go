@@ -9,6 +9,7 @@ import (
 	"peddle/lexer"
 	"peddle/parser"
 	"peddle/sema"
+	"peddle/source"
 )
 
 var Version = "0.0.0" // will be changed by Makefile
@@ -52,13 +53,13 @@ func main() {
 
 	inputPath := flag.Arg(0)
 
-	src, err := os.ReadFile(inputPath)
+	src, err := source.LoadWithImports(inputPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "read error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "source error: %v\n", err)
 		os.Exit(1)
 	}
 
-	l := lexer.New(string(src))
+	l := lexer.New(src)
 	p := parser.New(l)
 
 	program := p.ParseProgram()

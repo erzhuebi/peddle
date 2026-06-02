@@ -49,6 +49,22 @@ func parseProgramForTest(t *testing.T, src string) *ast.Program {
 	return prog
 }
 
+func TestParseTopLevelImport(t *testing.T) {
+	prog := parseProgramForTest(t, `
+import "/game/player"
+
+fn main() {
+}
+`)
+
+	if len(prog.Functions) != 1 {
+		t.Fatalf("expected 1 function, got %d", len(prog.Functions))
+	}
+	if prog.Functions[0].Name != "main" {
+		t.Fatalf("got function %q, want main", prog.Functions[0].Name)
+	}
+}
+
 func TestParseUnaryMinus(t *testing.T) {
 	expr := parseExprFromMain(t, `
 fn main() {

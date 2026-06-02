@@ -62,13 +62,24 @@ func (p *Parser) ParseProgram() *ast.Program {
 				prog.Functions = append(prog.Functions, fn)
 			}
 
+		case lexer.IMPORT:
+			p.parseImport()
+
 		default:
-			p.errorf("expected const, struct or function declaration, got %s", p.cur.Type)
+			p.errorf("expected import, const, struct or function declaration, got %s", p.cur.Type)
 			p.nextToken()
 		}
 	}
 
 	return prog
+}
+
+func (p *Parser) parseImport() {
+	if !p.expectPeek(lexer.STRING) {
+		return
+	}
+
+	p.nextToken()
 }
 
 func (p *Parser) parseConst() *ast.ConstDecl {

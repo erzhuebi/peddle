@@ -164,6 +164,7 @@ Implemented:
 - peek/poke
 - memory reporting
 - optimization modes
+- source-level imports
 
 ---
 
@@ -173,8 +174,7 @@ Not implemented yet:
 
 - floating point
 - heap allocation
-- pointers
-- modules/imports
+- generic pointer values
 - disk IO
 - sprites/sound libraries
 - recursion safety

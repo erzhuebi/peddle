@@ -1,0 +1,13 @@
+import "/lib/checks"
+
+fn main() {
+    var ok bool
+
+    ok = imported_ok()
+
+    if ok {
+        print("TEST SUCCESSFUL")
+    } else {
+        print("TEST FAILED")
+    }
+}

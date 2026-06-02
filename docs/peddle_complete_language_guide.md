@@ -99,6 +99,51 @@ fn main() {
 Peddle supports single-line comments using `#`.
 
 ```peddle
+# This is a comment
+fn main() {
+    print("HELLO")
+}
+```
+
+---
+
+# Imports
+
+Use `import` to split a program across multiple `.ped` files. Imports are
+merged by the compiler before parsing, so imported files share the same global
+namespace as the main file.
+
+```peddle
+import "game/player"
+import "/generics/file"
+import "./math/helpers"
+import "game/../generics/file"
+```
+
+Import paths are always relative to the project root, which is the directory
+containing the main `.ped` file passed to `peddlec`. A leading `/` means that
+project root, not the computer's filesystem root.
+
+The compiler appends `.ped` when the import path does not already end with
+`.ped`. It also imports each physical file only once, even if nested imports
+refer to it more than once.
+
+`.` and `..` are allowed in import paths, but the final resolved file must stay
+inside the project root. Symlinks are resolved before this check.
+
+```peddle
+# main.ped
+import "/game/player"
+
+fn main() {
+    player_init()
+}
+
+# game/player.ped
+fn player_init() {
+    print("READY")
+}
+```
 
 
 ---
@@ -3060,6 +3105,7 @@ Implemented:
 - peek/poke
 - memory reporting
 - optimization modes
+- source-level imports
 
 ---
 
@@ -3069,8 +3115,7 @@ Not implemented yet:
 
 - floating point
 - heap allocation
-- pointers
-- modules/imports
+- generic pointer values
 - disk IO
 - sprites/sound libraries
 - recursion safety
