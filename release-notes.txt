@@ -1,5 +1,11 @@
 # Release notes
 
+## v0.16.0 - 2026-06-02
+
+- first implementation of sound support added. print() now accepts also tmp char arrays, e.g. from itoa().
+- release note bug fixed
+- chore: start 0.16.0-dev
+
 ## v0.15.0 - 2026-06-02
 
 - added an import mechanism
