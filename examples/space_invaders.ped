@@ -10,6 +10,10 @@
 
 const SOUND_REGSTREAM = 1
 const ERR_OK = 0
+const RESULT_NONE = 0
+const RESULT_GAME_OVER = 1
+const RESULT_LANDED = 2
+const RESULT_WIN = 3
 const C4_LO = 103
 const C4_HI = 17
 const D4_LO = 138
@@ -122,11 +126,38 @@ fn drawAliens(alive bool[32], ax byte[32], ay byte[32]) {
     }
 }
 
-fn eraseAliens(ax byte[32], ay byte[32]) {
+fn eraseAliens(alive bool[32], ax byte[32], ay byte[32]) {
     var i byte
     i = 0
     while i < 32 {
-        putchar(ax[i], ay[i], ' ')
+        if alive[i] {
+            putchar(ax[i], ay[i], ' ')
+        }
+        i = i + 1
+    }
+}
+
+fn copyAlienPositions(srcX byte[32], srcY byte[32], dstX byte[32], dstY byte[32]) {
+    var i byte
+    i = 0
+    while i < 32 {
+        dstX[i] = srcX[i]
+        dstY[i] = srcY[i]
+        i = i + 1
+    }
+}
+
+fn drawShots(playerX byte, pbActive bool, pbX byte, pbY byte, abActive bool[3], abX byte[3], abY byte[3]) {
+    var i byte
+    putchar(playerX, 23, 'A')
+    if pbActive {
+        putchar(pbX, pbY, 'I')
+    }
+    i = 0
+    while i < 3 {
+        if abActive[i] {
+            putchar(abX[i], abY[i], '!')
+        }
         i = i + 1
     }
 }
@@ -163,12 +194,17 @@ fn main() {
     var alienMoveInterval int
     var alienTimer int
     var playerX byte
+    var oldPlayerX byte
     var pbActive bool
     var pbX byte
     var pbY byte
+    var oldPbX byte
+    var oldPbY byte
     var abActive bool[3]
     var abX byte[3]
     var abY byte[3]
+    var oldAbX byte
+    var oldAbY byte
     var score int
     var lives byte
     var gameOver bool
@@ -185,6 +221,9 @@ fn main() {
     var aliveCount int
     var pts int
     var atBottom bool
+    var gameResult byte
+    var oldAlienX byte[32]
+    var oldAlienY byte[32]
 
     # Sound
     var soundPool byte[1024]
@@ -218,6 +257,7 @@ fn main() {
     score = 0
     lives = 3
     gameOver = false
+    gameResult = RESULT_NONE
     alienGoRight = true
     playerX = 19
     pbActive = false
@@ -270,32 +310,36 @@ fn main() {
         # Move player left
         if k == 'a' {
             if playerX > 0 {
-                putchar(playerX, 23, ' ')
+                oldPlayerX = playerX
                 playerX = playerX - 1
                 putchar(playerX, 23, 'A')
+                putchar(oldPlayerX, 23, ' ')
             }
         }
         if k == 'A' {
             if playerX > 0 {
-                putchar(playerX, 23, ' ')
+                oldPlayerX = playerX
                 playerX = playerX - 1
                 putchar(playerX, 23, 'A')
+                putchar(oldPlayerX, 23, ' ')
             }
         }
 
         # Move player right
         if k == 'd' {
             if playerX < 39 {
-                putchar(playerX, 23, ' ')
+                oldPlayerX = playerX
                 playerX = playerX + 1
                 putchar(playerX, 23, 'A')
+                putchar(oldPlayerX, 23, ' ')
             }
         }
         if k == 'D' {
             if playerX < 39 {
-                putchar(playerX, 23, ' ')
+                oldPlayerX = playerX
                 playerX = playerX + 1
                 putchar(playerX, 23, 'A')
+                putchar(oldPlayerX, 23, ' ')
             }
         }
 
@@ -318,9 +362,11 @@ fn main() {
 
             # Move player bullet upward
             if pbActive {
-                putchar(pbX, pbY, ' ')
+                oldPbX = pbX
+                oldPbY = pbY
                 if pbY <= 2 {
                     pbActive = false
+                    putchar(oldPbX, oldPbY, ' ')
                 } else {
                     pbY = pbY - 1
                     # Check collision with each alien
@@ -330,7 +376,6 @@ fn main() {
                             if alienX[i] == pbX {
                                 if alienY[i] == pbY {
                                     alienAlive[i] = false
-                                    putchar(alienX[i], alienY[i], ' ')
                                     row = i / 8
                                     pts = 10
                                     if row == 0 { pts = 30 }
@@ -338,6 +383,8 @@ fn main() {
                                     score = score + pts
                                     showHUD(score, lives)
                                     pbActive = false
+                                    putchar(pbX, pbY, ' ')
+                                    putchar(oldPbX, oldPbY, ' ')
                                     if eErr == ERR_OK {
                                         sound_play(explosionId)
                                     } else {
@@ -359,6 +406,7 @@ fn main() {
                     }
                     if pbActive {
                         putchar(pbX, pbY, 'I')
+                        putchar(oldPbX, oldPbY, ' ')
                     }
                 }
             }
@@ -367,18 +415,22 @@ fn main() {
             i = 0
             while i < 3 {
                 if abActive[i] {
-                    putchar(abX[i], abY[i], ' ')
+                    oldAbX = abX[i]
+                    oldAbY = abY[i]
                     abY[i] = abY[i] + 1
                     if abY[i] > 23 {
                         abActive[i] = false
+                        putchar(oldAbX, oldAbY, ' ')
                     } else {
                         if abX[i] == playerX {
                             if abY[i] == 23 {
                                 abActive[i] = false
+                                putchar(oldAbX, oldAbY, ' ')
                                 lives = lives - 1
                                 showHUD(score, lives)
                                 if lives == 0 {
                                     gameOver = true
+                                    gameResult = RESULT_GAME_OVER
                                 } else {
                                     putchar(playerX, 23, 'A')
                                 }
@@ -386,6 +438,7 @@ fn main() {
                         }
                         if abActive[i] {
                             putchar(abX[i], abY[i], '!')
+                            putchar(oldAbX, oldAbY, ' ')
                         }
                     }
                 }
@@ -396,8 +449,7 @@ fn main() {
         # Alien movement tick
         if tickdue(alienTimer, alienMoveInterval) {
             alienTimer = ticks()
-
-            eraseAliens(alienX, alienY)
+            copyAlienPositions(alienX, alienY, oldAlienX, oldAlienY)
 
             # Check if any alive alien would hit a side wall
             hitWall = false
@@ -436,19 +488,20 @@ fn main() {
                     i = i + 1
                 }
             }
-
             drawAliens(alienAlive, alienX, alienY)
+            eraseAliens(alienAlive, oldAlienX, oldAlienY)
+            drawShots(playerX, pbActive, pbX, pbY, abActive, abX, abY)
 
             atBottom = aliensAtBottom(alienAlive, alienY)
             if atBottom {
-                putstr(10, 12, "THEY LANDED!")
                 gameOver = true
+                gameResult = RESULT_LANDED
             }
 
             aliveCount = countAlive(alienAlive)
             if aliveCount == 0 {
-                putstr(12, 12, "YOU WIN!")
                 gameOver = true
+                gameResult = RESULT_WIN
             }
         }
 
@@ -492,8 +545,14 @@ fn main() {
     }
 
     # End screen
-    if lives == 0 {
+    if gameResult == RESULT_GAME_OVER {
         putstr(11, 14, "GAME OVER")
+    }
+    if gameResult == RESULT_LANDED {
+        putstr(10, 12, "THEY LANDED!")
+    }
+    if gameResult == RESULT_WIN {
+        putstr(12, 12, "YOU WIN!")
     }
     putstr(10, 16, "PRESS ANY KEY")
     waitkey()
