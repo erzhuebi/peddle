@@ -16,22 +16,6 @@ const D4_LO = 138
 const D4_HI = 19
 const E4_LO = 237
 const E4_HI = 21
-const FS4_LO = 220
-const FS4_HI = 24
-const GS4_LO = 160
-const GS4_HI = 27
-const AS4_LO = 3
-const AS4_HI = 31
-const C5_LO = 206
-const C5_HI = 34
-const D5_LO = 17
-const D5_HI = 39
-const E5_LO = 218
-const E5_HI = 43
-const FS5_LO = 184
-const FS5_HI = 49
-const GS5_LO = 64
-const GS5_HI = 55
 
 fn sid(data byte[128], reg byte, value byte) {
     append(data, 2)
@@ -44,10 +28,13 @@ fn soundWait(data byte[128], frames byte) {
     append(data, frames)
 }
 
-fn rocketStep(data byte[128], lo byte, hi byte) {
+fn rocketNote(data byte[128], lo byte, hi byte, frames byte) {
     sid(data, 0, lo)
     sid(data, 1, hi)
-    soundWait(data, 8)
+    sid(data, 4, 17)
+    soundWait(data, frames)
+    sid(data, 4, 16)
+    soundWait(data, 1)
 }
 
 fn buildRocketSound(data byte[128]) {
@@ -56,18 +43,30 @@ fn buildRocketSound(data byte[128]) {
     sid(data, 24, 15)
     sid(data, 5, 8)
     sid(data, 6, 128)
-    sid(data, 4, 17)
-    rocketStep(data, C4_LO, C4_HI)
-    rocketStep(data, D4_LO, D4_HI)
-    rocketStep(data, E4_LO, E4_HI)
-    rocketStep(data, FS4_LO, FS4_HI)
-    rocketStep(data, GS4_LO, GS4_HI)
-    rocketStep(data, AS4_LO, AS4_HI)
-    rocketStep(data, C5_LO, C5_HI)
-    rocketStep(data, D5_LO, D5_HI)
-    rocketStep(data, E5_LO, E5_HI)
-    rocketStep(data, FS5_LO, FS5_HI)
-    rocketStep(data, GS5_LO, GS5_HI)
+    rocketNote(data, C4_LO, C4_HI, 2)
+    rocketNote(data, D4_LO, D4_HI, 2)
+    rocketNote(data, E4_LO, E4_HI, 3)
+    append(data, 0)
+}
+
+fn buildExplosionSound(data byte[128]) {
+    clear(data)
+
+    sid(data, 24, 15)
+    sid(data, 5, 2)
+    sid(data, 6, 240)
+    sid(data, 0, $00)
+    sid(data, 1, $30)
+    sid(data, 4, 129)
+    soundWait(data, 3)
+    sid(data, 0, $80)
+    sid(data, 1, $18)
+    soundWait(data, 3)
+    sid(data, 0, $40)
+    sid(data, 1, $08)
+    soundWait(data, 4)
+    sid(data, 24, 8)
+    soundWait(data, 3)
     sid(data, 4, 16)
     append(data, 0)
 }
@@ -190,8 +189,11 @@ fn main() {
     # Sound
     var soundPool byte[1024]
     var rocketData byte[128]
+    var explosionData byte[128]
     var rocketId uint
+    var explosionId uint
     var sErr int
+    var eErr int
 
     # Intro screen
     cls()
@@ -238,10 +240,16 @@ fn main() {
     sound_init(soundPool)
     buildRocketSound(rocketData)
     rocketId, sErr = sound_load(rocketData, SOUND_REGSTREAM)
+    buildExplosionSound(explosionData)
+    explosionId, eErr = sound_load(explosionData, SOUND_REGSTREAM)
 
     showHUD(score, lives)
     if sErr == ERR_OK {
-        putstr(0, 24, "A/D:MOVE  SPACE:FIRE  Q:QUIT")
+        if eErr == ERR_OK {
+            putstr(0, 24, "A/D:MOVE  SPACE:FIRE  Q:QUIT")
+        } else {
+            putstr(0, 24, "SOUND LOAD FAILED")
+        }
     } else {
         putstr(0, 24, "SOUND LOAD FAILED")
     }
@@ -313,9 +321,6 @@ fn main() {
                 putchar(pbX, pbY, ' ')
                 if pbY <= 2 {
                     pbActive = false
-                    if sErr == ERR_OK {
-                        sound_stop(rocketId)
-                    }
                 } else {
                     pbY = pbY - 1
                     # Check collision with each alien
@@ -333,8 +338,12 @@ fn main() {
                                     score = score + pts
                                     showHUD(score, lives)
                                     pbActive = false
-                                    if sErr == ERR_OK {
-                                        sound_stop(rocketId)
+                                    if eErr == ERR_OK {
+                                        sound_play(explosionId)
+                                    } else {
+                                        if sErr == ERR_OK {
+                                            sound_stop(rocketId)
+                                        }
                                     }
                                     # Speed up aliens as fewer remain
                                     aliveCount = countAlive(alienAlive)
