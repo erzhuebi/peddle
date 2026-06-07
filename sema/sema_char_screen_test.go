@@ -61,6 +61,53 @@ fn main() {
 	}
 }
 
+func TestSemaAllowsUserFunctionCallsInScreenBuiltinArgs(t *testing.T) {
+	err := checkProgramForCharScreenTest(t, `
+fn xpos() byte {
+    return 3
+}
+
+fn ypos() byte {
+    return 4
+}
+
+fn alienChar(row byte) char {
+    if row == 0 {
+        return 'A'
+    }
+    return 'B'
+}
+
+fn alienColor(row byte) byte {
+    return row + 1
+}
+
+fn main() {
+    var ax byte[2]
+    var ay byte[2]
+    var i byte
+    var row byte
+    var title char[8]
+
+    ax[0] = 3
+    ay[0] = 4
+    i = 0
+    row = 0
+    copy(title, "ALIEN")
+
+    putchar(ax[i], ay[i], alienChar(row))
+    putscreen(xpos(), ypos(), alienColor(row))
+    putcolor(xpos(), ypos(), alienColor(row))
+    gotoxy(xpos(), ypos())
+    putstrcolor(xpos(), ypos(), title, alienColor(row))
+}
+`)
+
+	if err != nil {
+		t.Fatalf("unexpected sema error: %v", err)
+	}
+}
+
 func TestSemaRejectsStringLiteralInPutChar(t *testing.T) {
 	err := checkProgramForCharScreenTest(t, `
 fn main() {

@@ -38,6 +38,10 @@ peddle_sound_initialized:
 peddle_sound_irq_installed:
     .byte 0
 
+; Avoid the NMOS 6502 JMP ($xxff) indirect-vector bug when chaining IRQs.
+.if (* & $00ff) == $00ff
+    .byte 0
+.endif
 peddle_sound_old_irq_lo:
     .byte 0
 peddle_sound_old_irq_hi:

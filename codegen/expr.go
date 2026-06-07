@@ -310,6 +310,11 @@ func (g *Generator) genExprTo(e ast.Expr, target ast.Type) error {
 			return nil
 		}
 
+		if !isWordType(target) && isWordType(retType) {
+			g.emit(fmt.Sprintf("    lda %s", fnFrame.Return.Label))
+			return nil
+		}
+
 		g.loadSymbol(*fnFrame.Return)
 		if isWordType(target) && !isWordType(retType) {
 			g.emit("    sta ZP_TMP0")

@@ -10,32 +10,65 @@
 
 const SOUND_REGSTREAM = 1
 const ERR_OK = 0
+const C4_LO = 103
+const C4_HI = 17
+const D4_LO = 138
+const D4_HI = 19
+const E4_LO = 237
+const E4_HI = 21
+const FS4_LO = 220
+const FS4_HI = 24
+const GS4_LO = 160
+const GS4_HI = 27
+const AS4_LO = 3
+const AS4_HI = 31
+const C5_LO = 206
+const C5_HI = 34
+const D5_LO = 17
+const D5_HI = 39
+const E5_LO = 218
+const E5_HI = 43
+const FS5_LO = 184
+const FS5_HI = 49
+const GS5_LO = 64
+const GS5_HI = 55
 
-fn sid(data byte[64], reg byte, value byte) {
+fn sid(data byte[128], reg byte, value byte) {
     append(data, 2)
     append(data, reg)
     append(data, value)
 }
 
-fn soundWait(data byte[64], frames byte) {
+fn soundWait(data byte[128], frames byte) {
     append(data, 1)
     append(data, frames)
 }
 
-fn buildRocketSound(data byte[64]) {
+fn rocketStep(data byte[128], lo byte, hi byte) {
+    sid(data, 0, lo)
+    sid(data, 1, hi)
+    soundWait(data, 8)
+}
+
+fn buildRocketSound(data byte[128]) {
     clear(data)
 
     sid(data, 24, 15)
-    sid(data, 5, 9)
-    sid(data, 6, 240)
-    sid(data, 0, $80)
-    sid(data, 1, $20)
-    sid(data, 4, 129)
-    soundWait(data, 3)
-    sid(data, 0, $40)
-    sid(data, 1, $10)
-    soundWait(data, 2)
-    sid(data, 4, 128)
+    sid(data, 5, 8)
+    sid(data, 6, 128)
+    sid(data, 4, 17)
+    rocketStep(data, C4_LO, C4_HI)
+    rocketStep(data, D4_LO, D4_HI)
+    rocketStep(data, E4_LO, E4_HI)
+    rocketStep(data, FS4_LO, FS4_HI)
+    rocketStep(data, GS4_LO, GS4_HI)
+    rocketStep(data, AS4_LO, AS4_HI)
+    rocketStep(data, C5_LO, C5_HI)
+    rocketStep(data, D5_LO, D5_HI)
+    rocketStep(data, E5_LO, E5_HI)
+    rocketStep(data, FS5_LO, FS5_HI)
+    rocketStep(data, GS5_LO, GS5_HI)
+    sid(data, 4, 16)
     append(data, 0)
 }
 
@@ -156,7 +189,7 @@ fn main() {
 
     # Sound
     var soundPool byte[1024]
-    var rocketData byte[64]
+    var rocketData byte[128]
     var rocketId uint
     var sErr int
 
@@ -280,6 +313,9 @@ fn main() {
                 putchar(pbX, pbY, ' ')
                 if pbY <= 2 {
                     pbActive = false
+                    if sErr == ERR_OK {
+                        sound_stop(rocketId)
+                    }
                 } else {
                     pbY = pbY - 1
                     # Check collision with each alien
@@ -297,6 +333,9 @@ fn main() {
                                     score = score + pts
                                     showHUD(score, lives)
                                     pbActive = false
+                                    if sErr == ERR_OK {
+                                        sound_stop(rocketId)
+                                    }
                                     # Speed up aliens as fewer remain
                                     aliveCount = countAlive(alienAlive)
                                     if aliveCount < 24 { alienMoveInterval = 16 }

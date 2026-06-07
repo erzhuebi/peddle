@@ -83,14 +83,20 @@ func (g *Generator) genPoke(args []ast.Expr) (ast.Type, error) {
 	}
 
 	g.emit("    lda ZP_TMP0")
-	g.emit("    sta ZP_PTR0_LO")
+	g.emit("    pha")
 	g.emit("    lda ZP_TMP1")
-	g.emit("    sta ZP_PTR0_HI")
+	g.emit("    pha")
 
 	if err := g.genExprTo(args[1], ast.Type{Name: "byte"}); err != nil {
 		return ast.Type{}, err
 	}
 
+	g.emit("    sta ZP_TMP0")
+	g.emit("    pla")
+	g.emit("    sta ZP_PTR0_HI")
+	g.emit("    pla")
+	g.emit("    sta ZP_PTR0_LO")
+	g.emit("    lda ZP_TMP0")
 	g.emit("    ldy #0")
 	g.emit("    sta (ZP_PTR0_LO), y")
 	g.usedTmp16 = true
@@ -190,11 +196,10 @@ func (g *Generator) genTickDue(args []ast.Expr) (ast.Type, error) {
 		return ast.Type{}, err
 	}
 
-	// Store last tick value in ZP_PTR0_LO/HI.
 	g.emit("    lda ZP_TMP0")
-	g.emit("    sta ZP_PTR0_LO")
+	g.emit("    pha")
 	g.emit("    lda ZP_TMP1")
-	g.emit("    sta ZP_PTR0_HI")
+	g.emit("    pha")
 
 	if err := g.genExprTo(args[1], ast.Type{Name: "int"}); err != nil {
 		return ast.Type{}, err
@@ -205,6 +210,12 @@ func (g *Generator) genTickDue(args []ast.Expr) (ast.Type, error) {
 	g.emit("    sta peddle_tmp_int0")
 	g.emit("    lda ZP_TMP1")
 	g.emit("    sta peddle_tmp_int0+1")
+
+	// Restore last tick value into ZP_PTR0_LO/HI after interval generation.
+	g.emit("    pla")
+	g.emit("    sta ZP_PTR0_HI")
+	g.emit("    pla")
+	g.emit("    sta ZP_PTR0_LO")
 
 	// Compute elapsed = current - last modulo 65536.
 	//
@@ -413,12 +424,14 @@ func (g *Generator) genGotoXY(args []ast.Expr) (ast.Type, error) {
 	if err := g.genExprTo(args[0], ast.Type{Name: "byte"}); err != nil {
 		return ast.Type{}, err
 	}
-	g.emit("    sta peddle_tmp_int0") // x / column
+	g.emit("    pha") // x / column
 
 	if err := g.genExprTo(args[1], ast.Type{Name: "byte"}); err != nil {
 		return ast.Type{}, err
 	}
 	g.emit("    sta peddle_tmp_int0+1") // y / row
+	g.emit("    pla")
+	g.emit("    sta peddle_tmp_int0")
 
 	done := g.newLabel()
 
@@ -477,12 +490,12 @@ func (g *Generator) genPutScreenByte(name string, args []ast.Expr, base int, con
 	if err := g.genExprTo(args[0], ast.Type{Name: "byte"}); err != nil {
 		return ast.Type{}, err
 	}
-	g.emit("    sta peddle_tmp_int0")
+	g.emit("    pha")
 
 	if err := g.genExprTo(args[1], ast.Type{Name: "byte"}); err != nil {
 		return ast.Type{}, err
 	}
-	g.emit("    sta peddle_tmp_int0+1")
+	g.emit("    pha")
 
 	if err := g.genExprTo(args[2], ast.Type{Name: "byte"}); err != nil {
 		return ast.Type{}, err
@@ -492,6 +505,11 @@ func (g *Generator) genPutScreenByte(name string, args []ast.Expr, base int, con
 	if convertChar {
 		g.genCharCodeToScreenCode()
 	}
+
+	g.emit("    pla")
+	g.emit("    sta peddle_tmp_int0+1")
+	g.emit("    pla")
+	g.emit("    sta peddle_tmp_int0")
 
 	clip := g.newLabel()
 	addRow := g.newLabel()
@@ -551,59 +569,21 @@ func (g *Generator) genPutStr(args []ast.Expr) (ast.Type, error) {
 	if err := g.genExprTo(args[0], ast.Type{Name: "byte"}); err != nil {
 		return ast.Type{}, err
 	}
-	g.emit("    sta peddle_putstr_x")
+	g.emit("    pha")
 
 	if err := g.genExprTo(args[1], ast.Type{Name: "byte"}); err != nil {
 		return ast.Type{}, err
 	}
-	g.emit("    sta peddle_putstr_y")
+	g.emit("    pha")
 
-	switch text := args[2].(type) {
-	case *ast.StringExpr:
-		label := g.addLiteral(text.Value)
-
-		g.emit(fmt.Sprintf("    lda #<%s", label))
-		g.emit("    sta ZP_PTR1_LO")
-		g.emit(fmt.Sprintf("    lda #>%s", label))
-		g.emit("    sta ZP_PTR1_HI")
-
-		g.emit(fmt.Sprintf("    lda #<%d", len(text.Value)))
-		g.emit("    sta peddle_tmp_int0")
-		g.emit(fmt.Sprintf("    lda #>%d", len(text.Value)))
-		g.emit("    sta peddle_tmp_int0+1")
-
-	case *ast.IdentExpr, *ast.FieldExpr, *ast.IndexFieldExpr, *ast.CallExpr:
-		arrayType, err := g.arrayExprType(args[2])
-		if err != nil {
-			return ast.Type{}, err
-		}
-
-		if !(arrayType.IsArray && arrayType.Name == "char") {
-			return ast.Type{}, fmt.Errorf("putstr expects string literal or char array")
-		}
-
-		if err := g.genArrayAddress(args[2]); err != nil {
-			return ast.Type{}, err
-		}
-
-		g.emit("    ldy #2")
-		g.emit("    lda (ZP_PTR0_LO), y")
-		g.emit("    sta peddle_tmp_int0")
-		g.emit("    iny")
-		g.emit("    lda (ZP_PTR0_LO), y")
-		g.emit("    sta peddle_tmp_int0+1")
-
-		g.emit("    lda ZP_PTR0_LO")
-		g.emit("    clc")
-		g.emit("    adc #4")
-		g.emit("    sta ZP_PTR1_LO")
-		g.emit("    lda ZP_PTR0_HI")
-		g.emit("    adc #0")
-		g.emit("    sta ZP_PTR1_HI")
-
-	default:
-		return ast.Type{}, fmt.Errorf("putstr expects string literal or char array")
+	if err := g.genPutStrTextArg("putstr", args[2]); err != nil {
+		return ast.Type{}, err
 	}
+
+	g.emit("    pla")
+	g.emit("    sta peddle_putstr_y")
+	g.emit("    pla")
+	g.emit("    sta peddle_putstr_x")
 
 	g.emit("    jsr peddle_putstr")
 	g.usedTmp16 = true
@@ -620,14 +600,54 @@ func (g *Generator) genPutStrColor(args []ast.Expr) (ast.Type, error) {
 	if err := g.genExprTo(args[0], ast.Type{Name: "byte"}); err != nil {
 		return ast.Type{}, err
 	}
-	g.emit("    sta peddle_putstr_x")
+	g.emit("    pha")
 
 	if err := g.genExprTo(args[1], ast.Type{Name: "byte"}); err != nil {
 		return ast.Type{}, err
 	}
-	g.emit("    sta peddle_putstr_y")
+	g.emit("    pha")
 
-	switch text := args[2].(type) {
+	if err := g.genPutStrTextArg("putstrcolor", args[2]); err != nil {
+		return ast.Type{}, err
+	}
+
+	g.emit("    lda peddle_tmp_int0")
+	g.emit("    pha")
+	g.emit("    lda peddle_tmp_int0+1")
+	g.emit("    pha")
+	g.emit("    lda ZP_PTR1_LO")
+	g.emit("    pha")
+	g.emit("    lda ZP_PTR1_HI")
+	g.emit("    pha")
+
+	if err := g.genExprTo(args[3], ast.Type{Name: "byte"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    sta peddle_putstr_color")
+
+	g.emit("    pla")
+	g.emit("    sta ZP_PTR1_HI")
+	g.emit("    pla")
+	g.emit("    sta ZP_PTR1_LO")
+	g.emit("    pla")
+	g.emit("    sta peddle_tmp_int0+1")
+	g.emit("    pla")
+	g.emit("    sta peddle_tmp_int0")
+	g.emit("    pla")
+	g.emit("    sta peddle_putstr_y")
+	g.emit("    pla")
+	g.emit("    sta peddle_putstr_x")
+
+	g.emit("    jsr peddle_putstrcolor")
+	g.usedTmp16 = true
+	g.usedPutStrRuntime = true
+	g.usedPutStrColorRuntime = true
+
+	return ast.Type{}, nil
+}
+
+func (g *Generator) genPutStrTextArg(name string, arg ast.Expr) error {
+	switch text := arg.(type) {
 	case *ast.StringExpr:
 		label := g.addLiteral(text.Value)
 
@@ -642,17 +662,17 @@ func (g *Generator) genPutStrColor(args []ast.Expr) (ast.Type, error) {
 		g.emit("    sta peddle_tmp_int0+1")
 
 	case *ast.IdentExpr, *ast.FieldExpr, *ast.IndexFieldExpr, *ast.CallExpr:
-		arrayType, err := g.arrayExprType(args[2])
+		arrayType, err := g.arrayExprType(arg)
 		if err != nil {
-			return ast.Type{}, err
+			return err
 		}
 
 		if !(arrayType.IsArray && arrayType.Name == "char") {
-			return ast.Type{}, fmt.Errorf("putstrcolor expects string literal or char array")
+			return fmt.Errorf("%s expects string literal or char array", name)
 		}
 
-		if err := g.genArrayAddress(args[2]); err != nil {
-			return ast.Type{}, err
+		if err := g.genArrayAddress(arg); err != nil {
+			return err
 		}
 
 		g.emit("    ldy #2")
@@ -671,20 +691,10 @@ func (g *Generator) genPutStrColor(args []ast.Expr) (ast.Type, error) {
 		g.emit("    sta ZP_PTR1_HI")
 
 	default:
-		return ast.Type{}, fmt.Errorf("putstrcolor expects string literal or char array")
+		return fmt.Errorf("%s expects string literal or char array", name)
 	}
 
-	if err := g.genExprTo(args[3], ast.Type{Name: "byte"}); err != nil {
-		return ast.Type{}, err
-	}
-	g.emit("    sta peddle_putstr_color")
-
-	g.emit("    jsr peddle_putstrcolor")
-	g.usedTmp16 = true
-	g.usedPutStrRuntime = true
-	g.usedPutStrColorRuntime = true
-
-	return ast.Type{}, nil
+	return nil
 }
 
 func (g *Generator) genLen(args []ast.Expr) (ast.Type, error) {
