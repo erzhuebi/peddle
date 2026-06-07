@@ -20,6 +20,7 @@ const D4_LO = 138
 const D4_HI = 19
 const E4_LO = 237
 const E4_HI = 21
+const COLOR_WHITE = 1
 
 fn sid(data byte[128], reg byte, value byte) {
     append(data, 2)
@@ -89,6 +90,11 @@ fn showHUD(score int, lives byte) {
     putstr(35, 0, nums)
 }
 
+fn drawChar(x byte, y byte, ch char) {
+    putchar(x, y, ch)
+    putcolor(x, y, COLOR_WHITE)
+}
+
 fn initAliens(alive bool[32], ax byte[32], ay byte[32]) {
     var i byte
     var row byte
@@ -120,7 +126,7 @@ fn drawAliens(alive bool[32], ax byte[32], ay byte[32]) {
             if row == 0 { ch = 'W' }
             if row == 1 { ch = 'M' }
             if row == 2 { ch = 'V' }
-            putchar(ax[i], ay[i], ch)
+            drawChar(ax[i], ay[i], ch)
         }
         i = i + 1
     }
@@ -149,14 +155,14 @@ fn copyAlienPositions(srcX byte[32], srcY byte[32], dstX byte[32], dstY byte[32]
 
 fn drawShots(playerX byte, pbActive bool, pbX byte, pbY byte, abActive bool[3], abX byte[3], abY byte[3]) {
     var i byte
-    putchar(playerX, 23, 'A')
+    drawChar(playerX, 23, 'A')
     if pbActive {
-        putchar(pbX, pbY, 'I')
+        drawChar(pbX, pbY, 'I')
     }
     i = 0
     while i < 3 {
         if abActive[i] {
-            putchar(abX[i], abY[i], '!')
+            drawChar(abX[i], abY[i], '!')
         }
         i = i + 1
     }
@@ -293,7 +299,7 @@ fn main() {
     } else {
         putstr(0, 24, "SOUND LOAD FAILED")
     }
-    putchar(playerX, 23, 'A')
+    drawChar(playerX, 23, 'A')
     drawAliens(alienAlive, alienX, alienY)
 
     alienTimer = ticks()
@@ -312,7 +318,7 @@ fn main() {
             if playerX > 0 {
                 oldPlayerX = playerX
                 playerX = playerX - 1
-                putchar(playerX, 23, 'A')
+                drawChar(playerX, 23, 'A')
                 putchar(oldPlayerX, 23, ' ')
             }
         }
@@ -320,7 +326,7 @@ fn main() {
             if playerX > 0 {
                 oldPlayerX = playerX
                 playerX = playerX - 1
-                putchar(playerX, 23, 'A')
+                drawChar(playerX, 23, 'A')
                 putchar(oldPlayerX, 23, ' ')
             }
         }
@@ -330,7 +336,7 @@ fn main() {
             if playerX < 39 {
                 oldPlayerX = playerX
                 playerX = playerX + 1
-                putchar(playerX, 23, 'A')
+                drawChar(playerX, 23, 'A')
                 putchar(oldPlayerX, 23, ' ')
             }
         }
@@ -338,7 +344,7 @@ fn main() {
             if playerX < 39 {
                 oldPlayerX = playerX
                 playerX = playerX + 1
-                putchar(playerX, 23, 'A')
+                drawChar(playerX, 23, 'A')
                 putchar(oldPlayerX, 23, ' ')
             }
         }
@@ -349,7 +355,7 @@ fn main() {
                 pbX = playerX
                 pbY = 22
                 pbActive = true
-                putchar(pbX, pbY, 'I')
+                drawChar(pbX, pbY, 'I')
                 if sErr == ERR_OK {
                     sound_play(rocketId)
                 }
@@ -405,7 +411,7 @@ fn main() {
                         i = i + 1
                     }
                     if pbActive {
-                        putchar(pbX, pbY, 'I')
+                        drawChar(pbX, pbY, 'I')
                         putchar(oldPbX, oldPbY, ' ')
                     }
                 }
@@ -432,12 +438,12 @@ fn main() {
                                     gameOver = true
                                     gameResult = RESULT_GAME_OVER
                                 } else {
-                                    putchar(playerX, 23, 'A')
+                                    drawChar(playerX, 23, 'A')
                                 }
                             }
                         }
                         if abActive[i] {
-                            putchar(abX[i], abY[i], '!')
+                            drawChar(abX[i], abY[i], '!')
                             putchar(oldAbX, oldAbY, ' ')
                         }
                     }
@@ -530,7 +536,7 @@ fn main() {
                         abX[fireSlot] = alienX[fireSearch]
                         abY[fireSlot] = alienY[fireSearch] + 1
                         abActive[fireSlot] = true
-                        putchar(abX[fireSlot], abY[fireSlot], '!')
+                        drawChar(abX[fireSlot], abY[fireSlot], '!')
                         break
                     }
                     fireSearch = fireSearch + 1
