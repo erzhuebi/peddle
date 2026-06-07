@@ -1,0 +1,452 @@
+# Space Invaders for the Commodore 64, written in Peddle
+#
+# Controls: A/D = move left/right, SPACE = fire, Q = quit
+#
+# Screen layout (40x25):
+#   Row 0       : score and lives HUD
+#   Rows 2-8    : alien grid (4 rows x 8 columns, spaced 2 rows apart)
+#   Row 23      : player cannon
+#   Row 24      : key guide
+
+const SOUND_REGSTREAM = 1
+const ERR_OK = 0
+
+fn sid(data byte[64], reg byte, value byte) {
+    append(data, 2)
+    append(data, reg)
+    append(data, value)
+}
+
+fn soundWait(data byte[64], frames byte) {
+    append(data, 1)
+    append(data, frames)
+}
+
+fn buildRocketSound(data byte[64]) {
+    clear(data)
+
+    sid(data, 24, 15)
+    sid(data, 5, 9)
+    sid(data, 6, 240)
+    sid(data, 0, $80)
+    sid(data, 1, $20)
+    sid(data, 4, 129)
+    soundWait(data, 3)
+    sid(data, 0, $40)
+    sid(data, 1, $10)
+    soundWait(data, 2)
+    sid(data, 4, 128)
+    append(data, 0)
+}
+
+fn showHUD(score int, lives byte) {
+    var nums char[8]
+    putstr(0, 0, "SCORE:")
+    clear(nums)
+    copy(nums, itoa(score))
+    putstr(6, 0, "       ")
+    putstr(6, 0, nums)
+    putstr(29, 0, "LIVES:")
+    clear(nums)
+    copy(nums, itoa(lives))
+    putstr(35, 0, "  ")
+    putstr(35, 0, nums)
+}
+
+fn initAliens(alive bool[32], ax byte[32], ay byte[32]) {
+    var i byte
+    var row byte
+    var col byte
+    i = 0
+    row = 0
+    while row < 4 {
+        col = 0
+        while col < 8 {
+            alive[i] = true
+            ax[i] = col * 4 + 2
+            ay[i] = row * 2 + 2
+            i = i + 1
+            col = col + 1
+        }
+        row = row + 1
+    }
+}
+
+fn drawAliens(alive bool[32], ax byte[32], ay byte[32]) {
+    var i byte
+    var row byte
+    var ch char
+    i = 0
+    while i < 32 {
+        row = i / 8
+        if alive[i] {
+            ch = 'T'
+            if row == 0 { ch = 'W' }
+            if row == 1 { ch = 'M' }
+            if row == 2 { ch = 'V' }
+            putchar(ax[i], ay[i], ch)
+        }
+        i = i + 1
+    }
+}
+
+fn eraseAliens(ax byte[32], ay byte[32]) {
+    var i byte
+    i = 0
+    while i < 32 {
+        putchar(ax[i], ay[i], ' ')
+        i = i + 1
+    }
+}
+
+fn countAlive(alive bool[32]) int {
+    var i byte
+    var n int
+    n = 0
+    i = 0
+    while i < 32 {
+        if alive[i] { n = n + 1 }
+        i = i + 1
+    }
+    return n
+}
+
+fn aliensAtBottom(alive bool[32], ay byte[32]) bool {
+    var i byte
+    i = 0
+    while i < 32 {
+        if alive[i] {
+            if ay[i] >= 21 { return true }
+        }
+        i = i + 1
+    }
+    return false
+}
+
+fn main() {
+    var alienAlive bool[32]
+    var alienX byte[32]
+    var alienY byte[32]
+    var alienGoRight bool
+    var alienMoveInterval int
+    var alienTimer int
+    var playerX byte
+    var pbActive bool
+    var pbX byte
+    var pbY byte
+    var abActive bool[3]
+    var abX byte[3]
+    var abY byte[3]
+    var score int
+    var lives byte
+    var gameOver bool
+    var bulletTimer int
+    var fireTimer int
+    var fireSearch byte
+    var fireSlot byte
+    var k char
+    var i byte
+    var row byte
+    var hitWall bool
+    var gotSlot bool
+    var searched byte
+    var aliveCount int
+    var pts int
+    var atBottom bool
+
+    # Sound
+    var soundPool byte[1024]
+    var rocketData byte[64]
+    var rocketId uint
+    var sErr int
+
+    # Intro screen
+    cls()
+    border(6)
+    background(0)
+    textcolor(1)
+    putstr(9, 7, "SPACE INVADERS")
+    putstr(6, 9,  "ALIENS:")
+    putstr(6, 10, "  ROW 1: W = 30 PTS")
+    putstr(6, 11, "  ROW 2: M = 20 PTS")
+    putstr(6, 12, "  ROW 3: V = 10 PTS")
+    putstr(6, 13, "  ROW 4: T = 10 PTS")
+    putstr(6, 15, "CONTROLS:")
+    putstr(6, 16, "  A/D   = MOVE")
+    putstr(6, 17, "  SPACE = FIRE")
+    putstr(6, 18, "  Q     = QUIT")
+    putstr(9, 20, "PRESS ANY KEY")
+    waitkey()
+    cls()
+
+    # Init game state
+    score = 0
+    lives = 3
+    gameOver = false
+    alienGoRight = true
+    playerX = 19
+    pbActive = false
+    pbX = 0
+    pbY = 0
+    fireSearch = 0
+    fireSlot = 0
+    alienMoveInterval = 20
+
+    i = 0
+    while i < 3 {
+        abActive[i] = false
+        abX[i] = 0
+        abY[i] = 0
+        i = i + 1
+    }
+
+    initAliens(alienAlive, alienX, alienY)
+
+    sound_init(soundPool)
+    buildRocketSound(rocketData)
+    rocketId, sErr = sound_load(rocketData, SOUND_REGSTREAM)
+
+    showHUD(score, lives)
+    if sErr == ERR_OK {
+        putstr(0, 24, "A/D:MOVE  SPACE:FIRE  Q:QUIT")
+    } else {
+        putstr(0, 24, "SOUND LOAD FAILED")
+    }
+    putchar(playerX, 23, 'A')
+    drawAliens(alienAlive, alienX, alienY)
+
+    alienTimer = ticks()
+    bulletTimer = ticks()
+    fireTimer = ticks()
+
+    # Main game loop
+    while gameOver == false {
+        k = key()
+
+        if k == 'q' { gameOver = true }
+        if k == 'Q' { gameOver = true }
+
+        # Move player left
+        if k == 'a' {
+            if playerX > 0 {
+                putchar(playerX, 23, ' ')
+                playerX = playerX - 1
+                putchar(playerX, 23, 'A')
+            }
+        }
+        if k == 'A' {
+            if playerX > 0 {
+                putchar(playerX, 23, ' ')
+                playerX = playerX - 1
+                putchar(playerX, 23, 'A')
+            }
+        }
+
+        # Move player right
+        if k == 'd' {
+            if playerX < 39 {
+                putchar(playerX, 23, ' ')
+                playerX = playerX + 1
+                putchar(playerX, 23, 'A')
+            }
+        }
+        if k == 'D' {
+            if playerX < 39 {
+                putchar(playerX, 23, ' ')
+                playerX = playerX + 1
+                putchar(playerX, 23, 'A')
+            }
+        }
+
+        # Fire player bullet
+        if k == ' ' {
+            if pbActive == false {
+                pbX = playerX
+                pbY = 22
+                pbActive = true
+                putchar(pbX, pbY, 'I')
+                if sErr == ERR_OK {
+                    sound_play(rocketId)
+                }
+            }
+        }
+
+        # Bullet update tick (every 4 ticks ~ 12fps movement)
+        if tickdue(bulletTimer, 4) {
+            bulletTimer = ticks()
+
+            # Move player bullet upward
+            if pbActive {
+                putchar(pbX, pbY, ' ')
+                if pbY <= 2 {
+                    pbActive = false
+                } else {
+                    pbY = pbY - 1
+                    # Check collision with each alien
+                    i = 0
+                    while i < 32 {
+                        if alienAlive[i] {
+                            if alienX[i] == pbX {
+                                if alienY[i] == pbY {
+                                    alienAlive[i] = false
+                                    putchar(alienX[i], alienY[i], ' ')
+                                    row = i / 8
+                                    pts = 10
+                                    if row == 0 { pts = 30 }
+                                    if row == 1 { pts = 20 }
+                                    score = score + pts
+                                    showHUD(score, lives)
+                                    pbActive = false
+                                    # Speed up aliens as fewer remain
+                                    aliveCount = countAlive(alienAlive)
+                                    if aliveCount < 24 { alienMoveInterval = 16 }
+                                    if aliveCount < 16 { alienMoveInterval = 12 }
+                                    if aliveCount < 8  { alienMoveInterval = 8  }
+                                    if aliveCount < 4  { alienMoveInterval = 5  }
+                                    break
+                                }
+                            }
+                        }
+                        i = i + 1
+                    }
+                    if pbActive {
+                        putchar(pbX, pbY, 'I')
+                    }
+                }
+            }
+
+            # Move alien bullets downward
+            i = 0
+            while i < 3 {
+                if abActive[i] {
+                    putchar(abX[i], abY[i], ' ')
+                    abY[i] = abY[i] + 1
+                    if abY[i] > 23 {
+                        abActive[i] = false
+                    } else {
+                        if abX[i] == playerX {
+                            if abY[i] == 23 {
+                                abActive[i] = false
+                                lives = lives - 1
+                                showHUD(score, lives)
+                                if lives == 0 {
+                                    gameOver = true
+                                } else {
+                                    putchar(playerX, 23, 'A')
+                                }
+                            }
+                        }
+                        if abActive[i] {
+                            putchar(abX[i], abY[i], '!')
+                        }
+                    }
+                }
+                i = i + 1
+            }
+        }
+
+        # Alien movement tick
+        if tickdue(alienTimer, alienMoveInterval) {
+            alienTimer = ticks()
+
+            eraseAliens(alienX, alienY)
+
+            # Check if any alive alien would hit a side wall
+            hitWall = false
+            i = 0
+            while i < 32 {
+                if alienAlive[i] {
+                    if alienGoRight {
+                        if alienX[i] >= 38 { hitWall = true }
+                    } else {
+                        if alienX[i] <= 1 { hitWall = true }
+                    }
+                }
+                i = i + 1
+            }
+
+            if hitWall {
+                # Reverse direction and descend one row
+                alienGoRight = !alienGoRight
+                i = 0
+                while i < 32 {
+                    if alienAlive[i] {
+                        alienY[i] = alienY[i] + 1
+                    }
+                    i = i + 1
+                }
+            } else {
+                i = 0
+                while i < 32 {
+                    if alienAlive[i] {
+                        if alienGoRight {
+                            alienX[i] = alienX[i] + 1
+                        } else {
+                            alienX[i] = alienX[i] - 1
+                        }
+                    }
+                    i = i + 1
+                }
+            }
+
+            drawAliens(alienAlive, alienX, alienY)
+
+            atBottom = aliensAtBottom(alienAlive, alienY)
+            if atBottom {
+                putstr(10, 12, "THEY LANDED!")
+                gameOver = true
+            }
+
+            aliveCount = countAlive(alienAlive)
+            if aliveCount == 0 {
+                putstr(12, 12, "YOU WIN!")
+                gameOver = true
+            }
+        }
+
+        # Alien fire tick (every 40 ticks, cycles through alive aliens)
+        if tickdue(fireTimer, 40) {
+            fireTimer = ticks()
+
+            # Find a free bullet slot
+            gotSlot = false
+            i = 0
+            while i < 3 {
+                if gotSlot == false {
+                    if abActive[i] == false {
+                        fireSlot = i
+                        gotSlot = true
+                    }
+                }
+                i = i + 1
+            }
+
+            if gotSlot {
+                # Find the next alive alien to fire from (round-robin)
+                searched = 0
+                while searched < 32 {
+                    if alienAlive[fireSearch] {
+                        abX[fireSlot] = alienX[fireSearch]
+                        abY[fireSlot] = alienY[fireSearch] + 1
+                        abActive[fireSlot] = true
+                        putchar(abX[fireSlot], abY[fireSlot], '!')
+                        break
+                    }
+                    fireSearch = fireSearch + 1
+                    if fireSearch >= 32 { fireSearch = 0 }
+                    searched = searched + 1
+                }
+                # Advance so next fire comes from a different alien
+                fireSearch = fireSearch + 1
+                if fireSearch >= 32 { fireSearch = 0 }
+            }
+        }
+    }
+
+    # End screen
+    if lives == 0 {
+        putstr(11, 14, "GAME OVER")
+    }
+    putstr(10, 16, "PRESS ANY KEY")
+    waitkey()
+}
