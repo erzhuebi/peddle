@@ -149,8 +149,8 @@ func (g *Generator) genCall(name string, args []ast.Expr) (ast.Type, error) {
 	case "gotoxy":
 		return g.genGotoXY(args)
 
-	case "putscreen":
-		return g.genPutScreen(args)
+	case "putraw":
+		return g.genPutRaw(args)
 
 	case "putchar":
 		return g.genPutChar(args)

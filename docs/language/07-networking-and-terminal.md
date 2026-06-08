@@ -208,7 +208,7 @@ Those coordinate bytes are not ASCII characters. ASCII `"4"` and `"9"` would be 
 - `asciifont()` for ASCII-style lowercase and underscore display
 - `toascii()` before sending typed keys to the server
 - `netread(rx, size(rx), 0)` for non-blocking input from the server
-- direct screen RAM drawing with `putscreen()` and `putcolor()`
+- direct screen RAM drawing with `putraw()` and `putcolor()`
 
 Interactive programs such as `top` need a live terminal. They do not fit a command/response model because they constantly redraw the screen using terminal control sequences.
 

@@ -20,7 +20,7 @@
 | `textcolor(color)` | set KERNAL text color using `$0286` |
 | `gotoxy(x, y)` | set KERNAL text cursor position |
 | `putchar(x, y, ch)` | write a character to screen RAM at position |
-| `putscreen(x, y, code)` | write raw C64 screen code to screen RAM |
+| `putraw(x, y, code)` | write raw C64 screen code to screen RAM |
 | `putcolor(x, y, color)` | write color RAM value at position |
 | `putstr(x, y, text)` | write a string literal or `char[]` directly to screen RAM |
 | `putstrcolor(x, y, text, color)` | write a string literal or `char[]` to screen RAM and color RAM |
@@ -67,7 +67,7 @@ Important distinction:
 - `print()` uses the KERNAL cursor
 - `gotoxy()` moves the KERNAL cursor
 - `textcolor()` affects KERNAL `print()`
-- `putchar()`, `putscreen()`, `putstr()`, and `putcolor()` write directly to screen/color RAM
+- `putchar()`, `putraw()`, `putstr()`, and `putcolor()` write directly to screen/color RAM
 
 ---
 
@@ -123,7 +123,7 @@ print("WHITE TEXT")
 
 This writes to `$0286`.
 
-`textcolor()` affects KERNAL-style `print()` output. It does not automatically affect direct screen RAM writes such as `putchar()` or `putscreen()`.
+`textcolor()` affects KERNAL-style `print()` output. It does not automatically affect direct screen RAM writes such as `putchar()` or `putraw()`.
 
 ---
 
@@ -143,7 +143,7 @@ It affects `print()` output.
 It does not affect direct screen RAM functions such as:
 
 - `putchar()`
-- `putscreen()`
+- `putraw()`
 - `putstr()`
 - `putcolor()`
 
@@ -218,21 +218,21 @@ putchar(1, 0, '1')
 
 ---
 
-# putscreen()
+# putraw()
 
 Write a raw C64 screen code at a fixed screen position.
 
 ```peddle
-putscreen(0, 0, 16)
-putscreen(1, 0, 5)
-putscreen(2, 0, 4)
+putraw(0, 0, 16)
+putraw(1, 0, 5)
+putraw(2, 0, 4)
 ```
 
-`putscreen()` does no character conversion.
+`putraw()` does no character conversion.
 
 Use it when you already know the C64 screen code you want to write.
 
-`putscreen()` is clipped to the visible screen. If `x >= 40` or `y >= 25`, it does nothing.
+`putraw()` is clipped to the visible screen. If `x >= 40` or `y >= 25`, it does nothing.
 
 ---
 
@@ -443,14 +443,14 @@ Use this rule:
 ```text
 key()       returns PETSCII/KERNAL character codes
 print()     uses KERNAL/PETSCII output
-putscreen() writes raw screen codes directly to screen RAM
+putraw() writes raw screen codes directly to screen RAM
 putchar()   converts a character to a screen code
 putstr()    converts string characters to screen codes
 ```
 
 For example, the space character is simple because it is `32` in both common text handling and screen memory. Letters are different: PETSCII/KERNAL character codes and raw screen codes are not the same thing.
 
-Therefore, do not pass a value returned by `key()` directly to `putscreen()` unless you intentionally want to use it as a raw screen code.
+Therefore, do not pass a value returned by `key()` directly to `putraw()` unless you intentionally want to use it as a raw screen code.
 
 ---
 

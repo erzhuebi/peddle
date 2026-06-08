@@ -150,7 +150,7 @@ Implemented:
 - append/copy/fill/clear
 - append/copy with `char[]` sources
 - strings
-- putchar/putscreen/putcolor
+- putchar/putraw/putcolor
 - safe clipping for direct screen writes
 - putstr/putstrcolor with string literals and dynamic `char[]`
 - signed `itoa()` conversion

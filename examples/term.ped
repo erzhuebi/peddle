@@ -30,7 +30,7 @@ fn termput(x byte, y byte, ch byte) {
     var code byte
 
     code = termcode(ch)
-    putscreen(x, y, code)
+    putraw(x, y, code)
     putcolor(x, y, 1)
 }
 
@@ -38,7 +38,7 @@ fn termclearline(y byte) {
     var x byte
 
     for x = 0 to 39 {
-        putscreen(x, y, 32)
+        putraw(x, y, 32)
         putcolor(x, y, 1)
     }
 }
@@ -86,7 +86,7 @@ fn termeol(x byte, y byte) {
     var col byte
 
     for col = x to 39 {
-        putscreen(col, y, 32)
+        putraw(col, y, 32)
         putcolor(col, y, 1)
     }
 }

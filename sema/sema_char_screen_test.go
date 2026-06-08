@@ -51,7 +51,7 @@ fn main() {
     putchar(4, 0, 'L')
     putchar(5, 0, 'E')
 
-    putscreen(0, 1, 16)
+    putraw(0, 1, 16)
     putcolor(0, 0, 2)
 }
 `)
@@ -96,7 +96,7 @@ fn main() {
     copy(title, "ALIEN")
 
     putchar(ax[i], ay[i], alienChar(row))
-    putscreen(xpos(), ypos(), alienColor(row))
+    putraw(xpos(), ypos(), alienColor(row))
     putcolor(xpos(), ypos(), alienColor(row))
     gotoxy(xpos(), ypos())
     putstrcolor(xpos(), ypos(), title, alienColor(row))

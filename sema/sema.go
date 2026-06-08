@@ -833,7 +833,7 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 
 		return ast.Type{}, nil
 
-	case "putscreen", "putchar", "putcolor":
+	case "putraw", "putchar", "putcolor":
 		if len(args) != 3 {
 			return ast.Type{}, fmt.Errorf("%s expects three arguments", name)
 		}

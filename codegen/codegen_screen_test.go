@@ -80,17 +80,17 @@ fn main() {
 	requireASMAssemblesWith64tass(t, asm)
 }
 
-func TestCodegenPutScreenIsRawAndPutCharUsesCharToScreenTable(t *testing.T) {
+func TestCodegenPutRawIsRawAndPutCharUsesCharToScreenTable(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {
     cls()
 
-    putscreen(0, 0, 16)
+    putraw(0, 0, 16)
     putchar(1, 0, 'P')
 }
 `)
 
-	// putscreen() is raw screen-code output.
+	// putraw() is raw screen-code output.
 	requireASM(t, asm,
 		"lda #16",
 		"sta ZP_TMP0",
@@ -156,7 +156,7 @@ fn main() {
     copy(title, "ALIEN")
 
     putchar(ax[i], ay[i], alienChar(row))
-    putscreen(xpos(), ypos(), alienCode(row))
+    putraw(xpos(), ypos(), alienCode(row))
     putcolor(xpos(), ypos(), alienColor(row))
     gotoxy(xpos(), ypos())
     putstrcolor(xpos(), ypos(), title, alienColor(row))

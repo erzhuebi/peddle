@@ -470,8 +470,8 @@ func (g *Generator) genStoreByteBuiltin(name string, args []ast.Expr, addr int) 
 	return ast.Type{}, nil
 }
 
-func (g *Generator) genPutScreen(args []ast.Expr) (ast.Type, error) {
-	return g.genPutScreenByte("putscreen", args, 0x0400, false)
+func (g *Generator) genPutRaw(args []ast.Expr) (ast.Type, error) {
+	return g.genPutScreenByte("putraw", args, 0x0400, false)
 }
 
 func (g *Generator) genPutChar(args []ast.Expr) (ast.Type, error) {
