@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Breaking change: The builtin `putscreen(x, y, code)` has been renamed to `putraw(x, y, code)`. Functionality is unchanged: it writes a raw screen byte. Update source files accordingly.
+- Breaking change: sound streams now use the unified `SOUND_STREAM` bytecode. Raw SID writes are still supported via command `9, reg, value`; update old `SOUND_REGSTREAM` stream data accordingly. `sound_play` now takes `(id, voices, priority, flags)` and returns an error code; the runtime can run multiple active stream players with explicit SID voice ownership.
 
 ## v0.16.0 - 2026-06-02
 

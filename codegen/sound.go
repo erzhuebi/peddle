@@ -117,8 +117,8 @@ func (g *Generator) genSoundLoad(args []ast.Expr) (ast.Type, error) {
 }
 
 func (g *Generator) genSoundPlay(args []ast.Expr) (ast.Type, error) {
-	if len(args) != 1 {
-		return ast.Type{}, fmt.Errorf("sound_play expects one argument")
+	if len(args) != 4 {
+		return ast.Type{}, fmt.Errorf("sound_play expects four arguments")
 	}
 
 	if err := g.genExprTo(args[0], ast.Type{Name: "int"}); err != nil {
@@ -128,12 +128,36 @@ func (g *Generator) genSoundPlay(args []ast.Expr) (ast.Type, error) {
 	g.emit("    sta peddle_sound_handle_lo")
 	g.emit("    lda ZP_TMP1")
 	g.emit("    sta peddle_sound_handle_hi")
+
+	if err := g.genExprTo(args[1], ast.Type{Name: "int"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    lda ZP_TMP0")
+	g.emit("    sta peddle_sound_play_voices_lo")
+	g.emit("    lda ZP_TMP1")
+	g.emit("    sta peddle_sound_play_voices_hi")
+
+	if err := g.genExprTo(args[2], ast.Type{Name: "int"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    lda ZP_TMP0")
+	g.emit("    sta peddle_sound_play_priority_lo")
+	g.emit("    lda ZP_TMP1")
+	g.emit("    sta peddle_sound_play_priority_hi")
+
+	if err := g.genExprTo(args[3], ast.Type{Name: "int"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    lda ZP_TMP0")
+	g.emit("    sta peddle_sound_play_flags_lo")
+	g.emit("    lda ZP_TMP1")
+	g.emit("    sta peddle_sound_play_flags_hi")
 	g.emit("    jsr peddle_sound_play")
 
 	g.usedSoundRuntime = true
 	g.usedTmp16 = true
 
-	return ast.Type{}, nil
+	return ast.Type{Name: "int"}, nil
 }
 
 func (g *Generator) genSoundStop(args []ast.Expr) (ast.Type, error) {

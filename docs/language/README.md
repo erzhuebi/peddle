@@ -12,6 +12,7 @@ The complete Peddle Language Guide.
 6. [Optimization, Memory, and Workflow](06-optimization-memory-and-workflow.md)
 7. [Networking and Terminal](07-networking-and-terminal.md)
 8. [File Handling](08-file-handling.md)
+9. [Sound](09-sound.md)
 
 ## Complete Guide
 

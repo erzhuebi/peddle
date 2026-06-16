@@ -8,8 +8,17 @@
 #   Row 23      : player cannon
 #   Row 24      : key guide
 
-const SOUND_REGSTREAM = 1
+const SOUND_STREAM = 1
+const SOUND_VOICE1 = 1
+const SOUND_VOICE2 = 2
+const SOUND_REPLACE = 1
+const SOUND_OVERLAY = 2
 const ERR_OK = 0
+const VOICE1 = 0
+const VOICE2 = 1
+const WAVE_TRIANGLE = 16
+const WAVE_NOISE = 128
+const GATE = 1
 const RESULT_NONE = 0
 const RESULT_GAME_OVER = 1
 const RESULT_LANDED = 2
@@ -22,9 +31,9 @@ const E4_LO = 237
 const E4_HI = 21
 const COLOR_WHITE = 1
 
-fn sid(data byte[128], reg byte, value byte) {
-    append(data, 2)
-    append(data, reg)
+fn waveform(data byte[128], voice byte, value byte) {
+    append(data, 4)
+    append(data, voice)
     append(data, value)
 }
 
@@ -33,21 +42,49 @@ fn soundWait(data byte[128], frames byte) {
     append(data, frames)
 }
 
+fn env(data byte[128], voice byte, ad byte, sr byte) {
+    append(data, 5)
+    append(data, voice)
+    append(data, ad)
+
+    append(data, 6)
+    append(data, voice)
+    append(data, sr)
+}
+
+fn volume(data byte[128], value byte) {
+    append(data, 7)
+    append(data, value)
+}
+
+fn freq(data byte[128], voice byte, lo byte, hi byte) {
+    append(data, 8)
+    append(data, voice)
+    append(data, lo)
+    append(data, hi)
+}
+
+fn gateOn(data byte[128], voice byte, wave byte) {
+    waveform(data, voice, wave + GATE)
+}
+
+fn gateOff(data byte[128], voice byte, wave byte) {
+    waveform(data, voice, wave)
+}
+
 fn rocketNote(data byte[128], lo byte, hi byte, frames byte) {
-    sid(data, 0, lo)
-    sid(data, 1, hi)
-    sid(data, 4, 17)
+    freq(data, VOICE1, lo, hi)
+    gateOn(data, VOICE1, WAVE_TRIANGLE)
     soundWait(data, frames)
-    sid(data, 4, 16)
+    gateOff(data, VOICE1, WAVE_TRIANGLE)
     soundWait(data, 1)
 }
 
 fn buildRocketSound(data byte[128]) {
     clear(data)
 
-    sid(data, 24, 15)
-    sid(data, 5, 8)
-    sid(data, 6, 128)
+    volume(data, 15)
+    env(data, VOICE1, 8, 128)
     rocketNote(data, C4_LO, C4_HI, 2)
     rocketNote(data, D4_LO, D4_HI, 2)
     rocketNote(data, E4_LO, E4_HI, 3)
@@ -57,22 +94,18 @@ fn buildRocketSound(data byte[128]) {
 fn buildExplosionSound(data byte[128]) {
     clear(data)
 
-    sid(data, 24, 15)
-    sid(data, 5, 2)
-    sid(data, 6, 240)
-    sid(data, 0, $00)
-    sid(data, 1, $30)
-    sid(data, 4, 129)
+    volume(data, 15)
+    env(data, VOICE2, 2, 240)
+    freq(data, VOICE2, $00, $30)
+    gateOn(data, VOICE2, WAVE_NOISE)
     soundWait(data, 3)
-    sid(data, 0, $80)
-    sid(data, 1, $18)
+    freq(data, VOICE2, $80, $18)
     soundWait(data, 3)
-    sid(data, 0, $40)
-    sid(data, 1, $08)
+    freq(data, VOICE2, $40, $08)
     soundWait(data, 4)
-    sid(data, 24, 8)
+    volume(data, 8)
     soundWait(data, 3)
-    sid(data, 4, 16)
+    gateOff(data, VOICE2, WAVE_NOISE)
     append(data, 0)
 }
 
@@ -239,6 +272,7 @@ fn main() {
     var explosionId uint
     var sErr int
     var eErr int
+    var playErr int
 
     # Intro screen
     cls()
@@ -285,9 +319,9 @@ fn main() {
 
     sound_init(soundPool)
     buildRocketSound(rocketData)
-    rocketId, sErr = sound_load(rocketData, SOUND_REGSTREAM)
+    rocketId, sErr = sound_load(rocketData, SOUND_STREAM)
     buildExplosionSound(explosionData)
-    explosionId, eErr = sound_load(explosionData, SOUND_REGSTREAM)
+    explosionId, eErr = sound_load(explosionData, SOUND_STREAM)
 
     showHUD(score, lives)
     if sErr == ERR_OK {
@@ -357,7 +391,7 @@ fn main() {
                 pbActive = true
                 drawChar(pbX, pbY, 'I')
                 if sErr == ERR_OK {
-                    sound_play(rocketId)
+                    playErr = sound_play(rocketId, SOUND_VOICE1, 4, SOUND_OVERLAY)
                 }
             }
         }
@@ -392,7 +426,7 @@ fn main() {
                                     putchar(pbX, pbY, ' ')
                                     putchar(oldPbX, oldPbY, ' ')
                                     if eErr == ERR_OK {
-                                        sound_play(explosionId)
+                                        playErr = sound_play(explosionId, SOUND_VOICE2, 8, SOUND_OVERLAY)
                                     } else {
                                         if sErr == ERR_OK {
                                             sound_stop(rocketId)

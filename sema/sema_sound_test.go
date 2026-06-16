@@ -4,7 +4,9 @@ import "testing"
 
 func TestSemaAllowsSoundBuiltins(t *testing.T) {
 	src := `
-const SOUND_REGSTREAM = 1
+const SOUND_STREAM = 1
+const SOUND_ALL = 7
+const SOUND_REPLACE = 1
 
 fn main() {
     var pool byte[64]
@@ -17,8 +19,8 @@ fn main() {
 
     sound_init(pool)
     sound_reset()
-    id, err = sound_load(data, SOUND_REGSTREAM)
-    sound_play(id)
+    id, err = sound_load(data, SOUND_STREAM)
+    err = sound_play(id, SOUND_ALL, 0, SOUND_REPLACE)
     sound_stop(id)
     n = sound_num()
     n = sound_memfree()

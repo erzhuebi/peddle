@@ -1266,7 +1266,22 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 		}
 		return ast.Type{}, fmt.Errorf("sound_load returns multiple values; use multi-assignment")
 
-	case "sound_play", "sound_stop":
+	case "sound_play":
+		if len(args) != 4 {
+			return ast.Type{}, fmt.Errorf("sound_play expects four arguments")
+		}
+		for i, arg := range args {
+			t, err := c.checkExpr(scope, arg)
+			if err != nil {
+				return ast.Type{}, err
+			}
+			if !isNumeric(t) {
+				return ast.Type{}, fmt.Errorf("sound_play argument %d must be numeric", i+1)
+			}
+		}
+		return ast.Type{Name: "int"}, nil
+
+	case "sound_stop":
 		if len(args) != 1 {
 			return ast.Type{}, fmt.Errorf("%s expects one argument", name)
 		}

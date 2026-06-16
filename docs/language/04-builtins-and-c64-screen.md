@@ -51,8 +51,8 @@
 | `sound_init(pool)` | initialize sound runtime with a user-provided byte pool |
 | `sound_reset()` | stop playback and clear loaded sounds |
 | `sound_load(data, kind)` | load sound data and return `(uint, int)` |
-| `sound_play(id)` | play a loaded sound handle |
-| `sound_stop(id)` | stop the active sound if it matches the handle |
+| `sound_play(id, voices, priority, flags)` | play a loaded sound and return `int` |
+| `sound_stop(id)` | stop active players using the handle |
 | `sound_num()` | return number of loaded sounds |
 | `sound_memfree()` | return remaining sound pool bytes |
 
@@ -938,21 +938,44 @@ if netconnected() {
 
 # Sound
 
-Peddle sound is a runtime API, not language syntax. The program provides the
-large memory pool explicitly, and the runtime stores loaded sound bytes there.
+Peddle sound is a runtime API, not language syntax. The program provides a
+`byte[]` memory pool explicitly, and loaded sound bytes are copied into that
+pool.
 
 ```peddle
-const SOUND_REGSTREAM = 1
+const SOUND_STREAM = 1
+const SOUND_ALL = 7
+const SOUND_REPLACE = 1
 
-var pool byte[4096]
-var data byte[128]
+fn main() {
+    var pool byte[4096]
+    var data byte[128]
+    var id uint
+    var err int
 
-var id uint
-var err int
+    data[0] = 7
+    data[1] = 15
+    data[2] = 8
+    data[3] = 0
+    data[4] = 103
+    data[5] = 17
+    data[6] = 4
+    data[7] = 0
+    data[8] = 17
+    data[9] = 1
+    data[10] = 30
+    data[11] = 4
+    data[12] = 0
+    data[13] = 16
+    data[14] = 0
 
-sound_init(pool)
-id, err = sound_load(data, SOUND_REGSTREAM)
-sound_play(id)
+    sound_init(pool)
+    id, err = sound_load(data, SOUND_STREAM)
+
+    if err == 0 {
+        err = sound_play(id, SOUND_ALL, 0, SOUND_REPLACE)
+    }
+}
 ```
 
 `sound_init(pool)` can be called again with the same or another `byte[]`. It
@@ -962,23 +985,36 @@ installs the IRQ player.
 `sound_reset()` keeps the current pool, stops playback, clears loaded sounds,
 and resets the pool length to zero.
 
-`sound_load(data, kind)` appends `len(data)` bytes into the pool and returns a
+`sound_load(data, kind)` copies `len(data)` bytes into the pool and returns a
 `uint` handle plus an `int` error code. There is no per-sound free in this first
 version, so memory is reclaimed with `sound_reset()` or another `sound_init()`.
 
 `sound_num()` returns the number of loaded sounds. `sound_memfree()` returns the
 remaining bytes in the current pool.
 
-The first supported format is `SOUND_REGSTREAM`, a SID register stream:
+The supported format is `SOUND_STREAM`, a timed event stream:
 
 ```text
-0               end
-1, frames       wait frames IRQ ticks
-2, reg, value   write value to SID register $D400 + reg
+0                     end
+1, frames             wait frames IRQ ticks
+2, voice, note        set note frequency for logical voice
+3, voice              gate off logical voice
+4, voice, waveform    set waveform/control for logical voice
+5, voice, ad          set attack/decay for logical voice
+6, voice, sr          set sustain/release for logical voice
+7, volume             set global volume
+8, voice, lo, hi      set raw frequency for logical voice
+9, reg, value         raw SID register write
 ```
 
-Valid register offsets are `0..24`. The runtime supports one active sound at a
-time; calling `sound_play(id)` replaces the currently playing sound.
+Logical voices are `0`, `1`, and `2`. Time advances only when the stream reaches
+a `wait` command, so all commands before the next wait happen in the same
+logical sound frame. `sound_play(id, voices, priority, flags)` starts a loaded
+stream with explicit voice ownership; use `SOUND_REPLACE` for exclusive playback
+or `SOUND_OVERLAY` to layer streams on different voices.
+
+For a detailed guide with constants, note numbering, helper functions, raw SID
+writes, and a three-voice chord example, see [Sound](09-sound.md).
 
 ---
 

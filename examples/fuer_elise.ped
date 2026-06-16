@@ -1,25 +1,34 @@
-const SOUND_REGSTREAM = 1
+const SOUND_STREAM = 1
+const SOUND_ALL = 7
+const SOUND_REPLACE = 1
 
-const A3_LO = 162
-const A3_HI = 14
-const C4_LO = 103
-const C4_HI = 17
-const E4_LO = 237
-const E4_HI = 21
-const A4_LO = 69
-const A4_HI = 29
-const B4_LO = 218
-const B4_HI = 32
-const C5_LO = 206
-const C5_HI = 34
-const D5_LO = 17
-const D5_HI = 39
-const DS5_LO = 100
-const DS5_HI = 41
-const E5_LO = 218
-const E5_HI = 43
-const GS4_LO = 160
-const GS4_HI = 27
+const VOICE1 = 0
+const VOICE2 = 1
+const VOICE3 = 2
+
+const WAVE_TRIANGLE = 16
+const WAVE_SAW = 32
+const GATE = 1
+
+const NOTE_E2 = 28
+const NOTE_A2 = 33
+const NOTE_E3 = 40
+const NOTE_GS3 = 44
+const NOTE_A3 = 45
+const NOTE_B3 = 47
+const NOTE_C4 = 48
+const NOTE_E4 = 52
+const NOTE_GS4 = 56
+const NOTE_A4 = 57
+const NOTE_B4 = 59
+const NOTE_C5 = 60
+const NOTE_D5 = 62
+const NOTE_DS5 = 63
+const NOTE_E5 = 64
+
+const NOTE_ON = 7
+const NOTE_GAP = 1
+const STEP = 8
 
 fn waitTicks(count int) {
     var start int
@@ -32,93 +41,179 @@ fn waitTicks(count int) {
     }
 }
 
-fn sid(song byte[1024], reg byte, value byte) {
-    append(song, 2)
-    append(song, reg)
-    append(song, value)
-}
-
-fn pause(song byte[1024], frames byte) {
+fn pause(song byte[4096], frames byte) {
     append(song, 1)
     append(song, frames)
 }
 
-fn note(song byte[1024], lo byte, hi byte, frames byte) {
-    sid(song, 0, lo)
-    sid(song, 1, hi)
-    sid(song, 4, 17)
-    pause(song, frames)
-    sid(song, 4, 16)
-    pause(song, 2)
+fn note(song byte[4096], voice byte, n byte) {
+    append(song, 2)
+    append(song, voice)
+    append(song, n)
 }
 
-fn buildFuerElise(song byte[1024]) {
-    sid(song, 24, 15)
-    sid(song, 5, 9)
-    sid(song, 6, 240)
+fn waveform(song byte[4096], voice byte, value byte) {
+    append(song, 4)
+    append(song, voice)
+    append(song, value)
+}
 
-    note(song, E5_LO, E5_HI, 8)
-    note(song, DS5_LO, DS5_HI, 8)
-    note(song, E5_LO, E5_HI, 8)
-    note(song, DS5_LO, DS5_HI, 8)
-    note(song, E5_LO, E5_HI, 8)
-    note(song, B4_LO, B4_HI, 8)
-    note(song, D5_LO, D5_HI, 8)
-    note(song, C5_LO, C5_HI, 8)
-    note(song, A4_LO, A4_HI, 18)
+fn env(song byte[4096], voice byte, ad byte, sr byte) {
+    append(song, 5)
+    append(song, voice)
+    append(song, ad)
 
-    note(song, C5_LO, C5_HI, 8)
-    note(song, E5_LO, E5_HI, 8)
-    note(song, A4_LO, A4_HI, 8)
-    note(song, B4_LO, B4_HI, 18)
+    append(song, 6)
+    append(song, voice)
+    append(song, sr)
+}
 
-    note(song, E5_LO, E5_HI, 8)
-    note(song, GS4_LO, GS4_HI, 8)
-    note(song, B4_LO, B4_HI, 8)
-    note(song, C5_LO, C5_HI, 18)
+fn volume(song byte[4096], value byte) {
+    append(song, 7)
+    append(song, value)
+}
 
-    note(song, E5_LO, E5_HI, 8)
-    note(song, DS5_LO, DS5_HI, 8)
-    note(song, E5_LO, E5_HI, 8)
-    note(song, DS5_LO, DS5_HI, 8)
-    note(song, E5_LO, E5_HI, 8)
-    note(song, B4_LO, B4_HI, 8)
-    note(song, D5_LO, D5_HI, 8)
-    note(song, C5_LO, C5_HI, 8)
-    note(song, A4_LO, A4_HI, 24)
+fn gateOn(song byte[4096], voice byte, wave byte) {
+    waveform(song, voice, wave + GATE)
+}
 
-    note(song, A3_LO, A3_HI, 10)
-    note(song, E4_LO, E4_HI, 10)
-    note(song, A4_LO, A4_HI, 10)
-    note(song, C5_LO, C5_HI, 10)
-    note(song, E5_LO, E5_HI, 10)
-    note(song, A4_LO, A4_HI, 10)
-    note(song, C5_LO, C5_HI, 10)
-    note(song, B4_LO, B4_HI, 22)
+fn gateOff(song byte[4096], voice byte, wave byte) {
+    waveform(song, voice, wave)
+}
 
-    note(song, E4_LO, E4_HI, 10)
-    note(song, GS4_LO, GS4_HI, 10)
-    note(song, B4_LO, B4_HI, 10)
-    note(song, E5_LO, E5_HI, 10)
-    note(song, GS4_LO, GS4_HI, 10)
-    note(song, B4_LO, B4_HI, 10)
-    note(song, C5_LO, C5_HI, 22)
+fn startMelody(song byte[4096], n byte) {
+    note(song, VOICE1, n)
+    gateOn(song, VOICE1, WAVE_TRIANGLE)
+}
 
-    note(song, A3_LO, A3_HI, 10)
-    note(song, E4_LO, E4_HI, 10)
-    note(song, A4_LO, A4_HI, 10)
-    note(song, E5_LO, E5_HI, 8)
-    note(song, DS5_LO, DS5_HI, 8)
-    note(song, E5_LO, E5_HI, 8)
-    note(song, DS5_LO, DS5_HI, 8)
-    note(song, E5_LO, E5_HI, 8)
+fn startBass(song byte[4096], n byte) {
+    note(song, VOICE2, n)
+    gateOn(song, VOICE2, WAVE_TRIANGLE)
+}
+
+fn startHarmony(song byte[4096], n byte) {
+    note(song, VOICE3, n)
+    gateOn(song, VOICE3, WAVE_SAW)
+}
+
+fn stopMelody(song byte[4096]) {
+    gateOff(song, VOICE1, WAVE_TRIANGLE)
+}
+
+fn stopBass(song byte[4096]) {
+    gateOff(song, VOICE2, WAVE_TRIANGLE)
+}
+
+fn stopHarmony(song byte[4096]) {
+    gateOff(song, VOICE3, WAVE_SAW)
+}
+
+fn stepRest(song byte[4096]) {
+    pause(song, STEP)
+}
+
+fn stepM(song byte[4096], m byte) {
+    startMelody(song, m)
+    pause(song, NOTE_ON)
+    stopMelody(song)
+    pause(song, NOTE_GAP)
+}
+
+fn stepBH(song byte[4096], b byte, h byte) {
+    startBass(song, b)
+    startHarmony(song, h)
+    pause(song, NOTE_ON)
+    stopBass(song)
+    stopHarmony(song)
+    pause(song, NOTE_GAP)
+}
+
+fn stepMH(song byte[4096], m byte, h byte) {
+    startMelody(song, m)
+    startHarmony(song, h)
+    pause(song, NOTE_ON)
+    stopMelody(song)
+    stopHarmony(song)
+    pause(song, NOTE_GAP)
+}
+
+fn stepMBH(song byte[4096], m byte, b byte, h byte) {
+    startMelody(song, m)
+    startBass(song, b)
+    startHarmony(song, h)
+    pause(song, NOTE_ON)
+    stopMelody(song)
+    stopBass(song)
+    stopHarmony(song)
+    pause(song, NOTE_GAP)
+}
+
+fn openingTurn(song byte[4096]) {
+    stepM(song, NOTE_E5)
+    stepM(song, NOTE_DS5)
+    stepM(song, NOTE_E5)
+    stepM(song, NOTE_DS5)
+    stepM(song, NOTE_E5)
+    stepM(song, NOTE_B4)
+    stepM(song, NOTE_D5)
+    stepM(song, NOTE_C5)
+}
+
+fn aMinorArpeggio(song byte[4096]) {
+    stepMBH(song, NOTE_A4, NOTE_A2, NOTE_C4)
+    stepMBH(song, NOTE_A4, NOTE_E3, NOTE_E4)
+    stepBH(song, NOTE_A3, NOTE_A4)
+    stepRest(song)
+    stepMH(song, NOTE_C5, NOTE_E4)
+    stepMH(song, NOTE_E5, NOTE_A4)
+}
+
+fn eMajorArpeggio(song byte[4096]) {
+    stepMBH(song, NOTE_B4, NOTE_E2, NOTE_E4)
+    stepMBH(song, NOTE_B4, NOTE_E3, NOTE_GS4)
+    stepBH(song, NOTE_GS3, NOTE_B4)
+    stepRest(song)
+    stepMH(song, NOTE_E5, NOTE_E4)
+    stepMH(song, NOTE_GS4, NOTE_B3)
+}
+
+fn firstAnswer(song byte[4096]) {
+    stepMBH(song, NOTE_C5, NOTE_A2, NOTE_E4)
+    stepMBH(song, NOTE_C5, NOTE_E3, NOTE_E5)
+    stepBH(song, NOTE_A3, NOTE_DS5)
+    stepM(song, NOTE_E5)
+    stepM(song, NOTE_DS5)
+}
+
+fn endingArpeggio(song byte[4096]) {
+    stepMBH(song, NOTE_A4, NOTE_A2, NOTE_C4)
+    stepMBH(song, NOTE_A4, NOTE_E3, NOTE_E4)
+    stepBH(song, NOTE_A3, NOTE_A4)
+    stepRest(song)
+}
+
+fn buildFuerElise(song byte[4096]) {
+    volume(song, 15)
+    env(song, VOICE1, 8, 240)
+    env(song, VOICE2, 6, 192)
+    env(song, VOICE3, 4, 224)
+
+    openingTurn(song)
+    aMinorArpeggio(song)
+    eMajorArpeggio(song)
+    firstAnswer(song)
+
+    openingTurn(song)
+    aMinorArpeggio(song)
+    eMajorArpeggio(song)
+    endingArpeggio(song)
 
     append(song, 0)
 }
 
 fn main() {
-    var pool byte[2048]
-    var song byte[1024]
+    var pool byte[8192]
+    var song byte[4096]
     var id uint
     var err int
     var free int
@@ -126,16 +221,21 @@ fn main() {
     buildFuerElise(song)
 
     sound_init(pool)
-    id, err = sound_load(song, SOUND_REGSTREAM)
+    id, err = sound_load(song, SOUND_STREAM)
     free = sound_memfree()
 
     if err == 0 {
-        print("FUER ELISE\nMEM FREE ")
+        print("FUER ELISE 3V\nMEM FREE ")
         print(itoa(free))
-        sound_play(id)
-        waitTicks(560)
-        sound_stop(id)
-        print("\nDONE")
+        err = sound_play(id, SOUND_ALL, 0, SOUND_REPLACE)
+        if err == 0 {
+            waitTicks(460)
+            sound_stop(id)
+            print("\nDONE")
+        } else {
+            print("\nSOUND PLAY FAILED ")
+            print(itoa(err))
+        }
     } else {
         print("SOUND LOAD FAILED ")
         print(itoa(err))
