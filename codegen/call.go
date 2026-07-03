@@ -95,6 +95,9 @@ func (g *Generator) genCall(name string, args []ast.Expr) (ast.Type, error) {
 	case "sound_stop":
 		return g.genSoundStop(args)
 
+	case "sound_stop_voices":
+		return g.genSoundStopVoices(args)
+
 	case "sound_num":
 		return g.genSoundNum(args)
 

@@ -8,7 +8,7 @@ import (
 
 func isSoundBuiltin(name string) bool {
 	switch name {
-	case "sound_init", "sound_reset", "sound_load", "sound_play", "sound_stop", "sound_num", "sound_memfree":
+	case "sound_init", "sound_reset", "sound_load", "sound_play", "sound_stop", "sound_stop_voices", "sound_num", "sound_memfree":
 		return true
 	default:
 		return false
@@ -173,6 +173,26 @@ func (g *Generator) genSoundStop(args []ast.Expr) (ast.Type, error) {
 	g.emit("    lda ZP_TMP1")
 	g.emit("    sta peddle_sound_handle_hi")
 	g.emit("    jsr peddle_sound_stop")
+
+	g.usedSoundRuntime = true
+	g.usedTmp16 = true
+
+	return ast.Type{}, nil
+}
+
+func (g *Generator) genSoundStopVoices(args []ast.Expr) (ast.Type, error) {
+	if len(args) != 1 {
+		return ast.Type{}, fmt.Errorf("sound_stop_voices expects one argument")
+	}
+
+	if err := g.genExprTo(args[0], ast.Type{Name: "int"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    lda ZP_TMP0")
+	g.emit("    sta peddle_sound_stop_voices_lo")
+	g.emit("    lda ZP_TMP1")
+	g.emit("    sta peddle_sound_stop_voices_hi")
+	g.emit("    jsr peddle_sound_stop_voices")
 
 	g.usedSoundRuntime = true
 	g.usedTmp16 = true

@@ -1,0 +1,129 @@
+const SOUND_STREAM = 1
+const SOUND_VOICE1 = 1
+const SOUND_VOICE2 = 2
+const SOUND_VOICE3 = 4
+const SOUND_ALL = 7
+const SOUND_REPLACE = 1
+const ERR_OK = 0
+
+const VOICE1 = 0
+const VOICE2 = 1
+const VOICE3 = 2
+
+const WAVE_TRIANGLE = 16
+const GATE = 1
+
+const NOTE_C4 = 48
+const NOTE_E4 = 52
+const NOTE_G4 = 55
+
+fn pause(song byte[128], frames byte) {
+    append(song, 1)
+    append(song, frames)
+}
+
+fn note(song byte[128], voice byte, n byte) {
+    append(song, 2)
+    append(song, voice)
+    append(song, n)
+}
+
+fn waveform(song byte[128], voice byte, value byte) {
+    append(song, 4)
+    append(song, voice)
+    append(song, value)
+}
+
+fn env(song byte[128], voice byte, ad byte, sr byte) {
+    append(song, 5)
+    append(song, voice)
+    append(song, ad)
+
+    append(song, 6)
+    append(song, voice)
+    append(song, sr)
+}
+
+fn volume(song byte[128], value byte) {
+    append(song, 7)
+    append(song, value)
+}
+
+fn gateOn(song byte[128], voice byte) {
+    waveform(song, voice, WAVE_TRIANGLE + GATE)
+}
+
+fn gateOff(song byte[128], voice byte) {
+    waveform(song, voice, WAVE_TRIANGLE)
+}
+
+fn waitTicks(count int) {
+    var start int
+
+    if count > 0 {
+        start = ticks()
+
+        for tickdue(start, count) == false {
+        }
+    }
+}
+
+fn buildChord(song byte[128]) {
+    volume(song, 15)
+
+    env(song, VOICE1, 9, 240)
+    env(song, VOICE2, 9, 240)
+    env(song, VOICE3, 9, 240)
+
+    note(song, VOICE1, NOTE_C4)
+    note(song, VOICE2, NOTE_E4)
+    note(song, VOICE3, NOTE_G4)
+
+    gateOn(song, VOICE1)
+    gateOn(song, VOICE2)
+    gateOn(song, VOICE3)
+
+    pause(song, 240)
+
+    gateOff(song, VOICE1)
+    gateOff(song, VOICE2)
+    gateOff(song, VOICE3)
+
+    append(song, 0)
+}
+
+fn main() {
+    var pool byte[256]
+    var song byte[128]
+    var id uint
+    var err int
+
+    cls()
+    print("SOUND_STOP_VOICES TEST\n")
+    print("START: 3 VOICES\n")
+
+    buildChord(song)
+    sound_init(pool)
+    id, err = sound_load(song, SOUND_STREAM)
+
+    if err == ERR_OK {
+        err = sound_play(id, SOUND_ALL, 0, SOUND_REPLACE)
+    }
+
+    if err == ERR_OK {
+        waitTicks(90)
+        print("STOP VOICE 2\n")
+        sound_stop_voices(SOUND_VOICE2)
+
+        waitTicks(90)
+        print("STOP VOICES 1+3\n")
+        sound_stop_voices(SOUND_VOICE1 + SOUND_VOICE3)
+
+        waitTicks(45)
+        sound_reset()
+        print("DONE\n")
+    } else {
+        print("SOUND ERROR ")
+        print(itoa(err))
+    }
+}

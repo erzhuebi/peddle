@@ -86,6 +86,7 @@ VOICE3 -> SID base offset 14
 | `sound_load(data, kind)` | load sound bytes and return `(uint, int)` |
 | `sound_play(id, voices, priority, flags)` | start a loaded sound and return `int` |
 | `sound_stop(id)` | stop active players using the handle |
+| `sound_stop_voices(voices)` | stop the active players' selected SID voices |
 | `sound_num()` | return number of loaded sounds |
 | `sound_memfree()` | return remaining pool bytes |
 
@@ -108,6 +109,9 @@ logical voices from the stream may write SID voice registers. `SOUND_REPLACE`
 stops all active players before starting. `SOUND_OVERLAY` starts alongside
 current players when voices are free, or takes busy voices from lower/equal
 priority players. `SOUND_LOOP` restarts the stream when it reaches `0`.
+
+`sound_stop_voices(voices)` stops only the selected SID voices. If the owning
+player has no voices left after that, it is stopped automatically.
 
 ---
 
@@ -408,6 +412,12 @@ Use `sound_stop(id)` to stop active players that use the same handle:
 
 ```peddle
 sound_stop(shotId)
+```
+
+Use `sound_stop_voices(voices)` to stop only selected SID voices:
+
+```peddle
+sound_stop_voices(SOUND_VOICE2)
 ```
 
 Use `sound_reset()` to stop playback, unload every sound, and reuse the whole

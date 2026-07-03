@@ -5,6 +5,7 @@ import "testing"
 func TestSemaAllowsSoundBuiltins(t *testing.T) {
 	src := `
 const SOUND_STREAM = 1
+const SOUND_VOICE1 = 1
 const SOUND_ALL = 7
 const SOUND_REPLACE = 1
 
@@ -21,6 +22,7 @@ fn main() {
     sound_reset()
     id, err = sound_load(data, SOUND_STREAM)
     err = sound_play(id, SOUND_ALL, 0, SOUND_REPLACE)
+    sound_stop_voices(SOUND_VOICE1)
     sound_stop(id)
     n = sound_num()
     n = sound_memfree()
@@ -80,6 +82,12 @@ fn main() {
     var data byte[16]
     var id uint
     id = sound_play(data)
+}
+`,
+		`
+fn main() {
+    var data byte[16]
+    sound_stop_voices(data)
 }
 `,
 		`

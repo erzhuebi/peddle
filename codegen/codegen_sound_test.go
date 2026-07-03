@@ -5,6 +5,7 @@ import "testing"
 func TestCodegenSoundRuntimeAndBuiltinReturns(t *testing.T) {
 	asm := compileSource(t, `
 const SOUND_STREAM = 1
+const SOUND_VOICE1 = 1
 const SOUND_ALL = 7
 const SOUND_REPLACE = 1
 
@@ -23,6 +24,7 @@ fn main() {
     sound_init(pool)
     id, err = sound_load(data, SOUND_STREAM)
     err = sound_play(id, SOUND_ALL, 0, SOUND_REPLACE)
+    sound_stop_voices(SOUND_VOICE1)
     sound_stop(id)
     n = sound_num()
     n = sound_memfree()
@@ -35,6 +37,7 @@ fn main() {
 		"jsr peddle_sound_init",
 		"jsr peddle_sound_load",
 		"jsr peddle_sound_play",
+		"jsr peddle_sound_stop_voices",
 		"jsr peddle_sound_stop",
 		"jsr peddle_sound_num",
 		"jsr peddle_sound_memfree",
@@ -49,6 +52,8 @@ fn main() {
 		"sta peddle_sound_play_voices_lo",
 		"sta peddle_sound_play_priority_lo",
 		"sta peddle_sound_play_flags_lo",
+		"sta peddle_sound_stop_voices_lo",
+		"peddle_sound_stop_voices:",
 		"peddle_sound_slot_inuse:",
 		".fill 16, 0",
 		"peddle_sound_player_inuse:",

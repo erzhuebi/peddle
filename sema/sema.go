@@ -1294,6 +1294,19 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 		}
 		return ast.Type{}, nil
 
+	case "sound_stop_voices":
+		if len(args) != 1 {
+			return ast.Type{}, fmt.Errorf("%s expects one argument", name)
+		}
+		t, err := c.checkExpr(scope, args[0])
+		if err != nil {
+			return ast.Type{}, err
+		}
+		if !isNumeric(t) {
+			return ast.Type{}, fmt.Errorf("%s voices must be numeric", name)
+		}
+		return ast.Type{}, nil
+
 	case "sound_num", "sound_memfree":
 		if len(args) != 0 {
 			return ast.Type{}, fmt.Errorf("%s expects no arguments", name)

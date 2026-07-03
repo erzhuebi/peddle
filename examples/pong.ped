@@ -1,0 +1,441 @@
+# Two-player Pong-style game for the Commodore 64, written in Peddle
+#
+# Controls:
+#   Player 1: joystick port 1 up/down, or A/Z
+#   Player 2: joystick port 2 up/down, or K/M
+#   Q quits
+
+const COLOR_WHITE = 1
+const COLOR_GREEN = 5
+const COLOR_CYAN = 3
+const COLOR_YELLOW = 7
+
+const SOUND_STREAM = 1
+const SOUND_VOICE1 = 1
+const SOUND_VOICE2 = 2
+const SOUND_VOICE3 = 4
+const SOUND_OVERLAY = 2
+const ERR_OK = 0
+const VOICE1 = 0
+const VOICE2 = 1
+const VOICE3 = 2
+const WAVE_TRIANGLE = 16
+const WAVE_SAW = 32
+const GATE = 1
+const NOTE_C3 = 36
+const NOTE_E3 = 40
+const NOTE_C4 = 48
+const NOTE_E5 = 64
+
+const TOP = 3
+const BOTTOM = 23
+const LEFT_X = 2
+const RIGHT_X = 37
+const PADDLE_H = 5
+const PADDLE_MAX = 19
+const WIN_SCORE = 9
+const PADDLE_TICKS = 3
+const BALL_START_TICKS = 8
+const BALL_MIN_TICKS = 2
+const BALL_SPEEDUP_EVERY = 2
+
+fn soundWait(data byte[32], frames byte) {
+    append(data, 1)
+    append(data, frames)
+}
+
+fn soundNote(data byte[32], voice byte, n byte) {
+    append(data, 2)
+    append(data, voice)
+    append(data, n)
+}
+
+fn waveform(data byte[32], voice byte, value byte) {
+    append(data, 4)
+    append(data, voice)
+    append(data, value)
+}
+
+fn env(data byte[32], voice byte, ad byte, sr byte) {
+    append(data, 5)
+    append(data, voice)
+    append(data, ad)
+
+    append(data, 6)
+    append(data, voice)
+    append(data, sr)
+}
+
+fn volume(data byte[32], value byte) {
+    append(data, 7)
+    append(data, value)
+}
+
+fn gateOn(data byte[32], voice byte, wave byte) {
+    waveform(data, voice, wave + GATE)
+}
+
+fn gateOff(data byte[32], voice byte, wave byte) {
+    waveform(data, voice, wave)
+}
+
+fn buildHitSound(data byte[32], voice byte, n byte, wave byte) {
+    clear(data)
+    volume(data, 15)
+    env(data, voice, 2, 128)
+    soundNote(data, voice, n)
+    gateOn(data, voice, wave)
+    soundWait(data, 4)
+    gateOff(data, voice, wave)
+    append(data, 0)
+}
+
+fn buildMissSound(data byte[32]) {
+    clear(data)
+    volume(data, 15)
+    env(data, VOICE3, 1, 240)
+    soundNote(data, VOICE3, NOTE_E3)
+    gateOn(data, VOICE3, WAVE_SAW)
+    soundWait(data, 6)
+    soundNote(data, VOICE3, NOTE_C3)
+    soundWait(data, 10)
+    gateOff(data, VOICE3, WAVE_SAW)
+    append(data, 0)
+}
+
+fn drawChar(x int, y int, ch char, color byte) {
+    putchar(x, y, ch)
+    putcolor(x, y, color)
+}
+
+fn drawPaddle(x int, y int, color byte) {
+    var i int
+
+    i = 0
+    while i < PADDLE_H {
+        drawChar(x, y + i, '|', color)
+        i = i + 1
+    }
+}
+
+fn erasePaddle(x int, y int) {
+    var i int
+
+    i = 0
+    while i < PADDLE_H {
+        putchar(x, y + i, ' ')
+        i = i + 1
+    }
+}
+
+fn drawBall(x int, y int) {
+    drawChar(x, y, 'O', COLOR_YELLOW)
+}
+
+fn eraseBall(x int, y int) {
+    putchar(x, y, ' ')
+}
+
+fn drawHorizontal(y int) {
+    var x int
+
+    x = 0
+    while x < 40 {
+        drawChar(x, y, '-', COLOR_CYAN)
+        x = x + 1
+    }
+}
+
+fn drawDivider() {
+    var y int
+
+    y = TOP
+    while y <= BOTTOM {
+        drawChar(20, y, ':', COLOR_CYAN)
+        y = y + 2
+    }
+}
+
+fn showScore(leftScore int, rightScore int) {
+    putstr(0, 0, "P1:   ")
+    putstr(4, 0, itoa(leftScore))
+    putstr(30, 0, "P2:   ")
+    putstr(34, 0, itoa(rightScore))
+}
+
+fn drawCourt(leftScore int, rightScore int) {
+    cls()
+    border(6)
+    background(0)
+    textcolor(1)
+
+    showScore(leftScore, rightScore)
+    putstr(7, 0, "PONG")
+    putstr(0, 1, "P1 JOY1/AZ  P2 JOY2/KM  Q QUIT")
+    drawHorizontal(2)
+    drawHorizontal(24)
+    drawDivider()
+}
+
+fn hitPaddle(ballY int, paddleY int) bool {
+    if ballY < paddleY {
+        return false
+    }
+
+    if ballY > paddleY + PADDLE_H - 1 {
+        return false
+    }
+
+    return true
+}
+
+fn bounceDY(ballY int, paddleY int, dy int) int {
+    if ballY == paddleY {
+        return -1
+    }
+
+    if ballY == paddleY + 1 {
+        return -1
+    }
+
+    if ballY == paddleY + 2 {
+        return 0
+    }
+
+    if ballY == paddleY + 3 {
+        return 1
+    }
+
+    return 1
+}
+
+fn serveBall(rightServe bool, ballX *int, ballY *int, dx *int, dy *int) {
+    ballX = 20
+    ballY = 13
+
+    if rightServe {
+        dx = 1
+        dy = -1
+    } else {
+        dx = -1
+        dy = 1
+    }
+}
+
+fn resetBallSpeed(ballDelay *int, rallyHits *int) {
+    ballDelay = BALL_START_TICKS
+    rallyHits = 0
+}
+
+fn speedUpBall(ballDelay *int, rallyHits *int) {
+    rallyHits = rallyHits + 1
+
+    if (rallyHits % BALL_SPEEDUP_EVERY) == 0 {
+        if ballDelay > BALL_MIN_TICKS {
+            ballDelay = ballDelay - 1
+        }
+    }
+}
+
+fn movePaddleUp(x int, y *int, color byte) {
+    if y > TOP {
+        erasePaddle(x, y)
+        y = y - 1
+        drawPaddle(x, y, color)
+    }
+}
+
+fn movePaddleDown(x int, y *int, color byte) {
+    if y < PADDLE_MAX {
+        erasePaddle(x, y)
+        y = y + 1
+        drawPaddle(x, y, color)
+    }
+}
+
+fn main() {
+    var leftY int
+    var rightY int
+    var ballX int
+    var ballY int
+    var dx int
+    var dy int
+    var leftScore int
+    var rightScore int
+    var j1 byte
+    var j2 byte
+    var k char
+    var paddleTimer int
+    var ballTimer int
+    var ballDelay int
+    var rallyHits int
+    var gameOver bool
+    var rightServe bool
+    var soundPool byte[256]
+    var pingData byte[32]
+    var pongData byte[32]
+    var missData byte[32]
+    var pingId uint
+    var pongId uint
+    var missId uint
+    var pingErr int
+    var pongErr int
+    var missErr int
+    var playErr int
+
+    leftScore = 0
+    rightScore = 0
+    leftY = 11
+    rightY = 11
+    gameOver = false
+    rightServe = true
+
+    buildHitSound(pingData, VOICE1, NOTE_E5, WAVE_TRIANGLE)
+    buildHitSound(pongData, VOICE2, NOTE_C4, WAVE_SAW)
+    buildMissSound(missData)
+    sound_init(soundPool)
+    pingId, pingErr = sound_load(pingData, SOUND_STREAM)
+    pongId, pongErr = sound_load(pongData, SOUND_STREAM)
+    missId, missErr = sound_load(missData, SOUND_STREAM)
+
+    drawCourt(leftScore, rightScore)
+    putstr(12, 12, "PRESS ANY KEY")
+    waitkey()
+
+    drawCourt(leftScore, rightScore)
+    drawPaddle(LEFT_X, leftY, COLOR_GREEN)
+    drawPaddle(RIGHT_X, rightY, COLOR_WHITE)
+    serveBall(rightServe, &ballX, &ballY, &dx, &dy)
+    resetBallSpeed(&ballDelay, &rallyHits)
+    drawBall(ballX, ballY)
+    paddleTimer = ticks()
+    ballTimer = ticks()
+
+    while gameOver == false {
+        if tickdue(paddleTimer, PADDLE_TICKS) {
+            paddleTimer = ticks()
+
+            k = key()
+            if k == 'q' { gameOver = true }
+            if k == 'Q' { gameOver = true }
+
+            j1 = joy(1) & 31
+            j2 = joy(2) & 31
+
+            if gameOver == false {
+                if (j1 & 1) == 0 { movePaddleUp(LEFT_X, &leftY, COLOR_GREEN) }
+                if (j1 & 2) == 0 { movePaddleDown(LEFT_X, &leftY, COLOR_GREEN) }
+                if k == 'a' { movePaddleUp(LEFT_X, &leftY, COLOR_GREEN) }
+                if k == 'A' { movePaddleUp(LEFT_X, &leftY, COLOR_GREEN) }
+                if k == 'z' { movePaddleDown(LEFT_X, &leftY, COLOR_GREEN) }
+                if k == 'Z' { movePaddleDown(LEFT_X, &leftY, COLOR_GREEN) }
+
+                if (j2 & 1) == 0 { movePaddleUp(RIGHT_X, &rightY, COLOR_WHITE) }
+                if (j2 & 2) == 0 { movePaddleDown(RIGHT_X, &rightY, COLOR_WHITE) }
+                if k == 'k' { movePaddleUp(RIGHT_X, &rightY, COLOR_WHITE) }
+                if k == 'K' { movePaddleUp(RIGHT_X, &rightY, COLOR_WHITE) }
+                if k == 'm' { movePaddleDown(RIGHT_X, &rightY, COLOR_WHITE) }
+                if k == 'M' { movePaddleDown(RIGHT_X, &rightY, COLOR_WHITE) }
+            }
+        }
+
+        if gameOver == false {
+            if tickdue(ballTimer, ballDelay) {
+                ballTimer = ticks()
+
+                eraseBall(ballX, ballY)
+                drawDivider()
+
+                ballX = ballX + dx
+                ballY = ballY + dy
+
+                if ballY < TOP {
+                    ballY = TOP
+                    dy = 1
+                }
+
+                if ballY > BOTTOM {
+                    ballY = BOTTOM
+                    dy = -1
+                }
+
+                if dx < 0 {
+                    if ballX == LEFT_X + 1 {
+                        if hitPaddle(ballY, leftY) {
+                            dx = 1
+                            dy = bounceDY(ballY, leftY, dy)
+                            ballX = LEFT_X + 1
+                            speedUpBall(&ballDelay, &rallyHits)
+                            if pingErr == ERR_OK {
+                                playErr = sound_play(pingId, SOUND_VOICE1, 8, SOUND_OVERLAY)
+                            }
+                        }
+                    }
+                }
+
+                if dx > 0 {
+                    if ballX == RIGHT_X - 1 {
+                        if hitPaddle(ballY, rightY) {
+                            dx = -1
+                            dy = bounceDY(ballY, rightY, dy)
+                            ballX = RIGHT_X - 1
+                            speedUpBall(&ballDelay, &rallyHits)
+                            if pongErr == ERR_OK {
+                                playErr = sound_play(pongId, SOUND_VOICE2, 8, SOUND_OVERLAY)
+                            }
+                        }
+                    }
+                }
+
+                if ballX < 0 {
+                    rightScore = rightScore + 1
+                    rightServe = false
+                    if missErr == ERR_OK {
+                        playErr = sound_play(missId, SOUND_VOICE3, 10, SOUND_OVERLAY)
+                    }
+                    showScore(leftScore, rightScore)
+                    serveBall(rightServe, &ballX, &ballY, &dx, &dy)
+                    resetBallSpeed(&ballDelay, &rallyHits)
+                    ballTimer = ticks()
+                }
+
+                if ballX > 39 {
+                    leftScore = leftScore + 1
+                    rightServe = true
+                    if missErr == ERR_OK {
+                        playErr = sound_play(missId, SOUND_VOICE3, 10, SOUND_OVERLAY)
+                    }
+                    showScore(leftScore, rightScore)
+                    serveBall(rightServe, &ballX, &ballY, &dx, &dy)
+                    resetBallSpeed(&ballDelay, &rallyHits)
+                    ballTimer = ticks()
+                }
+
+                if leftScore >= WIN_SCORE {
+                    gameOver = true
+                }
+
+                if rightScore >= WIN_SCORE {
+                    gameOver = true
+                }
+
+                drawPaddle(LEFT_X, leftY, COLOR_GREEN)
+                drawPaddle(RIGHT_X, rightY, COLOR_WHITE)
+                drawBall(ballX, ballY)
+            }
+        }
+    }
+
+    putstr(10, 12, "              ")
+    if leftScore > rightScore {
+        putstr(13, 12, "PLAYER 1 WINS")
+    } else {
+        if rightScore > leftScore {
+            putstr(13, 12, "PLAYER 2 WINS")
+        } else {
+            putstr(16, 12, "GAME OVER")
+        }
+    }
+    putstr(10, 16, "PRESS ANY KEY")
+    waitkey()
+}

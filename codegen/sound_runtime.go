@@ -14,6 +14,7 @@ func (g *Generator) emitSoundRuntime() {
 ;   sound_load(data byte[], kind int) (uint, int)
 ;   sound_play(id, voices, priority, flags) int
 ;   sound_stop(id)
+;   sound_stop_voices(voices)
 ;   sound_num() int
 ;   sound_memfree() int
 ;
@@ -118,6 +119,10 @@ peddle_sound_play_priority_hi:
 peddle_sound_play_flags_lo:
     .byte 0
 peddle_sound_play_flags_hi:
+    .byte 0
+peddle_sound_stop_voices_lo:
+    .byte 0
+peddle_sound_stop_voices_hi:
     .byte 0
 
 peddle_sound_slot_index:
@@ -1023,6 +1028,69 @@ peddle_sound_stop_next:
     cpx #PEDDLE_SOUND_PLAYERS
     bne peddle_sound_stop_loop
 peddle_sound_stop_done:
+    rts
+
+peddle_sound_stop_voices:
+    lda peddle_sound_stop_voices_hi
+    beq peddle_sound_stop_voices_low
+    rts
+
+peddle_sound_stop_voices_low:
+    lda peddle_sound_stop_voices_lo
+    beq peddle_sound_stop_voices_done
+    and #248
+    beq peddle_sound_stop_voices_apply
+    rts
+
+peddle_sound_stop_voices_apply:
+    lda peddle_sound_stop_voices_lo
+    and #PEDDLE_SOUND_VOICE1
+    beq peddle_sound_stop_voices_voice2
+    ldx peddle_sound_voice_owner
+    beq peddle_sound_stop_voices_voice2
+    dex
+    lda peddle_sound_player_voices, x
+    and #254
+    sta peddle_sound_player_voices, x
+    lda #0
+    sta peddle_sound_voice_owner
+    sta $d404
+    lda peddle_sound_player_voices, x
+    bne peddle_sound_stop_voices_voice2
+    jsr peddle_sound_stop_player_x
+peddle_sound_stop_voices_voice2:
+    lda peddle_sound_stop_voices_lo
+    and #PEDDLE_SOUND_VOICE2
+    beq peddle_sound_stop_voices_voice3
+    ldx peddle_sound_voice_owner+1
+    beq peddle_sound_stop_voices_voice3
+    dex
+    lda peddle_sound_player_voices, x
+    and #253
+    sta peddle_sound_player_voices, x
+    lda #0
+    sta peddle_sound_voice_owner+1
+    sta $d40b
+    lda peddle_sound_player_voices, x
+    bne peddle_sound_stop_voices_voice3
+    jsr peddle_sound_stop_player_x
+peddle_sound_stop_voices_voice3:
+    lda peddle_sound_stop_voices_lo
+    and #PEDDLE_SOUND_VOICE3
+    beq peddle_sound_stop_voices_done
+    ldx peddle_sound_voice_owner+2
+    beq peddle_sound_stop_voices_done
+    dex
+    lda peddle_sound_player_voices, x
+    and #251
+    sta peddle_sound_player_voices, x
+    lda #0
+    sta peddle_sound_voice_owner+2
+    sta $d412
+    lda peddle_sound_player_voices, x
+    bne peddle_sound_stop_voices_done
+    jsr peddle_sound_stop_player_x
+peddle_sound_stop_voices_done:
     rts
 
 peddle_sound_stop_player_x:

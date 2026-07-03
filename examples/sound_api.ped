@@ -115,6 +115,7 @@ fn main() {
         pass = false
     }
     waitTicks(110)
+    sound_stop_voices(SOUND_ALL)
     sound_stop(id)
     sound_reset()
 

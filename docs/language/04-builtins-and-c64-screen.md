@@ -53,6 +53,7 @@
 | `sound_load(data, kind)` | load sound data and return `(uint, int)` |
 | `sound_play(id, voices, priority, flags)` | play a loaded sound and return `int` |
 | `sound_stop(id)` | stop active players using the handle |
+| `sound_stop_voices(voices)` | stop the active players' selected SID voices |
 | `sound_num()` | return number of loaded sounds |
 | `sound_memfree()` | return remaining sound pool bytes |
 
@@ -1011,7 +1012,8 @@ Logical voices are `0`, `1`, and `2`. Time advances only when the stream reaches
 a `wait` command, so all commands before the next wait happen in the same
 logical sound frame. `sound_play(id, voices, priority, flags)` starts a loaded
 stream with explicit voice ownership; use `SOUND_REPLACE` for exclusive playback
-or `SOUND_OVERLAY` to layer streams on different voices.
+or `SOUND_OVERLAY` to layer streams on different voices. Use
+`sound_stop_voices(voices)` to stop only the selected SID voices.
 
 For a detailed guide with constants, note numbering, helper functions, raw SID
 writes, and a three-voice chord example, see [Sound](09-sound.md).

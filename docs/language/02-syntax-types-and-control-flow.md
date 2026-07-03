@@ -189,6 +189,17 @@ Constants are currently numeric only.
 
 # Variables
 
+Local variables are declared at the beginning of a function body, before the
+function's statements. The declaration form is:
+
+```peddle
+var <name> <type>
+```
+
+Variables are function-level locals. They are not declared inside `if`, `while`,
+or `for` blocks. Assign values with separate assignment statements after the
+declarations.
+
 ## Single Variable
 
 ```peddle
@@ -210,6 +221,27 @@ var x, y, z int
 ```peddle
 x = 10
 y = x
+```
+
+Valid:
+
+```peddle
+fn main() {
+    var score int
+    var done bool
+
+    score = 0
+    done = false
+}
+```
+
+Invalid:
+
+```peddle
+fn main() {
+    score = 0
+    var score int
+}
 ```
 
 ---
