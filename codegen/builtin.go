@@ -959,6 +959,39 @@ func (g *Generator) genSize(args []ast.Expr) (ast.Type, error) {
 	return ast.Type{Name: "int"}, nil
 }
 
+func (g *Generator) pushTmpInt0() {
+	g.emit("    lda peddle_tmp_int0")
+	g.emit("    pha")
+	g.emit("    lda peddle_tmp_int0+1")
+	g.emit("    pha")
+}
+
+func (g *Generator) popTmpInt0() {
+	g.emit("    pla")
+	g.emit("    sta peddle_tmp_int0+1")
+	g.emit("    pla")
+	g.emit("    sta peddle_tmp_int0")
+}
+
+func (g *Generator) pushZPTmp0Word() {
+	g.emit("    lda ZP_TMP0")
+	g.emit("    pha")
+	g.emit("    lda ZP_TMP1")
+	g.emit("    pha")
+}
+
+func (g *Generator) popZPTmp0Word() {
+	g.emit("    pla")
+	g.emit("    sta ZP_TMP1")
+	g.emit("    pla")
+	g.emit("    sta ZP_TMP0")
+}
+
+func arrayAddressMayClobberScratch(expr ast.Expr) bool {
+	_, ok := expr.(*ast.IndexFieldExpr)
+	return ok
+}
+
 func (g *Generator) genAppend(args []ast.Expr) (ast.Type, error) {
 	if len(args) != 2 {
 		return ast.Type{}, fmt.Errorf("append expects two arguments")
@@ -1003,8 +1036,15 @@ func (g *Generator) genAppend(args []ast.Expr) (ast.Type, error) {
 		g.emit("    sta peddle_tmp_int0")
 	}
 
+	preserveValue := arrayAddressMayClobberScratch(args[0])
+	if preserveValue {
+		g.pushTmpInt0()
+	}
 	if err := g.genArrayAddress(args[0]); err != nil {
 		return ast.Type{}, err
+	}
+	if preserveValue {
+		g.popTmpInt0()
 	}
 
 	g.emit("    ldy #2")
@@ -1063,29 +1103,34 @@ func (g *Generator) genAppendCharArraySource(dst ast.Expr, src ast.Expr) (ast.Ty
 		return ast.Type{}, err
 	}
 
-	// Destination address generation may use the same scratch word that holds
-	// the prepared source length, especially for indexed struct-array fields.
-	g.emit("    lda ZP_PTR1_LO")
-	g.emit("    pha")
-	g.emit("    lda ZP_PTR1_HI")
-	g.emit("    pha")
-	g.emit("    lda peddle_tmp_int0")
-	g.emit("    pha")
-	g.emit("    lda peddle_tmp_int0+1")
-	g.emit("    pha")
+	preserveSource := arrayAddressMayClobberScratch(dst)
+	if preserveSource {
+		// Destination address generation may use the same scratch word that holds
+		// the prepared source length, especially for indexed struct-array fields.
+		g.emit("    lda ZP_PTR1_LO")
+		g.emit("    pha")
+		g.emit("    lda ZP_PTR1_HI")
+		g.emit("    pha")
+		g.emit("    lda peddle_tmp_int0")
+		g.emit("    pha")
+		g.emit("    lda peddle_tmp_int0+1")
+		g.emit("    pha")
+	}
 
 	if err := g.genArrayAddress(dst); err != nil {
 		return ast.Type{}, err
 	}
 
-	g.emit("    pla")
-	g.emit("    sta peddle_tmp_int0+1")
-	g.emit("    pla")
-	g.emit("    sta peddle_tmp_int0")
-	g.emit("    pla")
-	g.emit("    sta ZP_PTR1_HI")
-	g.emit("    pla")
-	g.emit("    sta ZP_PTR1_LO")
+	if preserveSource {
+		g.emit("    pla")
+		g.emit("    sta peddle_tmp_int0+1")
+		g.emit("    pla")
+		g.emit("    sta peddle_tmp_int0")
+		g.emit("    pla")
+		g.emit("    sta ZP_PTR1_HI")
+		g.emit("    pla")
+		g.emit("    sta ZP_PTR1_LO")
+	}
 
 	g.emit("    jsr peddle_string_append_literal")
 
@@ -1159,8 +1204,15 @@ func (g *Generator) genAppendRuntime(args []ast.Expr, elemType ast.Type) (ast.Ty
 		g.emit("    sta peddle_tmp_int0")
 	}
 
+	preserveValue := arrayAddressMayClobberScratch(args[0])
+	if preserveValue {
+		g.pushTmpInt0()
+	}
 	if err := g.genArrayAddress(args[0]); err != nil {
 		return ast.Type{}, err
+	}
+	if preserveValue {
+		g.popTmpInt0()
 	}
 
 	switch elemType.Name {
@@ -1314,8 +1366,15 @@ func (g *Generator) genFill(args []ast.Expr) (ast.Type, error) {
 		g.emit("    sta ZP_TMP0")
 	}
 
+	preserveValue := arrayAddressMayClobberScratch(args[0])
+	if preserveValue {
+		g.pushZPTmp0Word()
+	}
 	if err := g.genArrayAddress(args[0]); err != nil {
 		return ast.Type{}, err
+	}
+	if preserveValue {
+		g.popZPTmp0Word()
 	}
 
 	g.emit("    ldy #0")

@@ -77,6 +77,46 @@ fn main() {
 	requireASMAssemblesWith64tass(t, asm)
 }
 
+func TestCodegenFileBuiltinsAcceptIndexedStructFieldArrays(t *testing.T) {
+	asm := compileSource(t, `
+struct FileSlot {
+    name char[32]
+    text char[64]
+    bytes byte[64]
+}
+
+fn main() {
+    var slots FileSlot[2]
+    var i byte = 1
+    var f byte
+    var n int
+
+    copy(slots[i].name, "PEDDLEFILE")
+    copy(slots[i].text, "HELLO")
+
+    f = fileopen(slots[i].name, "w", 8)
+    n = filewrite(f, slots[i].text, len(slots[i].text))
+    fileclose(f)
+
+    n = filesave(slots[i].name, slots[i].text, len(slots[i].text), 8)
+    n = fileload(slots[i].name, slots[i].bytes, 8)
+}
+`)
+
+	requireASM(t, asm,
+		"jsr peddle_fileopen",
+		"jsr peddle_filewrite",
+		"jsr peddle_fileclose",
+		"jsr peddle_filesave",
+		"jsr peddle_fileload",
+		"sta peddle_file_name_lo",
+		"sta peddle_file_buf_lo",
+		"sta peddle_file_max_lo",
+	)
+
+	requireASMAssemblesWith64tass(t, asm)
+}
+
 func TestCodegenFileRuntimeNotEmittedWithoutFileBuiltins(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {

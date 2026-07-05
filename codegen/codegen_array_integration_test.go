@@ -255,6 +255,160 @@ fn main() {
 	requireASMAssemblesWith64tass(t, asm)
 }
 
+func TestCodegenAppendToIndexedStructFieldArraysPreservesValue(t *testing.T) {
+	src := `
+struct Bucket {
+    values byte[8]
+    totals int[8]
+    marker byte
+}
+
+fn main() {
+    var buckets Bucket[4]
+    var i byte = 1
+    var b byte = 7
+    var n int = 1024
+
+    append(buckets[i].values, b)
+    append(buckets[i].totals, n)
+}
+`
+
+	for _, mode := range []OptMode{OptModeSpeed, OptModeSize} {
+		t.Run(string(mode), func(t *testing.T) {
+			asm := compileSourceWithOptions(t, src, Options{OptMode: mode})
+
+			if got := strings.Count(asm, "lda peddle_tmp_int0\n    pha\n    lda peddle_tmp_int0+1\n    pha"); got < 2 {
+				t.Fatalf("expected both indexed field appends to preserve pending value, got %d\n\nASM:\n%s", got, asm)
+			}
+
+			if mode == OptModeSize {
+				requireASM(t, asm,
+					"jsr peddle_append_byte",
+					"jsr peddle_append_int",
+				)
+			}
+
+			requireReferencedLabelsDefined(t, asm)
+			requireASMAssemblesWith64tass(t, asm)
+		})
+	}
+}
+
+func TestCodegenFillIndexedStructFieldArraysPreservesFillValue(t *testing.T) {
+	src := `
+struct Bucket {
+    values byte[8]
+    totals int[8]
+    marker byte
+}
+
+fn main() {
+    var buckets Bucket[4]
+    var i byte = 1
+    var b byte = 3
+    var n int = 777
+
+    fill(buckets[i].values, b)
+    fill(buckets[i].totals, n)
+}
+`
+
+	for _, mode := range []OptMode{OptModeSpeed, OptModeSize} {
+		t.Run(string(mode), func(t *testing.T) {
+			asm := compileSourceWithOptions(t, src, Options{OptMode: mode})
+
+			if got := strings.Count(asm, "lda ZP_TMP0\n    pha\n    lda ZP_TMP1\n    pha"); got < 2 {
+				t.Fatalf("expected both indexed field fills to preserve fill value, got %d\n\nASM:\n%s", got, asm)
+			}
+
+			if mode == OptModeSize {
+				requireASM(t, asm,
+					"jsr peddle_fill_byte",
+					"jsr peddle_fill_int",
+				)
+			}
+
+			requireReferencedLabelsDefined(t, asm)
+			requireASMAssemblesWith64tass(t, asm)
+		})
+	}
+}
+
+func TestCodegenPutStrColorIndexedStructCharArrayPreservesTextArg(t *testing.T) {
+	asm := compileSource(t, `
+struct Row {
+    name char[16]
+    color byte
+}
+
+fn main() {
+    var rows Row[4]
+    var i byte = 1
+
+    copy(rows[i].name, "ROW")
+    rows[i].color = 2
+    putstrcolor(0, 0, rows[i].name, rows[i].color + 1)
+}
+`)
+
+	requireASM(t, asm,
+		"lda peddle_tmp_int0\n    pha\n    lda peddle_tmp_int0+1\n    pha\n    lda ZP_PTR1_LO\n    pha\n    lda ZP_PTR1_HI\n    pha",
+		"jsr peddle_putstrcolor",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
+func TestCodegenIndexedStructFieldArrayCommandsAssemble(t *testing.T) {
+	src := `
+struct Bucket {
+    name char[16]
+    values byte[8]
+    totals int[8]
+    marker byte
+}
+
+fn main() {
+    var buckets Bucket[4]
+    var i byte = 1
+    var j byte = 2
+    var l int
+    var s int
+
+    copy(buckets[i].name, buckets[j].name)
+    copy(buckets[i].values, buckets[j].values)
+    copy(buckets[i].totals, buckets[j].totals)
+
+    clear(buckets[i].name)
+    clear(buckets[i].values)
+    clear(buckets[i].totals)
+
+    l = len(buckets[i].name)
+    s = size(buckets[i].totals)
+
+    if l == s {
+        print("MATCH")
+    }
+}
+`
+
+	for _, mode := range []OptMode{OptModeSpeed, OptModeSize} {
+		t.Run(string(mode), func(t *testing.T) {
+			asm := compileSourceWithOptions(t, src, Options{OptMode: mode})
+
+			if mode == OptModeSize {
+				requireASM(t, asm, "jsr peddle_array_copy")
+			}
+
+			requireNoASM(t, asm, "_skip_broken")
+			requireReferencedLabelsDefined(t, asm)
+			requireASMAssemblesWith64tass(t, asm)
+		})
+	}
+}
+
 func TestCodegenCountedStringLiteralsAssemble(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {

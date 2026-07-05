@@ -214,6 +214,54 @@ fn main() {
 	requireASMAssemblesWith64tass(t, asm)
 }
 
+func TestCodegenNetBuiltinsAcceptIndexedStructFieldArrays(t *testing.T) {
+	asm := compileSource(t, `
+struct Conn {
+    addr char[32]
+    tx char[64]
+    rx byte[64]
+    line char[64]
+    backlog byte[128]
+}
+
+fn main() {
+    var conns Conn[2]
+    var i byte = 1
+    var ok bool
+    var found bool
+    var n int
+
+    copy(conns[i].addr, "example.com")
+    copy(conns[i].tx, "PING")
+
+    netbuffer(conns[i].backlog)
+    ok = netconnect(conns[i].addr, 80)
+
+    if ok {
+        n = netwrite(conns[i].tx, len(conns[i].tx))
+        n = netread(conns[i].rx, size(conns[i].rx), 0)
+        found = netreadlf(conns[i].line, size(conns[i].line), 0)
+        netclose()
+    }
+}
+`)
+
+	requireASM(t, asm,
+		"jsr peddle_netbuffer",
+		"jsr peddle_netconnect",
+		"jsr peddle_netwrite",
+		"jsr peddle_netread",
+		"jsr peddle_netreadlf",
+		"jsr peddle_netclose",
+		"sta peddle_net_addr_lo",
+		"sta peddle_net_buf_lo",
+		"sta peddle_net_max_lo",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
 func TestCodegenNetRuntimeNotEmittedWithoutNetworkBuiltins(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {

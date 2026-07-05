@@ -181,3 +181,56 @@ fn main() {
 	requireReferencedLabelsDefined(t, asm)
 	requireASMAssemblesWith64tass(t, asm)
 }
+
+func TestCodegenIndexedStructFieldArraysPassedAsParameters(t *testing.T) {
+	asm := compileSource(t, `
+struct Bucket {
+    name char[16]
+    bytes byte[8]
+    totals int[8]
+    marker byte
+}
+
+fn tag(name char[16]) {
+    append(name, "!")
+}
+
+fn pushByte(values byte[8], value byte) {
+    append(values, value)
+}
+
+fn pushInt(values int[8], value int) {
+    append(values, value)
+}
+
+fn main() {
+    var buckets Bucket[4]
+    var i byte = 1
+
+    copy(buckets[i].name, "B")
+    tag(buckets[i].name)
+    pushByte(buckets[i].bytes, 7)
+    pushInt(buckets[i].totals, 1024)
+
+    if len(buckets[i].name) == 2 {
+        print("PARAM OK")
+    }
+}
+`)
+
+	requireASM(t, asm,
+		"tag_name:",
+		".fill 2, 0",
+		"pushByte_values:",
+		".fill 2, 0",
+		"pushInt_values:",
+		".fill 2, 0",
+		"jsr tag",
+		"jsr pushByte",
+		"jsr pushInt",
+	)
+
+	requireNoASM(t, asm, "_skip_broken")
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}

@@ -264,6 +264,50 @@ fn main() {
 	requireASMAssemblesWith64tass(t, asm)
 }
 
+func TestCodegenSoundBuiltinsAcceptIndexedStructFieldArrays(t *testing.T) {
+	asm := compileSource(t, `
+const SOUND_STREAM = 1
+
+struct SoundSlot {
+    pool byte[128]
+    data byte[32]
+}
+
+fn main() {
+    var slots SoundSlot[2]
+    var i byte = 1
+    var id uint
+    var err int
+
+    append(slots[i].data, 7)
+    append(slots[i].data, 15)
+    append(slots[i].data, 0)
+
+    sound_init(slots[i].pool)
+    id, err = sound_load(slots[i].data, SOUND_STREAM)
+
+    if err == 0 {
+        err = sound_play(id, 7, 0, 1)
+    }
+}
+`)
+
+	requireASM(t, asm,
+		"jsr peddle_sound_init",
+		"jsr peddle_sound_load",
+		"jsr peddle_sound_play",
+		"sta peddle_sound_pool_header_lo",
+		"sta peddle_sound_data_header_lo",
+		"lda peddle_sound_load_return_id",
+		"sta main_id",
+		"lda peddle_sound_load_return_err",
+		"sta main_err",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
 func TestCodegenDoesNotEmitUnusedSoundRuntime(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {

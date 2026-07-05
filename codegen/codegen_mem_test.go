@@ -118,6 +118,48 @@ fn main() {
 	requireASMAssemblesWith64tass(t, asm)
 }
 
+func TestCodegenMemReadWriteWithComplexExpressions(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    var window mem[16] at $c000
+    var i byte = 1
+    var j byte = 2
+    var v byte
+
+    window[i] = 10
+    window[j] = 20
+    window[i + j] = window[i] + window[j]
+    v = window[i + j]
+
+    if v == 30 {
+        print("MEM OK")
+    }
+}
+`)
+
+	requireASM(t, asm,
+		"lda #<49152",
+		"lda #>49152",
+		"adc peddle_tmp_int0",
+		"sta (ZP_PTR0_LO), y",
+		"lda (ZP_PTR0_LO), y",
+		"sta main_v",
+	)
+
+	requireASMOrder(t, asm,
+		"lda (ZP_PTR0_LO), y",
+		"pha",
+		"lda main_j",
+		"lda main_i",
+		"sta peddle_tmp_int0",
+		"pla",
+		"sta (ZP_PTR0_LO), y",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
 func TestCodegenMemLenAndSizeAreConstants(t *testing.T) {
 	asm := compileSource(t, `
 fn count(buf mem[1000]) int {
