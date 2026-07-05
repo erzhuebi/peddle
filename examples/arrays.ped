@@ -5,24 +5,21 @@ struct Player {
 }
 
 fn main(){
-    var nums int[10]
+    var nums int[10] = [10, 20, 30]
     var copyNums int[10]
 
-    var players Player[4]
-    var i byte
+    var players Player[4] = [
+        { id: 1, name: "BOB ", hp: 100 },
+        { id: 2, name: "ADA! ", hp: 120 }
+    ]
+    var i byte = 0
     var n int
 
-    var title char[32]
+    var title char[32] = "TEAM ALPHA "
 
     print("PEDDLE ARRAY DEMO ")
 
-    copy(title, "TEAM ")
-    append(title, "ALPHA ")
     print(title)
-
-    append(nums, 10)
-    append(nums, 20)
-    append(nums, 30)
 
     nums[5] = 99
 
@@ -40,18 +37,6 @@ fn main(){
 
     fill(nums, 1)
 
-    i = 0
-    players[i].id = 1
-    copy(players[i].name, "BOB ")
-    players[i].hp = 100
-
-    i = 1
-    players[i].id = 2
-    copy(players[i].name, "ADA")
-    append(players[i].name, "! ")
-    players[i].hp = 120
-
-    i = 0
     print(players[i].name)
 
     i = 1

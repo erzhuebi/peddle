@@ -1,5 +1,5 @@
 fn main() {
-    var addr char[128]
+    var addr char[128] = "192.168.106.57"
     var tx char[256]
     var rx byte[16]
     var backlog byte[512]
@@ -16,8 +16,6 @@ fn main() {
 
     cls()
     putstr(0, 0, "PEDDLE NETBUFFER PROBE")
-
-    copy(addr, "192.168.106.57")
 
     clear(tx)
     for i = 0 to 15 {

@@ -17,10 +17,8 @@ fn hit(players Player[2], idx byte) {
 
 fn main() {
     var values byte[4]
-    var players Player[2]
-    var ok bool
-
-    ok = true
+    var players Player[2] = [{}, { hp: 5 }]
+    var ok bool = true
 
     push(values, 3)
     push(values, 7)
@@ -62,7 +60,6 @@ fn main() {
         ok = false
     }
 
-    players[1].hp = 5
     hit(players, 1)
 
     if players[1].hp == 4 {

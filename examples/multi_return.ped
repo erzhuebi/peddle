@@ -1,19 +1,14 @@
-fn sound_load(data byte[4]) (uint, int) {
-    var id uint
-    var err int
+fn mock_sound_load(data byte[4]) (uint, int) {
+    var id uint = 65535
+    var err int = 0
 
     data[0] = 42
-    id = 65535
-    err = 0
     return id, err
 }
 
 fn status() (byte, bool) {
-    var code byte
-    var ok bool
-
-    code = 7
-    ok = true
+    var code byte = 7
+    var ok bool = true
     return code, ok
 }
 
@@ -23,11 +18,9 @@ fn main() {
     var err int
     var code byte
     var ok bool
-    var pass bool
+    var pass bool = true
 
-    pass = true
-
-    id, err = sound_load(data)
+    id, err = mock_sound_load(data)
     if id != 65535 {
         pass = false
     }
@@ -38,7 +31,7 @@ fn main() {
         pass = false
     }
 
-    _, err = sound_load(data)
+    _, err = mock_sound_load(data)
     if err != 0 {
         pass = false
     }

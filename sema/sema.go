@@ -92,7 +92,7 @@ func (c *Checker) Check(p *ast.Program) error {
 	}
 
 	for _, global := range p.Globals {
-		if err := c.checkVarDecl(global, "global"); err != nil {
+		if err := c.checkVarDecl(global, "global", nil, true); err != nil {
 			return err
 		}
 	}
@@ -181,6 +181,12 @@ func (c *Checker) checkExpr(scope map[string]ast.Type, e ast.Expr) (ast.Type, er
 
 	case *ast.StringExpr:
 		return ast.Type{Name: "char", IsArray: true, ArrayLen: len(expr.Value)}, nil
+
+	case *ast.ArrayLiteralExpr:
+		return ast.Type{}, fmt.Errorf("array literal requires a target type")
+
+	case *ast.StructLiteralExpr:
+		return ast.Type{}, fmt.Errorf("struct literal requires a target type")
 
 	case *ast.UnaryExpr:
 		if expr.Op == "&" {
@@ -280,7 +286,7 @@ func (c *Checker) checkFunction(fn *ast.FunctionDecl) error {
 		if _, exists := scope[local.Name]; exists {
 			return fmt.Errorf("duplicate local %q", local.Name)
 		}
-		if err := c.checkVarDecl(local, "local"); err != nil {
+		if err := c.checkVarDecl(local, "local", scope, false); err != nil {
 			return err
 		}
 		scope[local.Name] = local.Type
@@ -304,7 +310,7 @@ func (c *Checker) checkFunction(fn *ast.FunctionDecl) error {
 	return nil
 }
 
-func (c *Checker) checkVarDecl(v *ast.VarDecl, kind string) error {
+func (c *Checker) checkVarDecl(v *ast.VarDecl, kind string, scope map[string]ast.Type, requireConst bool) error {
 	if v.Type.IsMem && !v.HasAtAddress {
 		return fmt.Errorf("%s %q: mem declarations require at address", kind, v.Name)
 	}
@@ -322,7 +328,94 @@ func (c *Checker) checkVarDecl(v *ast.VarDecl, kind string) error {
 			return fmt.Errorf("%s %q: mem window exceeds address range", kind, v.Name)
 		}
 	}
+	if v.Init != nil {
+		if v.Type.IsMem {
+			return fmt.Errorf("%s %q: mem declarations cannot have initializers", kind, v.Name)
+		}
+		if err := c.checkInitializer(scope, v.Type, v.Init, requireConst); err != nil {
+			return fmt.Errorf("%s %q initializer: %w", kind, v.Name, err)
+		}
+	}
 	return nil
+}
+
+func (c *Checker) checkInitializer(scope map[string]ast.Type, target ast.Type, init ast.Expr, requireConst bool) error {
+	if target.IsArray {
+		if target.Name == "char" {
+			if str, ok := init.(*ast.StringExpr); ok {
+				if len(str.Value) > target.ArrayLen {
+					return fmt.Errorf("string length %d exceeds array capacity %d", len(str.Value), target.ArrayLen)
+				}
+				return nil
+			}
+		}
+
+		lit, ok := init.(*ast.ArrayLiteralExpr)
+		if !ok {
+			return fmt.Errorf("array initializer must be an array literal")
+		}
+		if len(lit.Values) > target.ArrayLen {
+			return fmt.Errorf("array literal has %d values but capacity is %d", len(lit.Values), target.ArrayLen)
+		}
+
+		elemType := ast.Type{Name: target.Name}
+		for i, value := range lit.Values {
+			if err := c.checkInitializer(scope, elemType, value, requireConst); err != nil {
+				return fmt.Errorf("element %d: %w", i, err)
+			}
+		}
+		return nil
+	}
+
+	if s, ok := c.structs[target.Name]; ok && !target.IsPointer && !target.IsMem {
+		lit, ok := init.(*ast.StructLiteralExpr)
+		if !ok {
+			return fmt.Errorf("struct initializer for %s must be a struct literal", target.Name)
+		}
+
+		fieldTypes := map[string]ast.Type{}
+		for _, field := range s.Fields {
+			fieldTypes[field.Name] = field.Type
+		}
+
+		seen := map[string]bool{}
+		for _, field := range lit.Fields {
+			fieldType, ok := fieldTypes[field.Name]
+			if !ok {
+				return fmt.Errorf("type %s has no field %q", target.Name, field.Name)
+			}
+			if seen[field.Name] {
+				return fmt.Errorf("field %q initialized more than once", field.Name)
+			}
+			seen[field.Name] = true
+
+			if err := c.checkInitializer(scope, fieldType, field.Value, requireConst); err != nil {
+				return fmt.Errorf("field %q: %w", field.Name, err)
+			}
+		}
+		return nil
+	}
+
+	if _, ok := init.(*ast.ArrayLiteralExpr); ok {
+		return fmt.Errorf("array literal cannot initialize %s", target.String())
+	}
+	if _, ok := init.(*ast.StructLiteralExpr); ok {
+		return fmt.Errorf("struct literal cannot initialize %s", target.String())
+	}
+	if requireConst {
+		if _, ok := c.constIntValue(init); !ok {
+			return fmt.Errorf("global initializer must be a constant expression")
+		}
+	}
+
+	valueType, err := c.checkExpr(scope, init)
+	if err != nil {
+		return err
+	}
+	if !sameType(target, valueType) && !c.canAssignExpr(target, valueType, init) {
+		return fmt.Errorf("cannot initialize %s with %s", target.String(), valueType.String())
+	}
+	return c.checkAssignmentValue(target, init)
 }
 
 func (c *Checker) checkType(t ast.Type) error {

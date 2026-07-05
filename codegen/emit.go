@@ -961,7 +961,7 @@ func (g *Generator) emitLiterals() {
 	}
 }
 
-func (g *Generator) emitStaticData() {
+func (g *Generator) emitStaticData() error {
 	g.emit("")
 	g.emit("; static data")
 
@@ -970,7 +970,9 @@ func (g *Generator) emitStaticData() {
 			continue
 		}
 		g.emit(fmt.Sprintf("%s:", sym.Label))
-		g.emitStaticSymbol(sym)
+		if err := g.emitStaticSymbol(sym); err != nil {
+			return fmt.Errorf("global %q initializer: %w", sym.SourceName, err)
+		}
 	}
 
 	for _, frame := range g.frames {
@@ -979,7 +981,11 @@ func (g *Generator) emitStaticData() {
 				continue
 			}
 			g.emit(fmt.Sprintf("%s:", sym.Label))
-			g.emitStaticSymbol(sym)
+			staticSym := sym
+			staticSym.Init = nil
+			if err := g.emitStaticSymbol(staticSym); err != nil {
+				return fmt.Errorf("local %q initializer: %w", sym.SourceName, err)
+			}
 		}
 
 		for _, sym := range frame.Returns {
@@ -993,17 +999,26 @@ func (g *Generator) emitStaticData() {
 
 	for _, sym := range g.forLoopTemps {
 		g.emit(fmt.Sprintf("%s:", sym.Label))
-		g.emitStaticSymbol(sym)
+		if err := g.emitStaticSymbol(sym); err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
 
-func (g *Generator) emitStaticSymbol(sym Symbol) {
+func (g *Generator) emitStaticSymbol(sym Symbol) error {
 	if sym.IsReference {
 		g.emit(fmt.Sprintf("    .fill %d, 0", sym.Size))
-		return
+		return nil
+	}
+
+	if sym.Init != nil {
+		return g.emitStaticValueInit(sym.Type, sym.Init)
 	}
 
 	g.emitStaticValue(sym.Type)
+	return nil
 }
 
 func (g *Generator) emitStaticValue(t ast.Type) {

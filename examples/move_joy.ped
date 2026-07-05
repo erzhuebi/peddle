@@ -7,10 +7,8 @@ fn erase(x byte, y byte) {
 }
 
 fn printjoy(j byte) {
-    var line char[16]
+    var line char[16] = "JOY "
 
-    clear(line)
-    copy(line, "JOY ")
     append(line, itoa(j))
 
     putstr(0, 4, "        ")
@@ -18,10 +16,8 @@ fn printjoy(j byte) {
 }
 
 fn printticks(t int) {
-    var line char[20]
+    var line char[20] = "ELAPSED "
 
-    clear(line)
-    copy(line, "ELAPSED ")
     append(line, itoa(t))
 
     putstr(0, 5, "              ")
@@ -29,21 +25,16 @@ fn printticks(t int) {
 }
 
 fn main() {
-    var x byte
-    var y byte
-    var j byte
-    var done bool
+    var x byte = 20
+    var y byte = 12
+    var j byte = 31
+    var done bool = false
     var moved bool
     var lastMove int
-    var moveEvery int
+    var moveEvery int = 4
 
     cls()
     textcolor(1)
-
-    x = 20
-    y = 12
-    done = false
-    moveEvery = 4
     lastMove = ticks()
 
     putstr(0, 0, "JOYSTICK PORT 2")
@@ -51,7 +42,6 @@ fn main() {
     putstr(0, 2, "FIRE TO QUIT")
     putstr(0, 3, "IDLE SHOULD BE 31")
 
-    j = 31
     printjoy(j)
     printticks(0)
     draw(x, y)

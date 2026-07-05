@@ -1,15 +1,12 @@
 fn main() {
-    var i byte
-    var sum int
-    var line char[32]
+    var i byte = 0
+    var sum int = 0
+    var line char[32] = "I "
 
     cls()
     border(6)
     background(0)
     textcolor(1)
-
-    i = 0
-    sum = 0
 
     while i < 10 {
         i = i + 1
@@ -37,7 +34,6 @@ fn main() {
     # break before adding 8
     # sum = 1 + 2 + 4 + 5 + 7 = 19
 
-    copy(line, "I ")
     append(line, itoa(i))
     putstr(0, 0, line)
 

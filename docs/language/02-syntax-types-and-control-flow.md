@@ -193,22 +193,28 @@ Variables use this declaration form:
 
 ```peddle
 var <name> <type>
+var <name> <type> = <initializer>
 ```
 
-Variables are zero-filled when the program starts. Assign values with separate
-assignment statements after the declarations.
+Variables are zero-filled by default. A declaration can also provide an
+initializer.
 
 Top-level variables are global mutable state. They are visible to every
 function:
 
 ```peddle
-var score int
-var lives byte
+var score int = 0
+var lives byte = 3
 
 fn addScore(points int) {
     score = score + points
 }
 ```
+
+Global initializers must be compile-time constant values, array literals,
+string literals for `char[]`, or struct literals containing those same constant
+forms. Function-local initializers may use normal expressions that are valid at
+the point of declaration.
 
 Function-local variables are declared at the beginning of a function body,
 before the function's statements. They are function-level locals, not block
@@ -218,6 +224,7 @@ locals, so they are not declared inside `if`, `while`, or `for` blocks.
 
 ```peddle
 var x int
+var y int = 10
 ```
 
 ---
@@ -227,6 +234,72 @@ var x int
 ```peddle
 var x, y, z int
 ```
+
+Multiple-name declarations do not support initializers. Write one declaration
+per initialized variable:
+
+```peddle
+var x int = 1
+var y int = 2
+```
+
+---
+
+## Array Initializers
+
+Array declarations still state the capacity:
+
+```peddle
+var notes byte[8] = [60, 62, 64]
+```
+
+The declared length is the capacity. The initializer value count becomes the
+initial runtime length:
+
+```peddle
+len(notes)  # 3
+size(notes) # 8
+```
+
+Remaining storage is zero-filled. It is an error to provide more values than
+the declared capacity.
+
+Character arrays can be initialized from string literals:
+
+```peddle
+var title char[16] = "PONG"
+```
+
+This gives `title` a capacity of `16` and an initial runtime length of `4`.
+
+---
+
+## Struct Initializers
+
+Struct variables use named fields:
+
+```peddle
+struct Alien {
+    alive bool
+    x byte
+    y byte
+}
+
+var alien Alien = { alive: true, x: 2, y: 3 }
+```
+
+Fields may be omitted; omitted fields keep their zero value.
+
+Arrays of structs use array literals containing struct literals:
+
+```peddle
+var aliens Alien[2] = [
+    { alive: true, x: 2, y: 3 },
+    { alive: true, x: 6, y: 3 }
+]
+```
+
+Here `size(aliens)` is `2` and `len(aliens)` is also `2`.
 
 ---
 

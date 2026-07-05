@@ -5,32 +5,25 @@
 # values, 16-bit wraparound, masks, and storing addresses.
 
 fn main() {
-    var ok bool
+    var ok bool = true
 
-    var hi uint
-    var mid uint
-    var low uint
-    var border uint
-    var wrap uint
-    var mask uint
+    var hi uint = 65535
+    var mid uint = 32768
+    var low uint = 1
+    var border uint = 0xd020
+    var wrap uint = hi + low
+    var mask uint = hi & 0xff00
 
-    var x byte
-    var addr uint
+    var x byte = 7
+    var addr uint = &x
 
-    var data byte[4]
-    var data0 uint
-    var data1 uint
+    var data byte[4] = [11, 22]
+    var data0 uint = &data[0]
+    var data1 uint = &data[1]
 
-    var words uint[2]
-    var word0 uint
-    var word1 uint
-
-    ok = true
-
-    hi = 65535
-    mid = 32768
-    low = 1
-    border = 0xd020
+    var words uint[2] = [65535, 32768]
+    var word0 uint = &words[0]
+    var word1 uint = &words[1]
 
     if hi != 65535 {
         print("FAIL UINT MAX LOAD\n")
@@ -67,13 +60,11 @@ fn main() {
         ok = false
     }
 
-    wrap = hi + low
     if wrap != 0 {
         print("FAIL UINT WRAP\n")
         ok = false
     }
 
-    mask = hi & 0xff00
     if mask != 0xff00 {
         print("FAIL UINT MASK HIGH\n")
         ok = false
@@ -85,31 +76,21 @@ fn main() {
         ok = false
     }
 
-    x = 7
-    addr = &x
     if addr == 0 {
         print("FAIL SCALAR ADDRESS\n")
         ok = false
     }
 
-    data[0] = 11
-    data[1] = 22
-    data0 = &data[0]
-    data1 = &data[1]
     if data1 != data0 + 1 {
         print("FAIL BYTE ARRAY ADDRESS\n")
         ok = false
     }
 
-    words[0] = 65535
-    words[1] = 32768
     if words[0] <= words[1] {
         print("FAIL UINT ARRAY COMPARE\n")
         ok = false
     }
 
-    word0 = &words[0]
-    word1 = &words[1]
     if word1 != word0 + 2 {
         print("FAIL UINT ARRAY ADDRESS\n")
         ok = false

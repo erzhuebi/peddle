@@ -1,14 +1,10 @@
 fn main() {
-    var done bool
-    var enabled bool
-    var count byte
+    var done bool = false
+    var enabled bool = true
+    var count byte = 0
 
     cls()
     textcolor(1)
-
-    done = false
-    enabled = true
-    count = 0
 
     if enabled == true {
         putstrcolor(0, 0, "ENABLED TRUE OK", 5)

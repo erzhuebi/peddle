@@ -5,15 +5,11 @@
 # and the direct print calls exercise the new print path visibly.
 
 fn main() {
-    var pass bool
+    var pass bool = true
     var dec char[6]
     var hx char[2]
-    var score int
-    var color byte
-
-    pass = true
-    score = -123
-    color = 27
+    var score int = -123
+    var color byte = 27
 
     cls()
 

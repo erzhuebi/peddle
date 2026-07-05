@@ -108,6 +108,68 @@ fn main() {
 	}
 }
 
+func TestParseVarInitializers(t *testing.T) {
+	prog := parseProgramForTest(t, `
+struct Alien {
+    alive bool
+    x byte
+    y byte
+}
+
+var lives byte = 3
+
+fn main() {
+    var title char[8] = "PONG"
+    var notes byte[4] = [1, 2, 3]
+    var alien Alien = { alive: true, x: 2, y: 3 }
+    var aliens Alien[2] = [
+        { alive: true, x: 4, y: 5 },
+        { alive: false, x: 6, y: 7 }
+    ]
+}
+`)
+
+	if len(prog.Globals) != 1 {
+		t.Fatalf("expected 1 global, got %d", len(prog.Globals))
+	}
+	if _, ok := prog.Globals[0].Init.(*ast.NumberExpr); !ok {
+		t.Fatalf("global initializer got %T, want NumberExpr", prog.Globals[0].Init)
+	}
+
+	fn := prog.Functions[0]
+	if len(fn.Locals) != 4 {
+		t.Fatalf("expected 4 locals, got %d", len(fn.Locals))
+	}
+
+	if _, ok := fn.Locals[0].Init.(*ast.StringExpr); !ok {
+		t.Fatalf("title initializer got %T, want StringExpr", fn.Locals[0].Init)
+	}
+
+	notes, ok := fn.Locals[1].Init.(*ast.ArrayLiteralExpr)
+	if !ok {
+		t.Fatalf("notes initializer got %T, want ArrayLiteralExpr", fn.Locals[1].Init)
+	}
+	if len(notes.Values) != 3 {
+		t.Fatalf("expected 3 note values, got %d", len(notes.Values))
+	}
+
+	alien, ok := fn.Locals[2].Init.(*ast.StructLiteralExpr)
+	if !ok {
+		t.Fatalf("alien initializer got %T, want StructLiteralExpr", fn.Locals[2].Init)
+	}
+	if len(alien.Fields) != 3 {
+		t.Fatalf("expected 3 alien fields, got %d", len(alien.Fields))
+	}
+
+	aliens, ok := fn.Locals[3].Init.(*ast.ArrayLiteralExpr)
+	if !ok {
+		t.Fatalf("aliens initializer got %T, want ArrayLiteralExpr", fn.Locals[3].Init)
+	}
+	if len(aliens.Values) != 2 {
+		t.Fatalf("expected 2 alien values, got %d", len(aliens.Values))
+	}
+}
+
 func TestParseUnaryMinus(t *testing.T) {
 	expr := parseExprFromMain(t, `
 fn main() {

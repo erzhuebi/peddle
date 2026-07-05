@@ -3,25 +3,12 @@ struct Player {
     x byte
 }
 
-var score int
-var lives byte
-var ready bool
-var title char[16]
-var values byte[4]
-var player Player
-
-fn initState() {
-    score = 0
-    lives = 3
-    ready = true
-    title = "GLOBALS"
-
-    values[0] = 1
-    values[1] = 2
-
-    player.hp = 42
-    player.x = 7
-}
+var score int = 0
+var lives byte = 3
+var ready bool = true
+var title char[16] = "GLOBALS"
+var values byte[4] = [1, 2]
+var player Player = { hp: 42, x: 7 }
 
 fn addScore(points int) {
     score = score + points
@@ -52,7 +39,6 @@ fn checkState() bool {
 fn main() {
     var pass bool
 
-    initState()
     addScore(10)
     addScore(5)
     loseLife()

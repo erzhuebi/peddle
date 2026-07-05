@@ -4,12 +4,10 @@ fn main() {
     var line char[32]
     var n int
     var k char
-    var done bool
+    var done bool = false
 
     cls()
     textcolor(1)
-
-    done = false
 
     putstr(0, 0, "READLINE TEST")
     putstr(0, 2, "NAME? ")

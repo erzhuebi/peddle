@@ -1,5 +1,5 @@
 fn main() {
-    var addr char[128]
+    var addr char[128] = "192.168.106.57"
     var rx byte[192]
     var capture byte[192]
     var line char[40]
@@ -19,8 +19,6 @@ fn main() {
     border(6)
     background(0)
     textcolor(1)
-
-    copy(addr, "192.168.106.57")
 
     putstr(0, 0, "TERM DBG")
     putstr(0, 1, "CONNECTING...")

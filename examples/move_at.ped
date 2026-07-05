@@ -1,15 +1,11 @@
 fn main() {
-    var x byte
-    var y byte
+    var x byte = 20
+    var y byte = 12
     var k char
-    var done byte
+    var done byte = 0
 
     cls()
     textcolor(1)
-
-    x = 20
-    y = 12
-    done = 0
 
     putchar(x, y, '@')
 

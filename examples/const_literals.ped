@@ -14,14 +14,12 @@ const C_STYLE_HEX = 0xff
 const DEC_GROUPED = 1_000
 
 fn main(){
-    var border byte
-    var bg byte
-    var x int
+    var border byte = GREEN
+    var bg byte = BLUE
+    var x int = DEC_GROUPED
     var y int
 
     # constants with C64-style hex
-    border = GREEN
-    bg = BLUE
 
     # constants with binary and underscores
     border = MASK_HIGH >> 4
@@ -29,9 +27,6 @@ fn main(){
 
     # constants with C-style hex
     bg = C_STYLE_HEX & YELLOW
-
-    # decimal underscore literal
-    x = DEC_GROUPED
 
     # mix constants with math operators
     y = x / 10

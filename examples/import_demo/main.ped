@@ -1,9 +1,7 @@
 import "/lib/checks"
 
 fn main() {
-    var ok bool
-
-    ok = imported_ok()
+    var ok bool = imported_ok()
 
     if ok {
         print("TEST SUCCESSFUL")

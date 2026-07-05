@@ -1,6 +1,6 @@
 fn main() {
-    var addr char[128]
-    var tx char[128]
+    var addr char[128] = "192.168.106.57"
+    var tx char[128] = "HELLO WORLD\r"
     var line char[128]
     var ok bool
     var found bool
@@ -14,8 +14,6 @@ fn main() {
     cls()
     putstr(0, 0, "PEDDLE NET PROBE")
 
-    copy(addr, "192.168.106.57")
-    copy(tx, "HELLO WORLD\r")
     clear(line)
 
     putstr(0, 2, "CONNECTING...")

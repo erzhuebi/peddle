@@ -1,7 +1,5 @@
 fn termcode(ch byte) byte {
-    var code byte
-
-    code = ch
+    var code byte = ch
 
     if ch == 64 {
         code = 0
@@ -27,9 +25,7 @@ fn termcode(ch byte) byte {
 }
 
 fn termput(x byte, y byte, ch byte) {
-    var code byte
-
-    code = termcode(ch)
+    var code byte = termcode(ch)
     putraw(x, y, code)
     putcolor(x, y, 1)
 }
@@ -92,13 +88,11 @@ fn termeol(x byte, y byte) {
 }
 
 fn termeos(x byte, y byte) {
-    var row byte
+    var row byte = y + 1
 
     termeol(x, y)
 
     if y < 23 {
-        row = y + 1
-
         for row = row to 23 {
             termclearline(row)
         }
@@ -106,24 +100,24 @@ fn termeos(x byte, y byte) {
 }
 
 fn main() {
-    var addr char[128]
+    var addr char[128] = "192.168.106.57"
     var rx byte[192]
-    var ready byte[1]
+    var ready byte[1] = [0]
     var tx char[2]
     var k char
     var b byte
     var n int
     var i int
     var ok bool
-    var done bool
-    var hadData bool
-    var cx byte
-    var cy byte
-    var tepState byte
-    var tepLen byte
-    var tepCmd byte
-    var tepArg0 byte
-    var tepArg1 byte
+    var done bool = false
+    var hadData bool = false
+    var cx byte = 0
+    var cy byte = 0
+    var tepState byte = 0
+    var tepLen byte = 0
+    var tepCmd byte = 0
+    var tepArg0 byte = 0
+    var tepArg1 byte = 0
 
     cls()
     border(6)
@@ -131,9 +125,6 @@ fn main() {
     textcolor(1)
     asciifont()
     termclear()
-
-    copy(addr, "192.168.106.57")
-    ready[0] = 0
 
     putstr(0, 0, "PEDDLE TERM 40X24")
     putstr(0, 1, "CONNECTING...")
@@ -143,16 +134,7 @@ fn main() {
     if ok {
         termclear()
 
-        cx = 0
-        cy = 0
-        tepState = 0
-        tepLen = 0
-        tepCmd = 0
-        tepArg0 = 0
-        tepArg1 = 0
         n = netwrite(ready, 1)
-        hadData = false
-        done = false
 
         while done == false {
             n = netread(rx, size(rx), 0)

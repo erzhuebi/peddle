@@ -109,9 +109,8 @@ fn drawChar(x int, y int, ch char, color byte) {
 }
 
 fn drawPaddle(x int, y int, color byte) {
-    var i int
+    var i int = 0
 
-    i = 0
     while i < PADDLE_H {
         drawChar(x, y + i, '|', color)
         i = i + 1
@@ -119,9 +118,8 @@ fn drawPaddle(x int, y int, color byte) {
 }
 
 fn erasePaddle(x int, y int) {
-    var i int
+    var i int = 0
 
-    i = 0
     while i < PADDLE_H {
         putchar(x, y + i, ' ')
         i = i + 1
@@ -137,9 +135,8 @@ fn eraseBall(x int, y int) {
 }
 
 fn drawHorizontal(y int) {
-    var x int
+    var x int = 0
 
-    x = 0
     while x < 40 {
         drawChar(x, y, '-', COLOR_CYAN)
         x = x + 1
@@ -147,9 +144,8 @@ fn drawHorizontal(y int) {
 }
 
 fn drawDivider() {
-    var y int
+    var y int = TOP
 
-    y = TOP
     while y <= BOTTOM {
         drawChar(20, y, ':', COLOR_CYAN)
         y = y + 2
@@ -254,14 +250,14 @@ fn movePaddleDown(x int, y *int, color byte) {
 }
 
 fn main() {
-    var leftY int
-    var rightY int
+    var leftY int = 11
+    var rightY int = 11
     var ballX int
     var ballY int
     var dx int
     var dy int
-    var leftScore int
-    var rightScore int
+    var leftScore int = 0
+    var rightScore int = 0
     var j1 byte
     var j2 byte
     var k char
@@ -269,8 +265,8 @@ fn main() {
     var ballTimer int
     var ballDelay int
     var rallyHits int
-    var gameOver bool
-    var rightServe bool
+    var gameOver bool = false
+    var rightServe bool = true
     var soundPool byte[256]
     var pingData byte[32]
     var pongData byte[32]
@@ -282,13 +278,6 @@ fn main() {
     var pongErr int
     var missErr int
     var playErr int
-
-    leftScore = 0
-    rightScore = 0
-    leftY = 11
-    rightY = 11
-    gameOver = false
-    rightServe = true
 
     buildHitSound(pingData, VOICE1, NOTE_E5, WAVE_TRIANGLE)
     buildHitSound(pongData, VOICE2, NOTE_C4, WAVE_SAW)

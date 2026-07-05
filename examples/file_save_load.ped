@@ -1,7 +1,7 @@
 fn main() {
-    var helperName char[32]
-    var streamName char[32]
-    var msg char[64]
+    var helperName char[32] = "PFILEHLP"
+    var streamName char[32] = "PFILESTR"
+    var msg char[64] = "HELLO FROM FILE"
     var rx char[64]
     var f byte
     var saved int
@@ -11,10 +11,6 @@ fn main() {
 
     cls()
     putstr(0, 0, "PEDDLE FILE PROBE")
-
-    copy(helperName, "PFILEHLP")
-    copy(streamName, "PFILESTR")
-    copy(msg, "HELLO FROM FILE")
 
     putstr(0, 2, "FILESAVE/FILELOAD")
 

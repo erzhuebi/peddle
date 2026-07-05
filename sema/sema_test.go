@@ -149,6 +149,88 @@ fn main() {
 	}
 }
 
+func TestSemaAllowsVarInitializers(t *testing.T) {
+	src := `
+const START = 2
+
+struct Alien {
+    alive bool
+    x byte
+    y byte
+}
+
+var lives byte = 3
+var title char[8] = "PONG"
+var notes byte[4] = [START, 4, 6]
+var aliens Alien[2] = [
+    { alive: true, x: 2, y: 3 },
+    { alive: false, x: 4, y: 5 }
+]
+
+fn main() {
+    var base byte = lives
+    var score int = base + 10
+    var name char[8] = "ADA"
+    var localNotes byte[4] = [base, 2, 3]
+    var alien Alien = { alive: true, x: base, y: 6 }
+
+    if score > 0 {
+        poke(53280, localNotes[0])
+    }
+}
+`
+
+	if err := checkSource(t, src); err != nil {
+		t.Fatalf("unexpected sema error: %v", err)
+	}
+}
+
+func TestSemaRejectsInvalidVarInitializers(t *testing.T) {
+	tests := []string{
+		`
+var x int
+var y int = x
+
+fn main() {
+}
+`,
+		`
+fn main() {
+    var nums byte[2] = [1, 2, 3]
+}
+`,
+		`
+fn main() {
+    var name char[3] = "LONG"
+}
+`,
+		`
+struct Alien {
+    alive bool
+}
+
+fn main() {
+    var alien Alien = { missing: true }
+}
+`,
+		`
+struct Alien {
+    alive bool
+}
+
+fn main() {
+    var alien Alien = { alive: true, alive: false }
+}
+`,
+	}
+
+	for _, src := range tests {
+		if err := checkSource(t, src); err == nil {
+			t.Fatalf("expected sema error for:\n%s", src)
+		}
+	}
+}
+
 func TestSemaUserFunctionCall(t *testing.T) {
 	src := `
 fn add(a int, b int) int {

@@ -343,12 +343,25 @@ func (p *Parser) parseVarDecls() []*ast.VarDecl {
 		atAddress = n
 	}
 
+	var init ast.Expr
+	if p.peek.Type == lexer.ASSIGN {
+		p.nextToken()
+		p.nextToken()
+
+		if len(names) != 1 {
+			p.errorf("initialized var declarations only support one variable name")
+		}
+
+		init = p.parseExpression(LOWEST)
+	}
+
 	var decls []*ast.VarDecl
 
 	for _, name := range names {
 		decls = append(decls, &ast.VarDecl{
 			Name:         name,
 			Type:         typ,
+			Init:         init,
 			HasAtAddress: hasAtAddress,
 			AtAddress:    atAddress,
 		})
@@ -842,6 +855,12 @@ func (p *Parser) parseExpression(precedence int) ast.Expr {
 	case lexer.STRING:
 		left = &ast.StringExpr{Value: p.cur.Literal}
 
+	case lexer.LBRACK:
+		left = p.parseArrayLiteralExpr()
+
+	case lexer.LBRACE:
+		left = p.parseStructLiteralExpr()
+
 	case lexer.LPAREN:
 		p.nextToken()
 		left = p.parseExpression(LOWEST)
@@ -859,6 +878,7 @@ func (p *Parser) parseExpression(precedence int) ast.Expr {
 
 	for p.peek.Type != lexer.EOF &&
 		p.peek.Type != lexer.RBRACE &&
+		p.peek.Type != lexer.RBRACK &&
 		p.peek.Type != lexer.COMMA &&
 		p.peek.Type != lexer.RPAREN &&
 		precedence < p.peekPrecedence() {
@@ -909,6 +929,95 @@ func (p *Parser) parseExpression(precedence int) ast.Expr {
 	}
 
 	return left
+}
+
+func (p *Parser) parseArrayLiteralExpr() ast.Expr {
+	var values []ast.Expr
+
+	p.nextToken()
+
+	if p.cur.Type == lexer.RBRACK {
+		return &ast.ArrayLiteralExpr{Values: values}
+	}
+
+	for {
+		value := p.parseExpression(LOWEST)
+		if value != nil {
+			values = append(values, value)
+		}
+
+		if p.peek.Type == lexer.COMMA {
+			p.nextToken()
+			p.nextToken()
+			continue
+		}
+
+		if p.peek.Type == lexer.RBRACK {
+			p.nextToken()
+			break
+		}
+
+		if p.cur.Type == lexer.RBRACK {
+			break
+		}
+
+		p.errorf("expected comma or closing bracket in array literal, got %s", p.peek.Type)
+		break
+	}
+
+	return &ast.ArrayLiteralExpr{Values: values}
+}
+
+func (p *Parser) parseStructLiteralExpr() ast.Expr {
+	var fields []ast.StructLiteralField
+
+	p.nextToken()
+
+	if p.cur.Type == lexer.RBRACE {
+		return &ast.StructLiteralExpr{Fields: fields}
+	}
+
+	for {
+		if p.cur.Type != lexer.IDENT {
+			p.errorf("expected field name in struct literal, got %s", p.cur.Type)
+			break
+		}
+
+		name := p.cur.Literal
+
+		if !p.expectPeek(lexer.COLON) {
+			break
+		}
+
+		p.nextToken()
+		value := p.parseExpression(LOWEST)
+		if value != nil {
+			fields = append(fields, ast.StructLiteralField{
+				Name:  name,
+				Value: value,
+			})
+		}
+
+		if p.peek.Type == lexer.COMMA {
+			p.nextToken()
+			p.nextToken()
+			continue
+		}
+
+		if p.peek.Type == lexer.RBRACE {
+			p.nextToken()
+			break
+		}
+
+		if p.cur.Type == lexer.RBRACE {
+			break
+		}
+
+		p.errorf("expected comma or closing brace in struct literal, got %s", p.peek.Type)
+		break
+	}
+
+	return &ast.StructLiteralExpr{Fields: fields}
 }
 
 func (p *Parser) parseCallExpr(name string) ast.Expr {

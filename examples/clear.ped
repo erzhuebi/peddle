@@ -5,24 +5,24 @@ struct Player {
 }
 
 fn main(){
-    var nums int[16]
+    var nums int[16] = [10, 20, 30]
     var backup int[16]
 
-    var players Player[4]
+    var players Player[4] = [
+        { id: 1, name: "BOB ", hp: 100 },
+        { id: 2, name: "ADA LOVELACE ", hp: 120 }
+    ]
 
-    var title char[32]
+    var title char[32] = "TEAM ALPHA "
 
-    var i byte
+    var i byte = 0
     var n int
 
     print("PEDDLE ARRAYS ")
 
-    //
-    // STRING ARRAYS
-    //
-
-    copy(title, "TEAM ")
-    append(title, "ALPHA ")
+    #
+    # STRING ARRAYS
+    #
 
     print(title)
 
@@ -41,13 +41,9 @@ fn main(){
     append(title, "NEW TITLE ")
     print(title)
 
-    //
-    // INT ARRAYS
-    //
-
-    append(nums, 10)
-    append(nums, 20)
-    append(nums, 30)
+    #
+    # INT ARRAYS
+    #
 
     if len(nums) == 3 {
         print("APPEND OK ")
@@ -79,22 +75,10 @@ fn main(){
         print("FILL OK ")
     }
 
-    //
-    // STRUCT ARRAYS
-    //
+    #
+    # STRUCT ARRAYS
+    #
 
-    i = 0
-    players[i].id = 1
-    copy(players[i].name, "BOB ")
-    players[i].hp = 100
-
-    i = 1
-    players[i].id = 2
-    copy(players[i].name, "ADA ")
-    append(players[i].name, "LOVELACE ")
-    players[i].hp = 120
-
-    i = 0
     print(players[i].name)
 
     i = 1
@@ -110,9 +94,9 @@ fn main(){
         print("PLAYERS CLEARED ")
     }
 
-    //
-    // LOOP APPEND
-    //
+    #
+    # LOOP APPEND
+    #
 
     clear(nums)
 
@@ -127,9 +111,9 @@ fn main(){
         print("LOOP APPEND OK ")
     }
 
-    //
-    // C64 COLORS
-    //
+    #
+    # C64 COLORS
+    #
 
     poke(53280, 0)
     poke(53281, 6)

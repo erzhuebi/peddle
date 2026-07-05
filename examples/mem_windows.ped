@@ -12,11 +12,9 @@ fn set_byte(x *byte) {
 
 fn main() {
     var window mem[4] at $C000
-    var pass bool
+    var pass bool = true
     var addr uint
     var n int
-
-    pass = true
 
     window[0] = 7
     forward(window)

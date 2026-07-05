@@ -1,18 +1,12 @@
 fn main() {
-    var title char[32]
-    var line char[32]
+    var title char[32] = "DYNAMIC PUTSTR"
+    var line char[32] = "COLOR ARRAY"
 
     cls()
 
     border(6)
     background(0)
     textcolor(1)
-
-    copy(title, "DYNAMIC ")
-    append(title, "PUTSTR")
-
-    copy(line, "COLOR ")
-    append(line, "ARRAY")
 
     putstr(0, 0, "LITERAL OK")
     putstr(0, 2, title)

@@ -41,6 +41,7 @@ type Param struct {
 type VarDecl struct {
 	Name         string
 	Type         Type
+	Init         Expr
 	HasAtAddress bool
 	AtAddress    int
 }
@@ -216,6 +217,23 @@ type StringExpr struct {
 }
 
 func (*StringExpr) exprNode() {}
+
+type ArrayLiteralExpr struct {
+	Values []Expr
+}
+
+func (*ArrayLiteralExpr) exprNode() {}
+
+type StructLiteralField struct {
+	Name  string
+	Value Expr
+}
+
+type StructLiteralExpr struct {
+	Fields []StructLiteralField
+}
+
+func (*StructLiteralExpr) exprNode() {}
 
 type UnaryExpr struct {
 	Op   string

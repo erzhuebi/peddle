@@ -1,14 +1,12 @@
 fn main() {
     var i byte
-    var n byte
+    var n byte = 0
 
     cls()
 
     for i = 0 to 9 {
         putstr(0, i, "COUNTED FOR")
     }
-
-    n = 0
 
     for n < 3 {
         putstr(16, n, "COND FOR")

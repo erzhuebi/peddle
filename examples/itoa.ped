@@ -1,14 +1,10 @@
 fn main() {
-    var line char[32]
-    var score int
-    var neg int
+    var line char[32] = "SCORE "
+    var score int = 12345
+    var neg int = -123
 
     cls()
 
-    score = 12345
-    neg = -123
-
-    copy(line, "SCORE ")
     append(line, itoa(score))
     putstr(0, 0, line)
 

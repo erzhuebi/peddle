@@ -1,33 +1,29 @@
 fn main(){
-    var border byte
+    var border byte = 10 & 15
     var bg byte
-    var a byte
+    var a byte = 20 + 5
     var b byte
-    var s byte
+    var s byte = 2
 
-    var x int
+    var x int = 1000 + 250
     var y int
-    var n int
+    var n int = 2
 
     # byte arithmetic
-    a = 20 + 5
     a = a - 3
     a = a * 2
     b = a / 7
     b = a % 7
 
     # byte bitwise
-    border = 10 & 15
     border = border | 32
     border = border ^ 15
 
     # byte shifts
-    s = 2
     border = border << s
     border = border >> 1
 
     # int arithmetic
-    x = 1000 + 250
     x = x - 50
     x = x * 3
     y = x / 10
@@ -39,7 +35,6 @@ fn main(){
     y = y ^ 255
 
     # int shifts
-    n = 2
     y = y << n
     y = y >> 3
 

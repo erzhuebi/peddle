@@ -3,9 +3,7 @@ fn imported_add(a int, b int) int {
 }
 
 fn imported_ok() bool {
-    var value int
-
-    value = imported_add(20, 22)
+    var value int = imported_add(20, 22)
 
     if value == 42 {
         return true

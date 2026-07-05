@@ -1,7 +1,5 @@
 fn expectedByte(pos int) byte {
-    var n int
-
-    n = pos % 16
+    var n int = pos % 16
 
     if n == 0 {
         return $30
@@ -84,7 +82,7 @@ fn showStatus(total int, chunks int, avail int, peak int, last byte, want byte) 
 }
 
 fn main() {
-    var addr char[128]
+    var addr char[128] = "192.168.106.57"
     var tx char[256]
     var rx byte[1]
     var backlog byte[512]
@@ -108,8 +106,6 @@ fn main() {
     putstr(0, 2, "APP RX: 1 BYTE")
     putstr(0, 3, "BACKLOG: 512 BYTES")
     putstr(0, 4, "WORK: 1 TICK PER BYTE")
-
-    copy(addr, "192.168.106.57")
 
     clear(tx)
     for i = 0 to 15 {

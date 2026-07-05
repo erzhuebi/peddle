@@ -91,6 +91,7 @@ type Symbol struct {
 	SourceName   string
 	Label        string
 	Type         ast.Type
+	Init         ast.Expr
 	Size         int
 	IsReference  bool
 	HasAtAddress bool
@@ -158,7 +159,9 @@ func (g *Generator) Generate(p *ast.Program) (string, error) {
 
 	g.emitRuntime()
 	g.emitLiterals()
-	g.emitStaticData()
+	if err := g.emitStaticData(); err != nil {
+		return "", err
+	}
 
 	return g.out.String(), nil
 }
@@ -214,6 +217,20 @@ func (g *Generator) genFunction(fn *ast.FunctionDecl) error {
 
 	g.emit(fn.Name + ":")
 
+	for _, local := range fn.Locals {
+		if local.Init == nil {
+			continue
+		}
+
+		sym, ok := g.resolve(local.Name)
+		if !ok {
+			return fmt.Errorf("unknown local %q", local.Name)
+		}
+		if err := g.genInitSymbol(sym, local.Init); err != nil {
+			return fmt.Errorf("local %q initializer: %w", local.Name, err)
+		}
+	}
+
 	for _, stmt := range fn.Body {
 		if err := g.genStmt(stmt); err != nil {
 			return err
@@ -227,6 +244,9 @@ func (g *Generator) genFunction(fn *ast.FunctionDecl) error {
 
 func (g *Generator) scanSoundRuntimeUse(p *ast.Program) {
 	for _, fn := range p.Functions {
+		for _, local := range fn.Locals {
+			g.scanSoundExpr(local.Init)
+		}
 		for _, stmt := range fn.Body {
 			g.scanSoundStmt(stmt)
 		}
@@ -275,7 +295,21 @@ func (g *Generator) scanSoundStmt(stmt ast.Stmt) {
 }
 
 func (g *Generator) scanSoundExpr(expr ast.Expr) {
+	if expr == nil {
+		return
+	}
+
 	switch e := expr.(type) {
+	case *ast.ArrayLiteralExpr:
+		for _, value := range e.Values {
+			g.scanSoundExpr(value)
+		}
+
+	case *ast.StructLiteralExpr:
+		for _, field := range e.Fields {
+			g.scanSoundExpr(field.Value)
+		}
+
 	case *ast.CallExpr:
 		if isSoundBuiltin(e.Name) {
 			g.usedSoundRuntime = true

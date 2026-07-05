@@ -135,11 +135,10 @@ fn drawChar(x byte, y byte, ch char) {
 }
 
 fn initAliens(aliens Alien[32]) {
-    var i byte
-    var row byte
+    var i byte = 0
+    var row byte = 0
     var col byte
-    i = 0
-    row = 0
+
     while row < 4 {
         col = 0
         while col < 8 {
@@ -154,10 +153,10 @@ fn initAliens(aliens Alien[32]) {
 }
 
 fn drawAliens(aliens Alien[32]) {
-    var i byte
+    var i byte = 0
     var row byte
     var ch char
-    i = 0
+
     while i < 32 {
         row = i / 8
         if aliens[i].alive {
@@ -172,8 +171,8 @@ fn drawAliens(aliens Alien[32]) {
 }
 
 fn eraseAliens(aliens Alien[32]) {
-    var i byte
-    i = 0
+    var i byte = 0
+
     while i < 32 {
         if aliens[i].alive {
             putchar(aliens[i].x, aliens[i].y, ' ')
@@ -183,8 +182,8 @@ fn eraseAliens(aliens Alien[32]) {
 }
 
 fn copyAliens(src Alien[32], dst Alien[32]) {
-    var i byte
-    i = 0
+    var i byte = 0
+
     while i < 32 {
         dst[i].alive = src[i].alive
         dst[i].x = src[i].x
@@ -194,12 +193,13 @@ fn copyAliens(src Alien[32], dst Alien[32]) {
 }
 
 fn drawShots(playerX byte, pbActive bool, pbX byte, pbY byte, abActive bool[3], abX byte[3], abY byte[3]) {
-    var i byte
+    var i byte = 0
+
     drawChar(playerX, 23, 'A')
     if pbActive {
         drawChar(pbX, pbY, 'I')
     }
-    i = 0
+
     while i < 3 {
         if abActive[i] {
             drawChar(abX[i], abY[i], '!')
@@ -209,10 +209,9 @@ fn drawShots(playerX byte, pbActive bool, pbX byte, pbY byte, abActive bool[3], 
 }
 
 fn countAlive(aliens Alien[32]) int {
-    var i byte
-    var n int
-    n = 0
-    i = 0
+    var i byte = 0
+    var n int = 0
+
     while i < 32 {
         if aliens[i].alive { n = n + 1 }
         i = i + 1
@@ -221,8 +220,8 @@ fn countAlive(aliens Alien[32]) int {
 }
 
 fn aliensAtBottom(aliens Alien[32]) bool {
-    var i byte
-    i = 0
+    var i byte = 0
+
     while i < 32 {
         if aliens[i].alive {
             if aliens[i].y >= 21 { return true }
@@ -234,28 +233,28 @@ fn aliensAtBottom(aliens Alien[32]) bool {
 
 fn main() {
     var aliens Alien[32]
-    var alienGoRight bool
-    var alienMoveInterval int
+    var alienGoRight bool = true
+    var alienMoveInterval int = 20
     var alienTimer int
-    var playerX byte
+    var playerX byte = 19
     var oldPlayerX byte
-    var pbActive bool
-    var pbX byte
-    var pbY byte
+    var pbActive bool = false
+    var pbX byte = 0
+    var pbY byte = 0
     var oldPbX byte
     var oldPbY byte
-    var abActive bool[3]
-    var abX byte[3]
-    var abY byte[3]
+    var abActive bool[3] = [false, false, false]
+    var abX byte[3] = [0, 0, 0]
+    var abY byte[3] = [0, 0, 0]
     var oldAbX byte
     var oldAbY byte
-    var score int
-    var lives byte
-    var gameOver bool
+    var score int = 0
+    var lives byte = 3
+    var gameOver bool = false
     var bulletTimer int
     var fireTimer int
-    var fireSearch byte
-    var fireSlot byte
+    var fireSearch byte = 0
+    var fireSlot byte = 0
     var k char
     var i byte
     var row byte
@@ -265,7 +264,7 @@ fn main() {
     var aliveCount int
     var pts int
     var atBottom bool
-    var gameResult byte
+    var gameResult byte = RESULT_NONE
     var oldAliens Alien[32]
 
     # Sound
@@ -296,28 +295,6 @@ fn main() {
     putstr(9, 20, "PRESS ANY KEY")
     waitkey()
     cls()
-
-    # Init game state
-    score = 0
-    lives = 3
-    gameOver = false
-    gameResult = RESULT_NONE
-    alienGoRight = true
-    playerX = 19
-    pbActive = false
-    pbX = 0
-    pbY = 0
-    fireSearch = 0
-    fireSlot = 0
-    alienMoveInterval = 20
-
-    i = 0
-    while i < 3 {
-        abActive[i] = false
-        abX[i] = 0
-        abY[i] = 0
-        i = i + 1
-    }
 
     initAliens(aliens)
 

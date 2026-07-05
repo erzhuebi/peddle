@@ -24,24 +24,14 @@ fn bumpUint(x *uint) {
 }
 
 fn main() {
-    var ok bool
-    var b byte
-    var flag bool
-    var ch char
-    var i int
-    var u uint
-    var values uint[4]
-    var idx byte
-
-    ok = true
-
-    b = 4
-    flag = false
-    ch = 'A'
-    i = -2
-    u = 65534
-    idx = 2
-    values[idx] = 40
+    var ok bool = true
+    var b byte = 4
+    var flag bool = false
+    var ch char = 'A'
+    var i int = -2
+    var u uint = 65534
+    var values uint[4] = [0, 0, 40]
+    var idx byte = 2
 
     bumpByte(&b)
     setBool(&flag)

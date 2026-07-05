@@ -64,12 +64,10 @@ fn main() {
 
     var id uint
     var err int
-    var pass bool
+    var pass bool = true
     var free0 int
     var free1 int
     var count int
-
-    pass = true
 
     volume(data, 15)
     freq(data, VOICE1, 34, 17)

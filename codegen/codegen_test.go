@@ -1269,3 +1269,83 @@ fn main() {
 	requireReferencedLabelsDefined(t, asm)
 	requireASMAssemblesWith64tass(t, asm)
 }
+
+func TestCodegenGlobalVarInitializers(t *testing.T) {
+	input := `
+struct Point {
+    x byte
+    y int
+}
+
+var lives byte = 3
+var title char[8] = "PONG"
+var nums byte[4] = [1, 2, 3]
+var points Point[2] = [
+    { x: 4, y: 100 }
+]
+
+fn main() {
+}
+`
+
+	asm := compileSource(t, input)
+
+	requireASM(t, asm,
+		"peddle_global_lives:\n    .byte 3",
+		"peddle_global_title:\n    .word 8\n    .word 4\n    .byte 80,79,78,71\n    .fill 4, 0",
+		"peddle_global_nums:\n    .word 4\n    .word 3\n    .byte 1\n    .byte 2\n    .byte 3\n    .fill 1, 0",
+		"peddle_global_points:\n    .word 2\n    .word 1\n    .byte 4\n    .word 100\n    .fill 1, 0\n    .fill 2, 0",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
+func TestCodegenLocalVarInitializersAssemble(t *testing.T) {
+	input := `
+struct Alien {
+    alive bool
+    x byte
+    y byte
+}
+
+fn make(base byte) {
+    var title char[8] = "GO"
+    var notes byte[4] = [base, 2, 3]
+    var alien Alien = { alive: true, x: base, y: 6 }
+    var aliens Alien[2] = [
+        { alive: true, x: 4, y: 5 },
+        { alive: false, x: 6, y: 7 }
+    ]
+
+    print(title)
+    if len(notes) == 3 {
+        poke(53280, notes[0])
+    }
+    if alien.alive {
+        poke(53281, alien.x)
+    }
+    if aliens[0].alive {
+        poke(53282, aliens[1].x)
+    }
+}
+
+fn main() {
+    make(1)
+    make(2)
+}
+`
+
+	asm := compileSource(t, input)
+
+	requireASM(t, asm,
+		"sta make_title+2",
+		"sta make_notes+2",
+		"sta make_aliens+2",
+		"sta make_alien",
+		"sta make_aliens+4",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
