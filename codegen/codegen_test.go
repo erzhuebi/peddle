@@ -79,6 +79,39 @@ fn main() {
 	)
 }
 
+func TestCodegenGlobalVariables(t *testing.T) {
+	asm := compileSource(t, `
+var score int
+var lives byte
+var name char[8]
+
+fn bump(amount int) {
+    score = score + amount
+}
+
+fn main() {
+    lives = 3
+    name = "READY"
+    bump(10)
+
+    if score == 10 {
+        poke(53280, lives)
+    }
+}
+`)
+
+	requireASM(t, asm,
+		"peddle_global_score:",
+		"peddle_global_lives:",
+		"peddle_global_name:",
+		"lda peddle_global_score",
+		"sta peddle_global_score",
+		"lda peddle_global_lives",
+		"jsr bump",
+	)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
 func TestCodegenIntArithmetic(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {

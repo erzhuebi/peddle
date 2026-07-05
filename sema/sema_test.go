@@ -51,6 +51,79 @@ fn main() {
 	}
 }
 
+func TestSemaAllowsGlobalVariables(t *testing.T) {
+	src := `
+var score int
+var lives byte
+var name char[16]
+
+fn bump(amount int) {
+    score = score + amount
+}
+
+fn main() {
+    lives = 3
+    name = "PLAYER"
+    bump(10)
+
+    if score == 10 {
+        poke(53280, lives)
+    }
+}
+`
+
+	if err := checkSource(t, src); err != nil {
+		t.Fatalf("unexpected sema error: %v", err)
+	}
+}
+
+func TestSemaRejectsGlobalNameConflicts(t *testing.T) {
+	tests := []string{
+		`
+const score = 1
+var score int
+
+fn main() {
+}
+`,
+		`
+var score int
+var score byte
+
+fn main() {
+}
+`,
+		`
+var score int
+
+fn score() {
+}
+
+fn main() {
+}
+`,
+		`
+var score int
+
+fn main() {
+    var score int
+}
+`,
+		`
+var score int
+
+fn main(score int) {
+}
+`,
+	}
+
+	for _, src := range tests {
+		if err := checkSource(t, src); err == nil {
+			t.Fatalf("expected sema error for:\n%s", src)
+		}
+	}
+}
+
 func TestSemaRejectsUnknownVariable(t *testing.T) {
 	src := `
 fn main() {

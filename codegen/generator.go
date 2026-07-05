@@ -32,6 +32,7 @@ type Generator struct {
 	options Options
 
 	constants map[string]int
+	globals   map[string]Symbol
 	functions map[string]*ast.FunctionDecl
 	structs   map[string]*ast.StructDecl
 	frames    map[string]*Frame
@@ -110,6 +111,7 @@ func NewWithOptions(options Options) *Generator {
 	return &Generator{
 		options:   options,
 		constants: map[string]int{},
+		globals:   map[string]Symbol{},
 		functions: map[string]*ast.FunctionDecl{},
 		structs:   map[string]*ast.StructDecl{},
 		frames:    map[string]*Frame{},
@@ -127,6 +129,10 @@ func (g *Generator) Generate(p *ast.Program) (string, error) {
 
 	for _, s := range p.Structs {
 		g.structs[s.Name] = s
+	}
+
+	for _, global := range p.Globals {
+		g.globals[global.Name] = g.buildGlobalSymbol(global)
 	}
 
 	for _, fn := range p.Functions {
@@ -163,6 +169,14 @@ func (g *Generator) MemoryReport() MemoryReport {
 
 func (g *Generator) computeMemoryReport() MemoryReport {
 	report := MemoryReport{}
+
+	for _, sym := range g.globals {
+		if sym.Size == 0 {
+			continue
+		}
+		report.StaticDataBytes += sym.Size
+		report.StaticSymbolCount++
+	}
 
 	for _, frame := range g.frames {
 		for _, sym := range frame.Symbols {

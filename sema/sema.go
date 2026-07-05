@@ -9,6 +9,7 @@ import (
 
 type Checker struct {
 	constants map[string]*ast.ConstDecl
+	globals   map[string]*ast.VarDecl
 	functions map[string]*ast.FunctionDecl
 	structs   map[string]*ast.StructDecl
 }
@@ -16,6 +17,7 @@ type Checker struct {
 func New() *Checker {
 	return &Checker{
 		constants: map[string]*ast.ConstDecl{},
+		globals:   map[string]*ast.VarDecl{},
 		functions: map[string]*ast.FunctionDecl{},
 		structs:   map[string]*ast.StructDecl{},
 	}
@@ -45,6 +47,19 @@ func (c *Checker) Check(p *ast.Program) error {
 		c.structs[s.Name] = s
 	}
 
+	for _, global := range p.Globals {
+		if _, exists := c.globals[global.Name]; exists {
+			return fmt.Errorf("duplicate global %q", global.Name)
+		}
+		if _, exists := c.constants[global.Name]; exists {
+			return fmt.Errorf("global %q conflicts with const", global.Name)
+		}
+		if _, exists := c.structs[global.Name]; exists {
+			return fmt.Errorf("global %q conflicts with struct", global.Name)
+		}
+		c.globals[global.Name] = global
+	}
+
 	for _, s := range p.Structs {
 		for _, field := range s.Fields {
 			if field.Type.IsMem {
@@ -63,11 +78,23 @@ func (c *Checker) Check(p *ast.Program) error {
 		if _, exists := c.constants[fn.Name]; exists {
 			return fmt.Errorf("function %q conflicts with const", fn.Name)
 		}
+		if _, exists := c.structs[fn.Name]; exists {
+			return fmt.Errorf("function %q conflicts with struct", fn.Name)
+		}
+		if _, exists := c.globals[fn.Name]; exists {
+			return fmt.Errorf("function %q conflicts with global", fn.Name)
+		}
 		c.functions[fn.Name] = fn
 	}
 
 	if _, ok := c.functions["main"]; !ok {
 		return fmt.Errorf("missing main function")
+	}
+
+	for _, global := range p.Globals {
+		if err := c.checkVarDecl(global, "global"); err != nil {
+			return err
+		}
 	}
 
 	for _, fn := range p.Functions {
@@ -229,8 +256,14 @@ func (c *Checker) checkExpr(scope map[string]ast.Type, e ast.Expr) (ast.Type, er
 
 func (c *Checker) checkFunction(fn *ast.FunctionDecl) error {
 	scope := map[string]ast.Type{}
+	for _, global := range c.globals {
+		scope[global.Name] = global.Type
+	}
 
 	for _, param := range fn.Params {
+		if _, exists := c.globals[param.Name]; exists {
+			return fmt.Errorf("parameter %q conflicts with global", param.Name)
+		}
 		if _, exists := scope[param.Name]; exists {
 			return fmt.Errorf("duplicate parameter %q", param.Name)
 		}
@@ -241,25 +274,14 @@ func (c *Checker) checkFunction(fn *ast.FunctionDecl) error {
 	}
 
 	for _, local := range fn.Locals {
+		if _, exists := c.globals[local.Name]; exists {
+			return fmt.Errorf("local %q conflicts with global", local.Name)
+		}
 		if _, exists := scope[local.Name]; exists {
 			return fmt.Errorf("duplicate local %q", local.Name)
 		}
-		if local.Type.IsMem && !local.HasAtAddress {
-			return fmt.Errorf("local %q: mem declarations require at address", local.Name)
-		}
-		if local.HasAtAddress && !local.Type.IsMem {
-			return fmt.Errorf("local %q: at is only supported for mem declarations", local.Name)
-		}
-		if err := c.checkType(local.Type); err != nil {
-			return fmt.Errorf("local %q: %w", local.Name, err)
-		}
-		if local.HasAtAddress {
-			if local.AtAddress < 0 || local.AtAddress > 65535 {
-				return fmt.Errorf("local %q: at address %d out of range 0..65535", local.Name, local.AtAddress)
-			}
-			if local.AtAddress+local.Type.ArrayLen-1 > 65535 {
-				return fmt.Errorf("local %q: mem window exceeds address range", local.Name)
-			}
+		if err := c.checkVarDecl(local, "local"); err != nil {
+			return err
 		}
 		scope[local.Name] = local.Type
 	}
@@ -279,6 +301,27 @@ func (c *Checker) checkFunction(fn *ast.FunctionDecl) error {
 		}
 	}
 
+	return nil
+}
+
+func (c *Checker) checkVarDecl(v *ast.VarDecl, kind string) error {
+	if v.Type.IsMem && !v.HasAtAddress {
+		return fmt.Errorf("%s %q: mem declarations require at address", kind, v.Name)
+	}
+	if v.HasAtAddress && !v.Type.IsMem {
+		return fmt.Errorf("%s %q: at is only supported for mem declarations", kind, v.Name)
+	}
+	if err := c.checkType(v.Type); err != nil {
+		return fmt.Errorf("%s %q: %w", kind, v.Name, err)
+	}
+	if v.HasAtAddress {
+		if v.AtAddress < 0 || v.AtAddress > 65535 {
+			return fmt.Errorf("%s %q: at address %d out of range 0..65535", kind, v.Name, v.AtAddress)
+		}
+		if v.AtAddress+v.Type.ArrayLen-1 > 65535 {
+			return fmt.Errorf("%s %q: mem window exceeds address range", kind, v.Name)
+		}
+	}
 	return nil
 }
 

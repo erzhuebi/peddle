@@ -53,6 +53,31 @@ fn main() {
 	}
 }
 
+func TestCodegenMemoryReportTracksGlobalStaticDataBytes(t *testing.T) {
+	g, _, err := generateProgramWithOptions(t, `
+var score int
+var names char[10]
+
+fn main() {
+    var lives byte
+}
+`, Options{OptMode: OptModeSpeed})
+
+	if err != nil {
+		t.Fatalf("codegen error: %v", err)
+	}
+
+	report := g.MemoryReport()
+
+	if report.StaticDataBytes != 17 {
+		t.Fatalf("got static data bytes %d, want 17", report.StaticDataBytes)
+	}
+
+	if report.StaticSymbolCount != 3 {
+		t.Fatalf("got static symbol count %d, want 3", report.StaticSymbolCount)
+	}
+}
+
 func TestCodegenMemoryReportTracksStructStaticDataBytes(t *testing.T) {
 	g, _, err := generateProgramWithOptions(t, `
 struct Player {

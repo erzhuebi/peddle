@@ -189,16 +189,30 @@ Constants are currently numeric only.
 
 # Variables
 
-Local variables are declared at the beginning of a function body, before the
-function's statements. The declaration form is:
+Variables use this declaration form:
 
 ```peddle
 var <name> <type>
 ```
 
-Variables are function-level locals. They are not declared inside `if`, `while`,
-or `for` blocks. Assign values with separate assignment statements after the
-declarations.
+Variables are zero-filled when the program starts. Assign values with separate
+assignment statements after the declarations.
+
+Top-level variables are global mutable state. They are visible to every
+function:
+
+```peddle
+var score int
+var lives byte
+
+fn addScore(points int) {
+    score = score + points
+}
+```
+
+Function-local variables are declared at the beginning of a function body,
+before the function's statements. They are function-level locals, not block
+locals, so they are not declared inside `if`, `while`, or `for` blocks.
 
 ## Single Variable
 
@@ -226,6 +240,8 @@ y = x
 Valid:
 
 ```peddle
+var highScore int
+
 fn main() {
     var score int
     var done bool

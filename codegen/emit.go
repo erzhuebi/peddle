@@ -965,6 +965,14 @@ func (g *Generator) emitStaticData() {
 	g.emit("")
 	g.emit("; static data")
 
+	for _, sym := range g.globals {
+		if sym.Size == 0 {
+			continue
+		}
+		g.emit(fmt.Sprintf("%s:", sym.Label))
+		g.emitStaticSymbol(sym)
+	}
+
 	for _, frame := range g.frames {
 		for _, sym := range frame.Symbols {
 			if sym.Size == 0 {

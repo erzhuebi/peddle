@@ -50,6 +50,11 @@ func (p *Parser) ParseProgram() *ast.Program {
 				prog.Consts = append(prog.Consts, c)
 			}
 
+		case lexer.VAR:
+			decls := p.parseVarDecls()
+			prog.Globals = append(prog.Globals, decls...)
+			p.nextToken()
+
 		case lexer.STRUCT:
 			s := p.parseStruct()
 			if s != nil {
@@ -66,7 +71,7 @@ func (p *Parser) ParseProgram() *ast.Program {
 			p.parseImport()
 
 		default:
-			p.errorf("expected import, const, struct or function declaration, got %s", p.cur.Type)
+			p.errorf("expected import, const, var, struct or function declaration, got %s", p.cur.Type)
 			p.nextToken()
 		}
 	}

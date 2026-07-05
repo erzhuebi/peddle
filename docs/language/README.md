@@ -13,6 +13,7 @@ The complete Peddle Language Guide.
 7. [Networking and Terminal](07-networking-and-terminal.md)
 8. [File Handling](08-file-handling.md)
 9. [Sound](09-sound.md)
+10. [How to Program a Space Invaders Game](10-space-invaders-tutorial.md)
 
 ## Complete Guide
 

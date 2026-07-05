@@ -65,6 +65,49 @@ fn main() {
 	}
 }
 
+func TestParseTopLevelVarDecls(t *testing.T) {
+	prog := parseProgramForTest(t, `
+var score int
+var lives, level byte
+var name char[16]
+
+fn main() {
+}
+`)
+
+	if len(prog.Globals) != 4 {
+		t.Fatalf("expected 4 globals, got %d", len(prog.Globals))
+	}
+
+	expected := []struct {
+		name     string
+		typeName string
+		isArray  bool
+		arrayLen int
+	}{
+		{name: "score", typeName: "int"},
+		{name: "lives", typeName: "byte"},
+		{name: "level", typeName: "byte"},
+		{name: "name", typeName: "char", isArray: true, arrayLen: 16},
+	}
+
+	for i, want := range expected {
+		got := prog.Globals[i]
+		if got.Name != want.name {
+			t.Fatalf("global %d: got name %q, want %q", i, got.Name, want.name)
+		}
+		if got.Type.Name != want.typeName {
+			t.Fatalf("global %d: got type %q, want %q", i, got.Type.Name, want.typeName)
+		}
+		if got.Type.IsArray != want.isArray {
+			t.Fatalf("global %d: got IsArray %v, want %v", i, got.Type.IsArray, want.isArray)
+		}
+		if got.Type.ArrayLen != want.arrayLen {
+			t.Fatalf("global %d: got ArrayLen %d, want %d", i, got.Type.ArrayLen, want.arrayLen)
+		}
+	}
+}
+
 func TestParseUnaryMinus(t *testing.T) {
 	expr := parseExprFromMain(t, `
 fn main() {

@@ -4,6 +4,7 @@ import "strconv"
 
 type Program struct {
 	Consts    []*ConstDecl
+	Globals   []*VarDecl
 	Structs   []*StructDecl
 	Functions []*FunctionDecl
 }

@@ -2,9 +2,21 @@ package codegen
 
 import (
 	"fmt"
+	"strings"
 
 	"peddle/ast"
 )
+
+func (g *Generator) buildGlobalSymbol(v *ast.VarDecl) Symbol {
+	return Symbol{
+		SourceName:   v.Name,
+		Label:        "peddle_global_" + sanitizeLabel(v.Name),
+		Type:         v.Type,
+		Size:         g.sizeof(v.Type),
+		HasAtAddress: v.HasAtAddress,
+		AtAddress:    v.AtAddress,
+	}
+}
 
 func (g *Generator) buildFrame(fn *ast.FunctionDecl) *Frame {
 	frame := &Frame{
@@ -61,10 +73,13 @@ func (g *Generator) buildFrame(fn *ast.FunctionDecl) *Frame {
 }
 
 func (g *Generator) resolve(name string) (Symbol, bool) {
-	if g.currentFrame == nil {
-		return Symbol{}, false
+	if g.currentFrame != nil {
+		if sym, ok := g.currentFrame.Symbols[name]; ok {
+			return sym, true
+		}
 	}
-	sym, ok := g.currentFrame.Symbols[name]
+
+	sym, ok := g.globals[name]
 	return sym, ok
 }
 
@@ -130,4 +145,16 @@ func (g *Generator) fieldInfo(base ast.Type, field string) (ast.Type, int, error
 	}
 
 	return ast.Type{}, 0, fmt.Errorf("type %s has no field %q", base.Name, field)
+}
+
+func sanitizeLabel(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' {
+			b.WriteRune(r)
+			continue
+		}
+		b.WriteByte('_')
+	}
+	return b.String()
 }
