@@ -14,6 +14,7 @@ The complete Peddle Language Guide.
 8. [File Handling](08-file-handling.md)
 9. [Sound](09-sound.md)
 10. [How to Program a Space Invaders Game](10-space-invaders-tutorial.md)
+11. [How to Program Sound Effects and Music](11-sound-tutorial.md)
 
 ## Complete Guide
 

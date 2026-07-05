@@ -1,0 +1,121 @@
+# Sound tutorial - step 06: overlay sounds
+
+const SOUND_STREAM = 1
+const SOUND_VOICE1 = 1
+const SOUND_VOICE2 = 2
+const SOUND_REPLACE = 1
+const SOUND_OVERLAY = 2
+const SOUND_LOOP = 4
+const ERR_OK = 0
+
+const VOICE1 = 0
+const VOICE2 = 1
+
+const WAVE_TRIANGLE = 16
+const WAVE_SAW = 32
+const GATE = 1
+
+const NOTE_C3 = 36
+const NOTE_E5 = 64
+
+fn soundWait(data byte[128], frames byte) {
+    append(data, 1)
+    append(data, frames)
+}
+
+fn note(data byte[128], voice byte, n byte) {
+    append(data, 2)
+    append(data, voice)
+    append(data, n)
+}
+
+fn waveform(data byte[128], voice byte, value byte) {
+    append(data, 4)
+    append(data, voice)
+    append(data, value)
+}
+
+fn env(data byte[128], voice byte, ad byte, sr byte) {
+    append(data, 5)
+    append(data, voice)
+    append(data, ad)
+    append(data, 6)
+    append(data, voice)
+    append(data, sr)
+}
+
+fn volume(data byte[128], value byte) {
+    append(data, 7)
+    append(data, value)
+}
+
+fn gateOn(data byte[128], voice byte, wave byte) {
+    waveform(data, voice, wave + GATE)
+}
+
+fn gateOff(data byte[128], voice byte, wave byte) {
+    waveform(data, voice, wave)
+}
+
+fn waitTicks(count int) {
+    var start int
+
+    if count > 0 {
+        start = ticks()
+        for tickdue(start, count) == false {
+        }
+    }
+}
+
+fn buildDrone(data byte[128]) {
+    clear(data)
+    volume(data, 12)
+    env(data, VOICE2, 10, 224)
+    note(data, VOICE2, NOTE_C3)
+    gateOn(data, VOICE2, WAVE_SAW)
+    soundWait(data, 90)
+    append(data, 0)
+}
+
+fn buildPing(data byte[128]) {
+    clear(data)
+    volume(data, 15)
+    env(data, VOICE1, 2, 128)
+    note(data, VOICE1, NOTE_E5)
+    gateOn(data, VOICE1, WAVE_TRIANGLE)
+    soundWait(data, 6)
+    gateOff(data, VOICE1, WAVE_TRIANGLE)
+    append(data, 0)
+}
+
+fn main() {
+    var pool byte[320]
+    var drone byte[128]
+    var ping byte[128]
+    var droneId uint
+    var pingId uint
+    var err int
+
+    cls()
+    print("SOUND STEP 06: OVERLAY\n")
+
+    buildDrone(drone)
+    buildPing(ping)
+    sound_init(pool)
+    droneId, err = sound_load(drone, SOUND_STREAM)
+    pingId, err = sound_load(ping, SOUND_STREAM)
+
+    if err == ERR_OK {
+        err = sound_play(droneId, SOUND_VOICE2, 1, SOUND_REPLACE + SOUND_LOOP)
+        waitTicks(25)
+        err = sound_play(pingId, SOUND_VOICE1, 8, SOUND_OVERLAY)
+        waitTicks(45)
+        err = sound_play(pingId, SOUND_VOICE1, 8, SOUND_OVERLAY)
+        waitTicks(45)
+        sound_stop_voices(SOUND_VOICE2)
+        waitTicks(20)
+    } else {
+        print("LOAD ERROR ")
+        print(itoa(err))
+    }
+}

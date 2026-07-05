@@ -1,0 +1,93 @@
+# Sound tutorial - step 01: one beep
+
+const SOUND_STREAM = 1
+const SOUND_ALL = 7
+const SOUND_REPLACE = 1
+const ERR_OK = 0
+
+const VOICE1 = 0
+const WAVE_TRIANGLE = 16
+const GATE = 1
+
+fn soundWait(data byte[64], frames byte) {
+    append(data, 1)
+    append(data, frames)
+}
+
+fn waveform(data byte[64], voice byte, value byte) {
+    append(data, 4)
+    append(data, voice)
+    append(data, value)
+}
+
+fn env(data byte[64], voice byte, ad byte, sr byte) {
+    append(data, 5)
+    append(data, voice)
+    append(data, ad)
+    append(data, 6)
+    append(data, voice)
+    append(data, sr)
+}
+
+fn volume(data byte[64], value byte) {
+    append(data, 7)
+    append(data, value)
+}
+
+fn freq(data byte[64], voice byte, lo byte, hi byte) {
+    append(data, 8)
+    append(data, voice)
+    append(data, lo)
+    append(data, hi)
+}
+
+fn gateOn(data byte[64], voice byte, wave byte) {
+    waveform(data, voice, wave + GATE)
+}
+
+fn gateOff(data byte[64], voice byte, wave byte) {
+    waveform(data, voice, wave)
+}
+
+fn waitTicks(count int) {
+    var start int
+
+    if count > 0 {
+        start = ticks()
+        for tickdue(start, count) == false {
+        }
+    }
+}
+
+fn buildBeep(data byte[64]) {
+    clear(data)
+    volume(data, 15)
+    env(data, VOICE1, 9, 240)
+    freq(data, VOICE1, 34, 17)
+    gateOn(data, VOICE1, WAVE_TRIANGLE)
+    soundWait(data, 45)
+    gateOff(data, VOICE1, WAVE_TRIANGLE)
+    append(data, 0)
+}
+
+fn main() {
+    var pool byte[128]
+    var beep byte[64]
+    var id uint
+    var err int
+
+    cls()
+    print("SOUND STEP 01: BEEP\n")
+
+    buildBeep(beep)
+    sound_init(pool)
+    id, err = sound_load(beep, SOUND_STREAM)
+
+    if err == ERR_OK {
+        err = sound_play(id, SOUND_ALL, 0, SOUND_REPLACE)
+        waitTicks(70)
+    } else {
+        print("LOAD ERROR ")
+        print(itoa(err))
+    }
+}

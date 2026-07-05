@@ -1,0 +1,108 @@
+# Sound tutorial - step 05: three voices
+
+const SOUND_STREAM = 1
+const SOUND_ALL = 7
+const SOUND_REPLACE = 1
+const ERR_OK = 0
+
+const VOICE1 = 0
+const VOICE2 = 1
+const VOICE3 = 2
+
+const WAVE_TRIANGLE = 16
+const WAVE_SAW = 32
+const GATE = 1
+
+const NOTE_C4 = 48
+const NOTE_E4 = 52
+const NOTE_G4 = 55
+
+fn soundWait(data byte[128], frames byte) {
+    append(data, 1)
+    append(data, frames)
+}
+
+fn note(data byte[128], voice byte, n byte) {
+    append(data, 2)
+    append(data, voice)
+    append(data, n)
+}
+
+fn waveform(data byte[128], voice byte, value byte) {
+    append(data, 4)
+    append(data, voice)
+    append(data, value)
+}
+
+fn env(data byte[128], voice byte, ad byte, sr byte) {
+    append(data, 5)
+    append(data, voice)
+    append(data, ad)
+    append(data, 6)
+    append(data, voice)
+    append(data, sr)
+}
+
+fn volume(data byte[128], value byte) {
+    append(data, 7)
+    append(data, value)
+}
+
+fn gateOn(data byte[128], voice byte, wave byte) {
+    waveform(data, voice, wave + GATE)
+}
+
+fn gateOff(data byte[128], voice byte, wave byte) {
+    waveform(data, voice, wave)
+}
+
+fn waitTicks(count int) {
+    var start int
+
+    if count > 0 {
+        start = ticks()
+        for tickdue(start, count) == false {
+        }
+    }
+}
+
+fn buildChord(data byte[128]) {
+    clear(data)
+    volume(data, 15)
+    env(data, VOICE1, 9, 224)
+    env(data, VOICE2, 9, 224)
+    env(data, VOICE3, 9, 224)
+    note(data, VOICE1, NOTE_C4)
+    note(data, VOICE2, NOTE_E4)
+    note(data, VOICE3, NOTE_G4)
+    gateOn(data, VOICE1, WAVE_TRIANGLE)
+    gateOn(data, VOICE2, WAVE_TRIANGLE)
+    gateOn(data, VOICE3, WAVE_SAW)
+    soundWait(data, 90)
+    gateOff(data, VOICE1, WAVE_TRIANGLE)
+    gateOff(data, VOICE2, WAVE_TRIANGLE)
+    gateOff(data, VOICE3, WAVE_SAW)
+    append(data, 0)
+}
+
+fn main() {
+    var pool byte[256]
+    var chord byte[128]
+    var id uint
+    var err int
+
+    cls()
+    print("SOUND STEP 05: 3 VOICES\n")
+
+    buildChord(chord)
+    sound_init(pool)
+    id, err = sound_load(chord, SOUND_STREAM)
+
+    if err == ERR_OK {
+        err = sound_play(id, SOUND_ALL, 0, SOUND_REPLACE)
+        waitTicks(120)
+    } else {
+        print("LOAD ERROR ")
+        print(itoa(err))
+    }
+}

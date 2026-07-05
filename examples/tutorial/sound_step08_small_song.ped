@@ -1,0 +1,127 @@
+# Sound tutorial - step 08: a small song
+
+const SOUND_STREAM = 1
+const SOUND_ALL = 7
+const SOUND_REPLACE = 1
+const ERR_OK = 0
+
+const VOICE1 = 0
+const VOICE2 = 1
+const VOICE3 = 2
+
+const WAVE_TRIANGLE = 16
+const WAVE_SAW = 32
+const GATE = 1
+
+const NOTE_C3 = 36
+const NOTE_G3 = 43
+const NOTE_C4 = 48
+const NOTE_D4 = 50
+const NOTE_E4 = 52
+const NOTE_G4 = 55
+const NOTE_C5 = 60
+
+const NOTE_ON = 12
+const NOTE_GAP = 3
+
+fn soundWait(song byte[1024], frames byte) {
+    append(song, 1)
+    append(song, frames)
+}
+
+fn note(song byte[1024], voice byte, n byte) {
+    append(song, 2)
+    append(song, voice)
+    append(song, n)
+}
+
+fn waveform(song byte[1024], voice byte, value byte) {
+    append(song, 4)
+    append(song, voice)
+    append(song, value)
+}
+
+fn env(song byte[1024], voice byte, ad byte, sr byte) {
+    append(song, 5)
+    append(song, voice)
+    append(song, ad)
+    append(song, 6)
+    append(song, voice)
+    append(song, sr)
+}
+
+fn volume(song byte[1024], value byte) {
+    append(song, 7)
+    append(song, value)
+}
+
+fn gateOn(song byte[1024], voice byte, wave byte) {
+    waveform(song, voice, wave + GATE)
+}
+
+fn gateOff(song byte[1024], voice byte, wave byte) {
+    waveform(song, voice, wave)
+}
+
+fn waitTicks(count int) {
+    var start int
+
+    if count > 0 {
+        start = ticks()
+        for tickdue(start, count) == false {
+        }
+    }
+}
+
+fn step(song byte[1024], melody byte, bass byte, harmony byte) {
+    note(song, VOICE1, melody)
+    note(song, VOICE2, bass)
+    note(song, VOICE3, harmony)
+    gateOn(song, VOICE1, WAVE_TRIANGLE)
+    gateOn(song, VOICE2, WAVE_TRIANGLE)
+    gateOn(song, VOICE3, WAVE_SAW)
+    soundWait(song, NOTE_ON)
+    gateOff(song, VOICE1, WAVE_TRIANGLE)
+    gateOff(song, VOICE2, WAVE_TRIANGLE)
+    gateOff(song, VOICE3, WAVE_SAW)
+    soundWait(song, NOTE_GAP)
+}
+
+fn buildSong(song byte[1024]) {
+    clear(song)
+    volume(song, 15)
+    env(song, VOICE1, 8, 192)
+    env(song, VOICE2, 8, 224)
+    env(song, VOICE3, 4, 192)
+
+    step(song, NOTE_C4, NOTE_C3, NOTE_E4)
+    step(song, NOTE_D4, NOTE_G3, NOTE_G4)
+    step(song, NOTE_E4, NOTE_C3, NOTE_C5)
+    step(song, NOTE_G4, NOTE_G3, NOTE_E4)
+    step(song, NOTE_E4, NOTE_C3, NOTE_C5)
+    step(song, NOTE_D4, NOTE_G3, NOTE_G4)
+    step(song, NOTE_C4, NOTE_C3, NOTE_E4)
+    append(song, 0)
+}
+
+fn main() {
+    var pool byte[2048]
+    var song byte[1024]
+    var id uint
+    var err int
+
+    cls()
+    print("SOUND STEP 08: SMALL SONG\n")
+
+    buildSong(song)
+    sound_init(pool)
+    id, err = sound_load(song, SOUND_STREAM)
+
+    if err == ERR_OK {
+        err = sound_play(id, SOUND_ALL, 0, SOUND_REPLACE)
+        waitTicks(140)
+    } else {
+        print("LOAD ERROR ")
+        print(itoa(err))
+    }
+}
