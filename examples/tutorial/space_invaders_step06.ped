@@ -1,0 +1,170 @@
+# Space Invaders tutorial - step 06
+
+const PLAYFIELD_COLOR = 1
+const PLAYER_Y = 23
+
+struct Alien {
+    alive bool
+    x byte
+    y byte
+}
+
+fn drawChar(x byte, y byte, ch char) {
+    putcharcolor(x, y, ch, PLAYFIELD_COLOR)
+}
+
+fn showHUD(score int, lives byte) {
+    var nums char[8]
+
+    putstr(0, 0, "SCORE:")
+    clear(nums)
+    copy(nums, itoa(score))
+    putstr(6, 0, "       ")
+    putstr(6, 0, nums)
+
+    putstr(29, 0, "LIVES:")
+    clear(nums)
+    copy(nums, itoa(lives))
+    putstr(35, 0, "  ")
+    putstr(35, 0, nums)
+}
+
+fn initAliens(aliens Alien[32]) {
+    var i byte = 0
+    var row byte = 0
+    var col byte
+
+    while row < 4 {
+        col = 0
+        while col < 8 {
+            aliens[i].alive = true
+            aliens[i].x = col * 4 + 2
+            aliens[i].y = row * 2 + 2
+            i = i + 1
+            col = col + 1
+        }
+        row = row + 1
+    }
+}
+
+fn drawAliens(aliens Alien[32]) {
+    var i byte = 0
+    var row byte
+    var ch char
+
+    while i < 32 {
+        row = i / 8
+        if aliens[i].alive {
+            ch = 'T'
+            if row == 0 { ch = 'W' }
+            if row == 1 { ch = 'M' }
+            if row == 2 { ch = 'V' }
+            drawChar(aliens[i].x, aliens[i].y, ch)
+        }
+        i = i + 1
+    }
+}
+
+fn main() {
+    var aliens Alien[32]
+    var score int = 0
+    var lives byte = 3
+    var playerX byte = 19
+    var oldPlayerX byte
+    var pbActive bool = false
+    var pbX byte = 0
+    var pbY byte = 0
+    var oldPbX byte = 0
+    var oldPbY byte = 0
+    var gameOver bool = false
+    var k char
+    var j byte
+    var moveLeft bool
+    var moveRight bool
+    var firePressed bool
+    var bulletTimer int = ticks()
+    var alienTimer int = ticks()
+    var fireTimer int = ticks()
+
+    cls()
+    border(6)
+    background(0)
+    textcolor(PLAYFIELD_COLOR)
+
+    initAliens(aliens)
+    showHUD(score, lives)
+    drawAliens(aliens)
+    drawChar(playerX, PLAYER_Y, 'A')
+    putstr(0, 24, "SPACE/FIRE SHOOTS  Q:QUIT")
+
+    while gameOver == false {
+        moveLeft = false
+        moveRight = false
+        firePressed = false
+
+        k = key()
+        j = joy(2) & 31
+
+        if k == 'q' { gameOver = true }
+        if k == 'Q' { gameOver = true }
+        if k == 'a' { moveLeft = true }
+        if k == 'A' { moveLeft = true }
+        if (j & 4) == 0 { moveLeft = true }
+        if k == 'd' { moveRight = true }
+        if k == 'D' { moveRight = true }
+        if (j & 8) == 0 { moveRight = true }
+        if k == ' ' { firePressed = true }
+        if (j & 16) == 0 { firePressed = true }
+
+        if moveLeft {
+            if playerX > 0 {
+                oldPlayerX = playerX
+                playerX = playerX - 1
+                drawChar(playerX, PLAYER_Y, 'A')
+                putchar(oldPlayerX, PLAYER_Y, ' ')
+            }
+        }
+
+        if moveRight {
+            if playerX < 39 {
+                oldPlayerX = playerX
+                playerX = playerX + 1
+                drawChar(playerX, PLAYER_Y, 'A')
+                putchar(oldPlayerX, PLAYER_Y, ' ')
+            }
+        }
+
+        if firePressed {
+            if pbActive == false {
+                pbX = playerX
+                pbY = 22
+                pbActive = true
+                drawChar(pbX, pbY, 'I')
+            }
+        }
+
+        if tickdue(bulletTimer, 4) {
+            bulletTimer = ticks()
+            if pbActive {
+                oldPbX = pbX
+                oldPbY = pbY
+                if pbY <= 2 {
+                    pbActive = false
+                    putchar(oldPbX, oldPbY, ' ')
+                } else {
+                    pbY = pbY - 1
+                    drawChar(pbX, pbY, 'I')
+                    putchar(oldPbX, oldPbY, ' ')
+                }
+            }
+        }
+
+        if tickdue(alienTimer, 20) {
+            alienTimer = ticks()
+        }
+
+        if tickdue(fireTimer, 40) {
+            fireTimer = ticks()
+        }
+    }
+}

@@ -1,0 +1,49 @@
+# Space Invaders tutorial - step 02
+
+const PLAYFIELD_COLOR = 1
+const PLAYER_Y = 23
+
+fn drawChar(x byte, y byte, ch char) {
+    putcharcolor(x, y, ch, PLAYFIELD_COLOR)
+}
+
+fn showHUD(score int, lives byte) {
+    var nums char[8]
+
+    putstr(0, 0, "SCORE:")
+    clear(nums)
+    copy(nums, itoa(score))
+    putstr(6, 0, "       ")
+    putstr(6, 0, nums)
+
+    putstr(29, 0, "LIVES:")
+    clear(nums)
+    copy(nums, itoa(lives))
+    putstr(35, 0, "  ")
+    putstr(35, 0, nums)
+}
+
+fn main() {
+    var score int = 0
+    var lives byte = 3
+    var playerX byte = 19
+
+    cls()
+    border(6)
+    background(0)
+    textcolor(PLAYFIELD_COLOR)
+
+    showHUD(score, lives)
+    putstr(0, 1, "DIRECT SCREEN DRAWING")
+    putstr(0, 24, "A/D OR JOY:MOVE  SPACE/FIRE:SHOOT  Q:QUIT")
+
+    drawChar(playerX, PLAYER_Y, 'A')
+    drawChar(4, 6, 'W')
+    drawChar(8, 6, 'M')
+    drawChar(12, 6, 'V')
+    drawChar(16, 6, 'T')
+    drawChar(playerX, 18, 'I')
+    drawChar(25, 11, '!')
+
+    waitkey()
+}
