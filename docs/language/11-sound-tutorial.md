@@ -18,14 +18,14 @@ Every step has a complete runnable checkpoint file:
 
 | Step | Checkpoint |
 |---|---|
-| 1 | [sound_step01_beep.ped](../../examples/tutorial/sound_step01_beep.ped) |
-| 2 | [sound_step02_envelope.ped](../../examples/tutorial/sound_step02_envelope.ped) |
-| 3 | [sound_step03_notes.ped](../../examples/tutorial/sound_step03_notes.ped) |
-| 4 | [sound_step04_effects.ped](../../examples/tutorial/sound_step04_effects.ped) |
-| 5 | [sound_step05_three_voices.ped](../../examples/tutorial/sound_step05_three_voices.ped) |
-| 6 | [sound_step06_overlay.ped](../../examples/tutorial/sound_step06_overlay.ped) |
-| 7 | [sound_step07_stop_voices.ped](../../examples/tutorial/sound_step07_stop_voices.ped) |
-| 8 | [sound_step08_small_song.ped](../../examples/tutorial/sound_step08_small_song.ped) |
+| 1 | [sound_step01_beep.ped](tutorials/sound/sound_step01_beep.ped) |
+| 2 | [sound_step02_envelope.ped](tutorials/sound/sound_step02_envelope.ped) |
+| 3 | [sound_step03_notes.ped](tutorials/sound/sound_step03_notes.ped) |
+| 4 | [sound_step04_effects.ped](tutorials/sound/sound_step04_effects.ped) |
+| 5 | [sound_step05_three_voices.ped](tutorials/sound/sound_step05_three_voices.ped) |
+| 6 | [sound_step06_overlay.ped](tutorials/sound/sound_step06_overlay.ped) |
+| 7 | [sound_step07_stop_voices.ped](tutorials/sound/sound_step07_stop_voices.ped) |
+| 8 | [sound_step08_small_song.ped](tutorials/sound/sound_step08_small_song.ped) |
 
 ---
 
@@ -74,10 +74,10 @@ values.
 **Checkpoint**
 
 Complete runnable code for this step:
-[sound_step01_beep.ped](../../examples/tutorial/sound_step01_beep.ped)
+[sound_step01_beep.ped](tutorials/sound/sound_step01_beep.ped)
 
 ```sh
-./peddle.sh examples/tutorial/sound_step01_beep.ped
+./peddle.sh docs/language/tutorials/sound/sound_step01_beep.ped
 ```
 
 ---
@@ -111,10 +111,10 @@ then with a slower attack. This makes the envelope easy to hear.
 **Checkpoint**
 
 Complete runnable code for this step:
-[sound_step02_envelope.ped](../../examples/tutorial/sound_step02_envelope.ped)
+[sound_step02_envelope.ped](tutorials/sound/sound_step02_envelope.ped)
 
 ```sh
-./peddle.sh examples/tutorial/sound_step02_envelope.ped
+./peddle.sh docs/language/tutorials/sound/sound_step02_envelope.ped
 ```
 
 ---
@@ -151,10 +151,10 @@ The checkpoint turns note numbers into a tiny melody.
 **Checkpoint**
 
 Complete runnable code for this step:
-[sound_step03_notes.ped](../../examples/tutorial/sound_step03_notes.ped)
+[sound_step03_notes.ped](tutorials/sound/sound_step03_notes.ped)
 
 ```sh
-./peddle.sh examples/tutorial/sound_step03_notes.ped
+./peddle.sh docs/language/tutorials/sound/sound_step03_notes.ped
 ```
 
 ---
@@ -189,10 +189,10 @@ For a hit or explosion, switch to `WAVE_NOISE` and use a short envelope.
 **Checkpoint**
 
 Complete runnable code for this step:
-[sound_step04_effects.ped](../../examples/tutorial/sound_step04_effects.ped)
+[sound_step04_effects.ped](tutorials/sound/sound_step04_effects.ped)
 
 ```sh
-./peddle.sh examples/tutorial/sound_step04_effects.ped
+./peddle.sh docs/language/tutorials/sound/sound_step04_effects.ped
 ```
 
 ---
@@ -231,10 +231,10 @@ err = sound_play(id, SOUND_ALL, 0, SOUND_REPLACE)
 **Checkpoint**
 
 Complete runnable code for this step:
-[sound_step05_three_voices.ped](../../examples/tutorial/sound_step05_three_voices.ped)
+[sound_step05_three_voices.ped](tutorials/sound/sound_step05_three_voices.ped)
 
 ```sh
-./peddle.sh examples/tutorial/sound_step05_three_voices.ped
+./peddle.sh docs/language/tutorials/sound/sound_step05_three_voices.ped
 ```
 
 ---
@@ -260,10 +260,10 @@ The checkpoint starts a loop on voice 2 and overlays two pings on voice 1.
 **Checkpoint**
 
 Complete runnable code for this step:
-[sound_step06_overlay.ped](../../examples/tutorial/sound_step06_overlay.ped)
+[sound_step06_overlay.ped](tutorials/sound/sound_step06_overlay.ped)
 
 ```sh
-./peddle.sh examples/tutorial/sound_step06_overlay.ped
+./peddle.sh docs/language/tutorials/sound/sound_step06_overlay.ped
 ```
 
 ---
@@ -284,10 +284,10 @@ leaving a short effect alone, or remove one part of a chord.
 **Checkpoint**
 
 Complete runnable code for this step:
-[sound_step07_stop_voices.ped](../../examples/tutorial/sound_step07_stop_voices.ped)
+[sound_step07_stop_voices.ped](tutorials/sound/sound_step07_stop_voices.ped)
 
 ```sh
-./peddle.sh examples/tutorial/sound_step07_stop_voices.ped
+./peddle.sh docs/language/tutorials/sound/sound_step07_stop_voices.ped
 ```
 
 ---
@@ -322,15 +322,15 @@ step(song, NOTE_E4, NOTE_C3, NOTE_C5)
 ```
 
 This is the same pattern used by larger examples such as
-[fuer_elise.ped](../../examples/fuer_elise.ped), only smaller.
+[fuer_elise.ped](../../examples/demos/fuer_elise.ped), only smaller.
 
 **Checkpoint**
 
 Complete runnable code for this step:
-[sound_step08_small_song.ped](../../examples/tutorial/sound_step08_small_song.ped)
+[sound_step08_small_song.ped](tutorials/sound/sound_step08_small_song.ped)
 
 ```sh
-./peddle.sh examples/tutorial/sound_step08_small_song.ped
+./peddle.sh docs/language/tutorials/sound/sound_step08_small_song.ped
 ```
 
 ---

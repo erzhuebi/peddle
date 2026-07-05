@@ -114,5 +114,5 @@ For game assets, maps, levels, and savegames, prefer `fileload()` and `filesave(
 See:
 
 ```text
-examples/file_save_load.ped
+examples/smoke/file_save_load.ped
 ```

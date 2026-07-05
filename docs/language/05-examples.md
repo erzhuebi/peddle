@@ -314,7 +314,7 @@ fn main() {
 Run it with:
 
 ```bash
-./peddle.sh --run examples/bool_literals.ped
+./peddle.sh --run examples/smoke/bool.ped
 ```
 
 Expected screen output:
@@ -331,7 +331,7 @@ WHILE BOOL OK
 
 # Keyboard input
 
-The `keyboard_key.ped` example shows how to read keys without blocking the program.
+The `key.ped` example shows how to read keys without blocking the program.
 
 ```peddle
 fn main() {
@@ -359,7 +359,7 @@ fn main() {
 Run it with:
 
 ```bash
-./peddle.sh --run examples/keyboard_key.ped
+./peddle.sh --run examples/smoke/key.ped
 ```
 
 `key()` returns `0` when no key is waiting. When a key is pressed, it returns the C64 KERNAL/PETSCII character code.
@@ -578,7 +578,7 @@ fn main() {
 Run it with:
 
 ```bash
-./peddle.sh --run examples/move_joy.ped
+./peddle.sh --run examples/smoke/move_joy.ped
 ```
 
 Joystick values are active-low. With the example's `j = joy(2) & 31` mask, common values are:

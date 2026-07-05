@@ -9,6 +9,8 @@
 # Ignore all assembly files
 *.asm
 *.prg
+*.ppm
+*.ppm.png
 # Ignore IntelliJ config folder
 .idea/
 /~$peddle_tasks.xlsx

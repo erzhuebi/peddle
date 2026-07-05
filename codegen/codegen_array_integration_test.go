@@ -219,6 +219,42 @@ fn main() {
 	requireASMAssemblesWith64tass(t, asm)
 }
 
+func TestCodegenAppendToIndexedStructCharArrayPreservesSource(t *testing.T) {
+	asm := compileSource(t, `
+struct Player {
+    name char[16]
+    hp int
+}
+
+fn main() {
+    var players Player[10]
+    var i byte = 0
+
+    while i < 10 {
+        copy(players[i].name, "PLAYER0")
+        append(players[i].name, itoa(i))
+        append(players[i].name, "\n")
+        i = i + 1
+    }
+
+    print(players[9].name)
+}
+`)
+
+	if got := strings.Count(asm, "lda ZP_PTR1_LO\n    pha"); got < 2 {
+		t.Fatalf("expected both indexed struct-field appends to preserve source pointer/length, got %d\n\nASM:\n%s", got, asm)
+	}
+
+	requireASM(t, asm,
+		"jsr peddle_string_append_literal",
+		"pla\n    sta peddle_tmp_int0+1",
+		"pla\n    sta ZP_PTR1_LO",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
 func TestCodegenCountedStringLiteralsAssemble(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {

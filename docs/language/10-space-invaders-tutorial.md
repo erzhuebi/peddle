@@ -4,7 +4,7 @@ This tutorial explains how to build a small Space Invaders-style game in
 Peddle. The finished reference program is:
 
 ```text
-examples/space_invaders.ped
+examples/demos/space_invaders.ped
 ```
 
 The goal is not only to copy that program. The goal is to show the game
@@ -26,19 +26,19 @@ Every step also has a complete runnable checkpoint file:
 
 | Step | Checkpoint |
 |---|---|
-| 1 | [space_invaders_step01.ped](../../examples/tutorial/space_invaders_step01.ped) |
-| 2 | [space_invaders_step02.ped](../../examples/tutorial/space_invaders_step02.ped) |
-| 3 | [space_invaders_step03.ped](../../examples/tutorial/space_invaders_step03.ped) |
-| 4 | [space_invaders_step04.ped](../../examples/tutorial/space_invaders_step04.ped) |
-| 5 | [space_invaders_step05.ped](../../examples/tutorial/space_invaders_step05.ped) |
-| 6 | [space_invaders_step06.ped](../../examples/tutorial/space_invaders_step06.ped) |
-| 7 | [space_invaders_step07.ped](../../examples/tutorial/space_invaders_step07.ped) |
-| 8 | [space_invaders_step08.ped](../../examples/tutorial/space_invaders_step08.ped) |
-| 9 | [space_invaders_step09.ped](../../examples/tutorial/space_invaders_step09.ped) |
-| 10 | [space_invaders_step10.ped](../../examples/tutorial/space_invaders_step10.ped) |
-| 11 | [space_invaders_step11.ped](../../examples/tutorial/space_invaders_step11.ped) |
-| 12 | [space_invaders_step12.ped](../../examples/tutorial/space_invaders_step12.ped) |
-| 13 | [space_invaders.ped](../../examples/space_invaders.ped) |
+| 1 | [space_invaders_step01.ped](tutorials/space-invaders/space_invaders_step01.ped) |
+| 2 | [space_invaders_step02.ped](tutorials/space-invaders/space_invaders_step02.ped) |
+| 3 | [space_invaders_step03.ped](tutorials/space-invaders/space_invaders_step03.ped) |
+| 4 | [space_invaders_step04.ped](tutorials/space-invaders/space_invaders_step04.ped) |
+| 5 | [space_invaders_step05.ped](tutorials/space-invaders/space_invaders_step05.ped) |
+| 6 | [space_invaders_step06.ped](tutorials/space-invaders/space_invaders_step06.ped) |
+| 7 | [space_invaders_step07.ped](tutorials/space-invaders/space_invaders_step07.ped) |
+| 8 | [space_invaders_step08.ped](tutorials/space-invaders/space_invaders_step08.ped) |
+| 9 | [space_invaders_step09.ped](tutorials/space-invaders/space_invaders_step09.ped) |
+| 10 | [space_invaders_step10.ped](tutorials/space-invaders/space_invaders_step10.ped) |
+| 11 | [space_invaders_step11.ped](tutorials/space-invaders/space_invaders_step11.ped) |
+| 12 | [space_invaders_step12.ped](tutorials/space-invaders/space_invaders_step12.ped) |
+| 13 | [space_invaders.ped](../../examples/demos/space_invaders.ped) |
 
 ---
 
@@ -94,10 +94,10 @@ loop can focus on runtime changes.
 **Checkpoint**
 
 Complete runnable code for this step:
-[space_invaders_step01.ped](../../examples/tutorial/space_invaders_step01.ped)
+[space_invaders_step01.ped](tutorials/space-invaders/space_invaders_step01.ped)
 
 ```sh
-./peddle.sh examples/tutorial/space_invaders_step01.ped
+./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step01.ped
 ```
 
 ---
@@ -162,10 +162,10 @@ does not need to change.
 **Checkpoint**
 
 Complete runnable code for this step:
-[space_invaders_step02.ped](../../examples/tutorial/space_invaders_step02.ped)
+[space_invaders_step02.ped](tutorials/space-invaders/space_invaders_step02.ped)
 
 ```sh
-./peddle.sh examples/tutorial/space_invaders_step02.ped
+./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step02.ped
 ```
 
 ---
@@ -244,10 +244,10 @@ array, simple fields, and loops over indices.
 **Checkpoint**
 
 Complete runnable code for this step:
-[space_invaders_step03.ped](../../examples/tutorial/space_invaders_step03.ped)
+[space_invaders_step03.ped](tutorials/space-invaders/space_invaders_step03.ped)
 
 ```sh
-./peddle.sh examples/tutorial/space_invaders_step03.ped
+./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step03.ped
 ```
 
 ---
@@ -350,10 +350,10 @@ support follows this exact pattern.
 **Checkpoint**
 
 Complete runnable code for this step:
-[space_invaders_step04.ped](../../examples/tutorial/space_invaders_step04.ped)
+[space_invaders_step04.ped](tutorials/space-invaders/space_invaders_step04.ped)
 
 ```sh
-./peddle.sh examples/tutorial/space_invaders_step04.ped
+./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step04.ped
 ```
 
 ---
@@ -400,10 +400,10 @@ work when a timer is due.
 **Checkpoint**
 
 Complete runnable code for this step:
-[space_invaders_step05.ped](../../examples/tutorial/space_invaders_step05.ped)
+[space_invaders_step05.ped](tutorials/space-invaders/space_invaders_step05.ped)
 
 ```sh
-./peddle.sh examples/tutorial/space_invaders_step05.ped
+./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step05.ped
 ```
 
 ---
@@ -457,10 +457,10 @@ old characters on the screen.
 **Checkpoint**
 
 Complete runnable code for this step:
-[space_invaders_step06.ped](../../examples/tutorial/space_invaders_step06.ped)
+[space_invaders_step06.ped](tutorials/space-invaders/space_invaders_step06.ped)
 
 ```sh
-./peddle.sh examples/tutorial/space_invaders_step06.ped
+./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step06.ped
 ```
 
 ---
@@ -515,10 +515,10 @@ gets closer to winning.
 **Checkpoint**
 
 Complete runnable code for this step:
-[space_invaders_step07.ped](../../examples/tutorial/space_invaders_step07.ped)
+[space_invaders_step07.ped](tutorials/space-invaders/space_invaders_step07.ped)
 
 ```sh
-./peddle.sh examples/tutorial/space_invaders_step07.ped
+./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step07.ped
 ```
 
 ---
@@ -596,10 +596,10 @@ This avoids flicker from clearing the entire screen.
 **Checkpoint**
 
 Complete runnable code for this step:
-[space_invaders_step08.ped](../../examples/tutorial/space_invaders_step08.ped)
+[space_invaders_step08.ped](tutorials/space-invaders/space_invaders_step08.ped)
 
 ```sh
-./peddle.sh examples/tutorial/space_invaders_step08.ped
+./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step08.ped
 ```
 
 ---
@@ -680,10 +680,10 @@ This is the same state pattern as the player bullet, just repeated in arrays.
 **Checkpoint**
 
 Complete runnable code for this step:
-[space_invaders_step09.ped](../../examples/tutorial/space_invaders_step09.ped)
+[space_invaders_step09.ped](tutorials/space-invaders/space_invaders_step09.ped)
 
 ```sh
-./peddle.sh examples/tutorial/space_invaders_step09.ped
+./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step09.ped
 ```
 
 ---
@@ -793,10 +793,10 @@ effect is still active. Use different voice masks for different effects.
 **Checkpoint**
 
 Complete runnable code for this step:
-[space_invaders_step10.ped](../../examples/tutorial/space_invaders_step10.ped)
+[space_invaders_step10.ped](tutorials/space-invaders/space_invaders_step10.ped)
 
 ```sh
-./peddle.sh examples/tutorial/space_invaders_step10.ped
+./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step10.ped
 ```
 
 ---
@@ -851,10 +851,10 @@ understand.
 **Checkpoint**
 
 Complete runnable code for this step:
-[space_invaders_step11.ped](../../examples/tutorial/space_invaders_step11.ped)
+[space_invaders_step11.ped](tutorials/space-invaders/space_invaders_step11.ped)
 
 ```sh
-./peddle.sh examples/tutorial/space_invaders_step11.ped
+./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step11.ped
 ```
 
 ---
@@ -889,10 +889,10 @@ games can start with this structure.
 **Checkpoint**
 
 Complete runnable code for this step:
-[space_invaders_step12.ped](../../examples/tutorial/space_invaders_step12.ped)
+[space_invaders_step12.ped](tutorials/space-invaders/space_invaders_step12.ped)
 
 ```sh
-./peddle.sh examples/tutorial/space_invaders_step12.ped
+./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step12.ped
 ```
 
 ---
@@ -902,13 +902,13 @@ Complete runnable code for this step:
 Compile the reference game:
 
 ```sh
-./peddle.sh examples/space_invaders.ped
+./peddle.sh examples/demos/space_invaders.ped
 ```
 
 Run it in VICE:
 
 ```sh
-./peddle.sh --run examples/space_invaders.ped
+./peddle.sh --run examples/demos/space_invaders.ped
 ```
 
 The reference controls are:
@@ -925,10 +925,10 @@ loop.
 **Checkpoint**
 
 Complete runnable reference program:
-[space_invaders.ped](../../examples/space_invaders.ped)
+[space_invaders.ped](../../examples/demos/space_invaders.ped)
 
 ```sh
-./peddle.sh examples/space_invaders.ped
+./peddle.sh examples/demos/space_invaders.ped
 ```
 
 ---
@@ -964,7 +964,7 @@ For Space Invaders, the answers are:
 
 Good next steps after the reference version:
 
-- add joystick support directly to `examples/space_invaders.ped`
+- add joystick support directly to `examples/demos/space_invaders.ped`
 - add bunkers between player and aliens
 - use custom character graphics for aliens
 - add a start screen difficulty selector

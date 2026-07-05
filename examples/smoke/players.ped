@@ -8,12 +8,14 @@ var players Player[10]
 var i byte = 0
 
 while i < 10 {
-players[i].name = "PLAYER00\n"
+copy(players[i].name, "PLAYER0")
+append(players[i].name, itoa(i))
+append(players[i].name, "\n")
 players[i].hp = 100 + i
 i = i + 1
 }
 
-print("PLAYERS:")
+print("PLAYERS:\n")
 
 print(players[0].name)
 print(players[1].name)

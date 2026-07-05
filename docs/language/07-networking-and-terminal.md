@@ -121,7 +121,7 @@ scripts/c64_term_server.py
 The reference Peddle terminal client is:
 
 ```text
-examples/term.ped
+examples/smoke/term.ped
 ```
 
 Run the server:
@@ -133,7 +133,7 @@ python3 scripts/c64_term_server.py
 Deploy the client:
 
 ```sh
-./peddle.sh --deploy --host 192.168.106.29 examples/term.ped
+./peddle.sh --deploy --host 192.168.106.29 examples/smoke/term.ped
 ```
 
 The server starts a real pseudo-terminal with a `40x24` terminal size. It receives VT100/ANSI output from the Mac/Linux shell and translates that output into TEP commands for the C64 client.
@@ -144,7 +144,7 @@ The Peddle client does not parse full VT100/ANSI. It only parses TEP and draws t
 
 # TEP: Tiny Escape Protocol
 
-TEP is the small command protocol used between `scripts/c64_term_server.py` and `examples/term.ped`.
+TEP is the small command protocol used between `scripts/c64_term_server.py` and `examples/smoke/term.ped`.
 
 The ESC byte is decimal `27`, hexadecimal `$1b`.
 
@@ -203,7 +203,7 @@ Those coordinate bytes are not ASCII characters. ASCII `"4"` and `"9"` would be 
 
 # Terminal Client Notes
 
-`examples/term.ped` uses:
+`examples/smoke/term.ped` uses:
 
 - `asciifont()` for ASCII-style lowercase and underscore display
 - `toascii()` before sending typed keys to the server

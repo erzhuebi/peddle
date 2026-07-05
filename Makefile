@@ -11,7 +11,7 @@ DEVTOOL_CMD ?= ./cmd/devtool
 BASE_VERSION := $(shell [ -f $(VERSION_FILE) ] && cat $(VERSION_FILE) || echo "0.0.0")
 VERSION := $(BASE_VERSION)-dev
 
-EXAMPLE ?= hello
+EXAMPLE ?= smoke/hello
 OPT     ?= speed
 MEM_FLAGS ?=
 
@@ -27,9 +27,9 @@ help:
 	@echo ""
 	@echo "  make all                           - run tests and build peddlec compiler"
 	@echo "  make build                         - build peddlec compiler"
-	@echo "  make run EXAMPLE=hello             - compile examples/hello.ped, assemble PRG, run in VICE"
-	@echo "  make run EXAMPLE=hello OPT=size    - same, but compile with --opt=size"
-	@echo "  make example EXAMPLE=x             - compile examples/x.ped and assemble PRG without running"
+	@echo "  make run EXAMPLE=smoke/hello       - compile examples/smoke/hello.ped, assemble PRG, run in VICE"
+	@echo "  make run EXAMPLE=smoke/hello OPT=size - same, but compile with --opt=size"
+	@echo "  make example EXAMPLE=demos/pong    - compile examples/demos/pong.ped and assemble PRG without running"
 	@echo "  make hello                         - same as make run EXAMPLE=hello"
 	@echo "  make examples                      - list available examples"
 	@echo "  make check                         - check compiler toolchain"
@@ -183,7 +183,7 @@ _write_release_notes:
 	mv "$$tmp_notes" "$(RELEASE_NOTES_FILE)"
 
 examples:
-	@find examples -maxdepth 1 -type f -name '*.ped' | sed 's|examples/||; s|\.ped$$||' | sort
+	@find examples -type f -name '*.ped' ! -path '*/lib/*' | sed 's|examples/||; s|\.ped$$||' | sort
 
 example: check-run build
 	@if [ ! -f "$(SRC)" ]; then \

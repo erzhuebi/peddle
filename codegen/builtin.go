@@ -1063,9 +1063,29 @@ func (g *Generator) genAppendCharArraySource(dst ast.Expr, src ast.Expr) (ast.Ty
 		return ast.Type{}, err
 	}
 
+	// Destination address generation may use the same scratch word that holds
+	// the prepared source length, especially for indexed struct-array fields.
+	g.emit("    lda ZP_PTR1_LO")
+	g.emit("    pha")
+	g.emit("    lda ZP_PTR1_HI")
+	g.emit("    pha")
+	g.emit("    lda peddle_tmp_int0")
+	g.emit("    pha")
+	g.emit("    lda peddle_tmp_int0+1")
+	g.emit("    pha")
+
 	if err := g.genArrayAddress(dst); err != nil {
 		return ast.Type{}, err
 	}
+
+	g.emit("    pla")
+	g.emit("    sta peddle_tmp_int0+1")
+	g.emit("    pla")
+	g.emit("    sta peddle_tmp_int0")
+	g.emit("    pla")
+	g.emit("    sta ZP_PTR1_HI")
+	g.emit("    pla")
+	g.emit("    sta ZP_PTR1_LO")
 
 	g.emit("    jsr peddle_string_append_literal")
 

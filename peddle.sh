@@ -28,10 +28,11 @@ usage() {
     echo "  C64U_REMOTE_DIR  remote FTP directory, default: /USB1"
     echo ""
     echo "examples:"
-    echo "  ./peddle.sh examples/hello.ped"
-    echo "  ./peddle.sh --run examples/net_probe.ped"
-    echo "  ./peddle.sh --deploy --host 192.168.1.64 examples/net_probe.ped"
-    echo "  C64U_HOST=192.168.1.64 ./peddle.sh --deploy examples/net_probe.ped"
+    echo "  ./peddle.sh examples/smoke/hello.ped"
+    echo "  ./peddle.sh --run examples/smoke/net_probe.ped"
+    echo "  ./peddle.sh examples/demos/pong.ped"
+    echo "  ./peddle.sh --deploy --host 192.168.1.64 examples/smoke/net_probe.ped"
+    echo "  C64U_HOST=192.168.1.64 ./peddle.sh --deploy examples/smoke/net_probe.ped"
 }
 
 cleanup_background() {

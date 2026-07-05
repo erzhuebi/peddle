@@ -27,8 +27,8 @@ while [ $# -gt 0 ]; do
             echo "  C64U_REMOTE_DIR  remote FTP directory, default: /USB1"
             echo ""
             echo "examples:"
-            echo "  ./$SCRIPT_NAME --host 192.168.1.64 examples/move_joy.prg"
-            echo "  C64U_HOST=192.168.1.64 ./$SCRIPT_NAME examples/move_joy.prg"
+            echo "  ./$SCRIPT_NAME --host 192.168.1.64 examples/smoke/move_joy.prg"
+            echo "  C64U_HOST=192.168.1.64 ./$SCRIPT_NAME examples/smoke/move_joy.prg"
             exit 0
             ;;
         --*)
@@ -51,8 +51,8 @@ if [ -z "$LOCAL_PRG" ]; then
     echo "  ./$SCRIPT_NAME --host HOST path/to/program.prg"
     echo ""
     echo "examples:"
-    echo "  ./$SCRIPT_NAME --host 192.168.1.64 examples/move_joy.prg"
-    echo "  C64U_HOST=192.168.1.64 ./$SCRIPT_NAME examples/move_joy.prg"
+    echo "  ./$SCRIPT_NAME --host 192.168.1.64 examples/smoke/move_joy.prg"
+    echo "  C64U_HOST=192.168.1.64 ./$SCRIPT_NAME examples/smoke/move_joy.prg"
     exit 1
 fi
 
