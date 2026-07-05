@@ -987,6 +987,24 @@ func (c *Checker) checkCall(scope map[string]ast.Type, name string, args []ast.E
 
 		return ast.Type{}, nil
 
+	case "putcharcolor":
+		if len(args) != 4 {
+			return ast.Type{}, fmt.Errorf("putcharcolor expects four arguments")
+		}
+
+		for _, arg := range args {
+			t, err := c.checkExpr(scope, arg)
+			if err != nil {
+				return ast.Type{}, err
+			}
+
+			if !isNumeric(t) {
+				return ast.Type{}, fmt.Errorf("putcharcolor arguments must be numeric")
+			}
+		}
+
+		return ast.Type{}, nil
+
 	case "putstr":
 		if len(args) != 3 {
 			return ast.Type{}, fmt.Errorf("putstr expects three arguments")

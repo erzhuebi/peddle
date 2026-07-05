@@ -45,6 +45,11 @@ Currently size mode shares runtime helpers for:
 - multiplication
 - division and modulo
 - variable shifts
+- `gotoxy()`
+- `putchar()`
+- `putraw()`
+- `putcolor()`
+- `putcharcolor()`
 
 Some larger helpers are shared in both speed and size mode because repeated inline code would quickly waste PRG space:
 
@@ -150,7 +155,7 @@ Implemented:
 - append/copy/fill/clear
 - append/copy with `char[]` sources
 - strings
-- putchar/putraw/putcolor
+- putchar/putraw/putcolor/putcharcolor
 - safe clipping for direct screen writes
 - putstr/putstrcolor with string literals and dynamic `char[]`
 - signed `itoa()` conversion

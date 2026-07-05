@@ -421,6 +421,17 @@ func (g *Generator) genGotoXY(args []ast.Expr) (ast.Type, error) {
 		return ast.Type{}, fmt.Errorf("gotoxy expects two arguments")
 	}
 
+	if g.options.OptMode == OptModeSize {
+		if err := g.genScreenXYArgs(args); err != nil {
+			return ast.Type{}, err
+		}
+
+		g.emit("    jsr peddle_gotoxy")
+		g.usedTmp16 = true
+		g.usedGotoXYRuntime = true
+		return ast.Type{}, nil
+	}
+
 	if err := g.genExprTo(args[0], ast.Type{Name: "byte"}); err != nil {
 		return ast.Type{}, err
 	}
@@ -471,15 +482,208 @@ func (g *Generator) genStoreByteBuiltin(name string, args []ast.Expr, addr int) 
 }
 
 func (g *Generator) genPutRaw(args []ast.Expr) (ast.Type, error) {
+	if g.options.OptMode == OptModeSize {
+		return g.genPutScreenByteRuntime("putraw", args, "peddle_putraw", false)
+	}
 	return g.genPutScreenByte("putraw", args, 0x0400, false)
 }
 
 func (g *Generator) genPutChar(args []ast.Expr) (ast.Type, error) {
+	if g.options.OptMode == OptModeSize {
+		return g.genPutScreenByteRuntime("putchar", args, "peddle_putchar", true)
+	}
 	return g.genPutScreenByte("putchar", args, 0x0400, true)
 }
 
 func (g *Generator) genPutColor(args []ast.Expr) (ast.Type, error) {
+	if g.options.OptMode == OptModeSize {
+		return g.genPutScreenByteRuntime("putcolor", args, "peddle_putcolor", false)
+	}
 	return g.genPutScreenByte("putcolor", args, 0xd800, false)
+}
+
+func (g *Generator) genPutCharColor(args []ast.Expr) (ast.Type, error) {
+	if len(args) != 4 {
+		return ast.Type{}, fmt.Errorf("putcharcolor expects four arguments")
+	}
+
+	if g.options.OptMode == OptModeSize {
+		if err := g.genPutCharColorRuntime(args); err != nil {
+			return ast.Type{}, err
+		}
+
+		g.emit("    jsr peddle_putcharcolor")
+		g.usedTmp16 = true
+		g.usedPutCharColorRuntime = true
+		g.usedCharToScreenTable = true
+		return ast.Type{}, nil
+	}
+
+	if err := g.genExprTo(args[0], ast.Type{Name: "byte"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    pha")
+
+	if err := g.genExprTo(args[1], ast.Type{Name: "byte"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    pha")
+
+	if err := g.genExprTo(args[2], ast.Type{Name: "byte"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    sta ZP_TMP0")
+	g.genCharCodeToScreenCode()
+
+	g.emit("    lda ZP_TMP0")
+	g.emit("    pha")
+
+	if err := g.genExprTo(args[3], ast.Type{Name: "byte"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    sta ZP_TMP1")
+	g.emit("    pla")
+	g.emit("    sta ZP_TMP0")
+
+	g.emit("    pla")
+	g.emit("    sta peddle_tmp_int0+1")
+	g.emit("    pla")
+	g.emit("    sta peddle_tmp_int0")
+
+	clip := g.newLabel()
+	addRow := g.newLabel()
+	rowDone := g.newLabel()
+
+	g.emit("    lda peddle_tmp_int0")
+	g.emit("    cmp #40")
+	g.emit(fmt.Sprintf("    bcs %s", clip))
+	g.emit("    lda peddle_tmp_int0+1")
+	g.emit("    cmp #25")
+	g.emit(fmt.Sprintf("    bcs %s", clip))
+
+	g.emit("    lda #<$0400")
+	g.emit("    sta ZP_PTR0_LO")
+	g.emit("    lda #>$0400")
+	g.emit("    sta ZP_PTR0_HI")
+
+	g.emit("    ldx peddle_tmp_int0+1")
+	g.emit(addRow + ":")
+	g.emit(fmt.Sprintf("    beq %s", rowDone))
+	g.emit("    lda ZP_PTR0_LO")
+	g.emit("    clc")
+	g.emit("    adc #40")
+	g.emit("    sta ZP_PTR0_LO")
+	g.emit("    lda ZP_PTR0_HI")
+	g.emit("    adc #0")
+	g.emit("    sta ZP_PTR0_HI")
+	g.emit("    dex")
+	g.emit(fmt.Sprintf("    jmp %s", addRow))
+
+	g.emit(rowDone + ":")
+	g.emit("    ldy peddle_tmp_int0")
+	g.emit("    lda ZP_TMP0")
+	g.emit("    sta (ZP_PTR0_LO), y")
+	g.emit("    lda ZP_PTR0_HI")
+	g.emit("    clc")
+	g.emit("    adc #212")
+	g.emit("    sta ZP_PTR0_HI")
+	g.emit("    lda ZP_TMP1")
+	g.emit("    sta (ZP_PTR0_LO), y")
+
+	g.emit(clip + ":")
+
+	g.usedTmp16 = true
+	return ast.Type{}, nil
+}
+
+func (g *Generator) genScreenXYArgs(args []ast.Expr) error {
+	if err := g.genExprTo(args[0], ast.Type{Name: "byte"}); err != nil {
+		return err
+	}
+	g.emit("    pha")
+
+	if err := g.genExprTo(args[1], ast.Type{Name: "byte"}); err != nil {
+		return err
+	}
+	g.emit("    sta peddle_tmp_int0+1")
+	g.emit("    pla")
+	g.emit("    sta peddle_tmp_int0")
+	return nil
+}
+
+func (g *Generator) genPushScreenXYArgs(args []ast.Expr) error {
+	if err := g.genExprTo(args[0], ast.Type{Name: "byte"}); err != nil {
+		return err
+	}
+	g.emit("    pha")
+
+	if err := g.genExprTo(args[1], ast.Type{Name: "byte"}); err != nil {
+		return err
+	}
+	g.emit("    pha")
+	return nil
+}
+
+func (g *Generator) genPopScreenXYArgs() {
+	g.emit("    pla")
+	g.emit("    sta peddle_tmp_int0+1")
+	g.emit("    pla")
+	g.emit("    sta peddle_tmp_int0")
+}
+
+func (g *Generator) genPutScreenByteRuntime(name string, args []ast.Expr, helper string, convertChar bool) (ast.Type, error) {
+	if len(args) != 3 {
+		return ast.Type{}, fmt.Errorf("%s expects three arguments", name)
+	}
+
+	if err := g.genPushScreenXYArgs(args); err != nil {
+		return ast.Type{}, err
+	}
+
+	if err := g.genExprTo(args[2], ast.Type{Name: "byte"}); err != nil {
+		return ast.Type{}, err
+	}
+	g.emit("    sta ZP_TMP0")
+	g.genPopScreenXYArgs()
+	g.emit(fmt.Sprintf("    jsr %s", helper))
+
+	g.usedTmp16 = true
+	switch name {
+	case "putraw":
+		g.usedPutRawRuntime = true
+	case "putchar":
+		g.usedPutCharRuntime = true
+		g.usedCharToScreenTable = true
+	case "putcolor":
+		g.usedPutColorRuntime = true
+	}
+	if convertChar {
+		g.usedCharToScreenTable = true
+	}
+
+	return ast.Type{}, nil
+}
+
+func (g *Generator) genPutCharColorRuntime(args []ast.Expr) error {
+	if err := g.genPushScreenXYArgs(args); err != nil {
+		return err
+	}
+
+	if err := g.genExprTo(args[2], ast.Type{Name: "byte"}); err != nil {
+		return err
+	}
+	g.emit("    sta ZP_TMP0")
+	g.emit("    lda ZP_TMP0")
+	g.emit("    pha")
+
+	if err := g.genExprTo(args[3], ast.Type{Name: "byte"}); err != nil {
+		return err
+	}
+	g.emit("    sta ZP_TMP1")
+	g.emit("    pla")
+	g.emit("    sta ZP_TMP0")
+	g.genPopScreenXYArgs()
+	return nil
 }
 
 func (g *Generator) genPutScreenByte(name string, args []ast.Expr, base int, convertChar bool) (ast.Type, error) {
@@ -2120,6 +2324,137 @@ func (g *Generator) emitCharToScreenTable() {
 			table[i+14],
 			table[i+15],
 		))
+	}
+}
+
+func (g *Generator) emitScreenBuiltinRuntime() {
+	if g.usedGotoXYRuntime {
+		g.emit(`
+; gotoxy runtime
+peddle_gotoxy:
+    lda peddle_tmp_int0
+    cmp #40
+    bcs peddle_gotoxy_done
+    lda peddle_tmp_int0+1
+    cmp #25
+    bcs peddle_gotoxy_done
+    clc
+    ldx peddle_tmp_int0+1
+    ldy peddle_tmp_int0
+    jsr $fff0
+peddle_gotoxy_done:
+    rts
+`)
+	}
+
+	if !g.usedPutRawRuntime && !g.usedPutCharRuntime && !g.usedPutColorRuntime && !g.usedPutCharColorRuntime {
+		return
+	}
+
+	g.emit(`
+; single-cell screen/color runtime
+peddle_screen_addr:
+    lda peddle_tmp_int0
+    cmp #40
+    bcs peddle_screen_addr_clipped
+    lda peddle_tmp_int0+1
+    cmp #25
+    bcs peddle_screen_addr_clipped
+    ldx peddle_tmp_int0+1
+peddle_screen_addr_row_loop:
+    beq peddle_screen_addr_done
+    lda ZP_PTR0_LO
+    clc
+    adc #40
+    sta ZP_PTR0_LO
+    lda ZP_PTR0_HI
+    adc #0
+    sta ZP_PTR0_HI
+    dex
+    jmp peddle_screen_addr_row_loop
+peddle_screen_addr_done:
+    clc
+    rts
+peddle_screen_addr_clipped:
+    sec
+    rts
+`)
+
+	if g.usedPutRawRuntime || g.usedPutCharRuntime || g.usedPutColorRuntime {
+		g.emit(`
+peddle_putscreen_byte:
+    jsr peddle_screen_addr
+    bcs peddle_putscreen_byte_done
+    ldy peddle_tmp_int0
+    lda ZP_TMP0
+    sta (ZP_PTR0_LO), y
+peddle_putscreen_byte_done:
+    rts
+`)
+	}
+
+	if g.usedPutRawRuntime {
+		g.emit(`
+peddle_putraw:
+    lda #<$0400
+    sta ZP_PTR0_LO
+    lda #>$0400
+    sta ZP_PTR0_HI
+    jmp peddle_putscreen_byte
+`)
+	}
+
+	if g.usedPutColorRuntime {
+		g.emit(`
+peddle_putcolor:
+    lda #<$d800
+    sta ZP_PTR0_LO
+    lda #>$d800
+    sta ZP_PTR0_HI
+    jmp peddle_putscreen_byte
+`)
+	}
+
+	if g.usedPutCharRuntime {
+		g.emit(`
+peddle_putchar:
+    lda ZP_TMP0
+    tax
+    lda peddle_char_to_screen_table, x
+    sta ZP_TMP0
+    lda #<$0400
+    sta ZP_PTR0_LO
+    lda #>$0400
+    sta ZP_PTR0_HI
+    jmp peddle_putscreen_byte
+`)
+	}
+
+	if g.usedPutCharColorRuntime {
+		g.emit(`
+peddle_putcharcolor:
+    lda ZP_TMP0
+    tax
+    lda peddle_char_to_screen_table, x
+    sta ZP_TMP0
+    lda #<$0400
+    sta ZP_PTR0_LO
+    lda #>$0400
+    sta ZP_PTR0_HI
+    jsr peddle_screen_addr
+    bcs peddle_putcharcolor_done
+    ldy peddle_tmp_int0
+    lda ZP_TMP0
+    sta (ZP_PTR0_LO), y
+    lda ZP_PTR0_HI
+    clc
+    adc #212
+    sta ZP_PTR0_HI
+    lda ZP_TMP1
+    sta (ZP_PTR0_LO), y
+peddle_putcharcolor_done:
+    rts
+`)
 	}
 }
 

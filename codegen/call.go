@@ -161,6 +161,9 @@ func (g *Generator) genCall(name string, args []ast.Expr) (ast.Type, error) {
 	case "putcolor":
 		return g.genPutColor(args)
 
+	case "putcharcolor":
+		return g.genPutCharColor(args)
+
 	case "putstr":
 		return g.genPutStr(args)
 

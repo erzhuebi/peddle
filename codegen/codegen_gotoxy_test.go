@@ -58,6 +58,33 @@ fn main() {
 	requireASMAssemblesWith64tass(t, asm)
 }
 
+func TestCodegenGotoXYUsesRuntimeInSizeMode(t *testing.T) {
+	asm := compileSourceWithOptions(t, `
+fn main() {
+    gotoxy(10, 8)
+}
+`, Options{OptMode: OptModeSize})
+
+	requireASM(t, asm,
+		"jsr peddle_gotoxy",
+		"peddle_gotoxy:",
+		"jsr $fff0",
+	)
+
+	requireASMOrder(t, asm,
+		"lda #10",
+		"pha",
+		"lda #8",
+		"sta peddle_tmp_int0+1",
+		"pla",
+		"sta peddle_tmp_int0",
+		"jsr peddle_gotoxy",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
 func TestCodegenGotoXYBeforePrint(t *testing.T) {
 	asm := compileSource(t, `
 fn main() {

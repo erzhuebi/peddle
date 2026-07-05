@@ -71,6 +71,7 @@ func (g *Generator) emitRuntime() {
 	g.emitItoaRuntime()
 	g.emitItoxRuntime()
 	g.emitCharToScreenTable()
+	g.emitScreenBuiltinRuntime()
 	g.emitReadLineRuntime()
 	g.emitPutStrRuntime()
 	g.emitNetRuntime()
@@ -96,6 +97,11 @@ func (g *Generator) emitRuntimeVariables() {
 		g.usedShrIntRuntime ||
 		g.usedStringCopyRuntime ||
 		g.usedStringAppendRuntime ||
+		g.usedGotoXYRuntime ||
+		g.usedPutRawRuntime ||
+		g.usedPutCharRuntime ||
+		g.usedPutColorRuntime ||
+		g.usedPutCharColorRuntime ||
 		g.usedPutStrRuntime ||
 		g.usedPutStrColorRuntime ||
 		g.usedItoaRuntime

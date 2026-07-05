@@ -117,6 +117,175 @@ fn main() {
 	requireASMAssemblesWith64tass(t, asm)
 }
 
+func TestCodegenPutCharColorWritesCharacterAndColor(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    putcharcolor(2, 3, 'A', 5)
+}
+`)
+
+	requireASM(t, asm,
+		"lda #65",
+		"sta ZP_TMP0",
+		"lda ZP_TMP0",
+		"tax",
+		"lda peddle_char_to_screen_table, x",
+		"sta ZP_TMP0",
+		"lda #5",
+		"sta ZP_TMP1",
+		"lda #<$0400",
+		"sta (ZP_PTR0_LO), y",
+		"adc #212",
+		"sta (ZP_PTR0_LO), y",
+		"peddle_char_to_screen_table:",
+	)
+
+	requireNoASM(t, asm,
+		"peddle_putcharcolor:",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
+func TestCodegenScreenCellBuiltinsUseRuntimeInSizeMode(t *testing.T) {
+	asm := compileSourceWithOptions(t, `
+fn main() {
+    putraw(0, 1, 16)
+    putchar(2, 3, 'A')
+    putcolor(4, 5, 6)
+    putcharcolor(7, 8, 'B', 9)
+}
+`, Options{OptMode: OptModeSize})
+
+	requireASM(t, asm,
+		"jsr peddle_putraw",
+		"jsr peddle_putchar",
+		"jsr peddle_putcolor",
+		"jsr peddle_putcharcolor",
+		"peddle_screen_addr:",
+		"peddle_putscreen_byte:",
+		"peddle_putraw:",
+		"peddle_putchar:",
+		"peddle_putcolor:",
+		"peddle_putcharcolor:",
+		"peddle_char_to_screen_table:",
+	)
+
+	requireASMOrder(t, asm,
+		"lda #7",
+		"pha",
+		"lda #8",
+		"pha",
+		"lda #66",
+		"sta ZP_TMP0",
+		"lda ZP_TMP0",
+		"pha",
+		"lda #9",
+		"sta ZP_TMP1",
+		"pla",
+		"sta ZP_TMP0",
+		"pla",
+		"sta peddle_tmp_int0+1",
+		"pla",
+		"sta peddle_tmp_int0",
+		"jsr peddle_putcharcolor",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
+func TestCodegenPutCharColorSizeModeEmitsOnlyNeededScreenRuntime(t *testing.T) {
+	asm := compileSourceWithOptions(t, `
+fn main() {
+    putcharcolor(1, 2, 'C', 3)
+}
+`, Options{OptMode: OptModeSize})
+
+	requireASM(t, asm,
+		"jsr peddle_putcharcolor",
+		"peddle_screen_addr:",
+		"peddle_putcharcolor:",
+		"peddle_char_to_screen_table:",
+	)
+
+	requireNoASM(t, asm,
+		"peddle_putscreen_byte:",
+		"peddle_putraw:",
+		"peddle_putchar:",
+		"peddle_putcolor:",
+		"peddle_gotoxy:",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
+func TestCodegenCharacterScreenRuntimeOnlyEmitsWhenUsed(t *testing.T) {
+	asm := compileSource(t, `
+fn main() {
+    putcolor(0, 0, 2)
+}
+`)
+
+	requireNoASM(t, asm,
+		"peddle_char_to_screen_table:",
+		"peddle_putstr:",
+		"peddle_putstrcolor:",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
+func TestCodegenScreenCellSizeModePreservesUserFunctionArgs(t *testing.T) {
+	asm := compileSourceWithOptions(t, `
+fn xpos() byte {
+    return 3
+}
+
+fn ypos() byte {
+    return 4
+}
+
+fn glyph() char {
+    return 'D'
+}
+
+fn color() byte {
+    return 5
+}
+
+fn main() {
+    putcharcolor(xpos(), ypos(), glyph(), color())
+}
+`, Options{OptMode: OptModeSize})
+
+	requireASMOrder(t, asm,
+		"jsr xpos",
+		"pha",
+		"jsr ypos",
+		"pha",
+		"jsr glyph",
+		"sta ZP_TMP0",
+		"lda ZP_TMP0",
+		"pha",
+		"jsr color",
+		"sta ZP_TMP1",
+		"pla",
+		"sta ZP_TMP0",
+		"pla",
+		"sta peddle_tmp_int0+1",
+		"pla",
+		"sta peddle_tmp_int0",
+		"jsr peddle_putcharcolor",
+	)
+
+	requireReferencedLabelsDefined(t, asm)
+	requireASMAssemblesWith64tass(t, asm)
+}
+
 func TestCodegenScreenBuiltinsPreserveArgsAcrossUserFunctionArgs(t *testing.T) {
 	asm := compileSource(t, `
 fn xpos() byte {
@@ -158,6 +327,7 @@ fn main() {
     putchar(ax[i], ay[i], alienChar(row))
     putraw(xpos(), ypos(), alienCode(row))
     putcolor(xpos(), ypos(), alienColor(row))
+    putcharcolor(xpos(), ypos(), alienChar(row), alienColor(row))
     gotoxy(xpos(), ypos())
     putstrcolor(xpos(), ypos(), title, alienColor(row))
 }
@@ -170,6 +340,7 @@ fn main() {
 		"jsr alienColor",
 		"jsr xpos",
 		"jsr ypos",
+		"adc #212",
 		"jsr peddle_putstrcolor",
 	)
 

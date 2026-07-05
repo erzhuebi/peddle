@@ -29,7 +29,7 @@ const D4_LO = 138
 const D4_HI = 19
 const E4_LO = 237
 const E4_HI = 21
-const COLOR_WHITE = 1
+const PLAYFIELD_COLOR = 1
 
 struct Alien {
     alive bool
@@ -130,8 +130,7 @@ fn showHUD(score int, lives byte) {
 }
 
 fn drawChar(x byte, y byte, ch char) {
-    putchar(x, y, ch)
-    putcolor(x, y, COLOR_WHITE)
+    putcharcolor(x, y, ch, PLAYFIELD_COLOR)
 }
 
 fn initAliens(aliens Alien[32]) {

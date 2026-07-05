@@ -22,6 +22,7 @@
 | `putchar(x, y, ch)` | write a character to screen RAM at position |
 | `putraw(x, y, code)` | write raw C64 screen code to screen RAM |
 | `putcolor(x, y, color)` | write color RAM value at position |
+| `putcharcolor(x, y, ch, color)` | write a character and color RAM value at position |
 | `putstr(x, y, text)` | write a string literal or `char[]` directly to screen RAM |
 | `putstrcolor(x, y, text, color)` | write a string literal or `char[]` to screen RAM and color RAM |
 | `key()` | non-blocking keyboard read; returns `0` if no key is waiting |
@@ -68,7 +69,7 @@ Important distinction:
 - `print()` uses the KERNAL cursor
 - `gotoxy()` moves the KERNAL cursor
 - `textcolor()` affects KERNAL `print()`
-- `putchar()`, `putraw()`, `putstr()`, and `putcolor()` write directly to screen/color RAM
+- `putchar()`, `putraw()`, `putstr()`, `putcolor()`, and `putcharcolor()` write directly to screen/color RAM
 
 ---
 
@@ -147,6 +148,7 @@ It does not affect direct screen RAM functions such as:
 - `putraw()`
 - `putstr()`
 - `putcolor()`
+- `putcharcolor()`
 
 Coordinates outside the visible screen are clipped. If `x >= 40` or `y >= 25`, `gotoxy()` does nothing.
 
@@ -253,6 +255,25 @@ $d800 + y * 40 + x
 ```
 
 `putcolor()` is clipped to the visible screen. If `x >= 40` or `y >= 25`, it does nothing.
+
+---
+
+# putcharcolor()
+
+Write one character and its color at a fixed screen position.
+
+```peddle
+putcharcolor(0, 0, 'P', 2)
+putcharcolor(1, 0, 'E', 3)
+```
+
+`putcharcolor(x, y, ch, color)` combines `putchar()` and `putcolor()` for one
+cell. It converts `ch` through the same character-to-screen-code table as
+`putchar()`, writes the converted character to screen RAM, then writes `color`
+to the matching color RAM position.
+
+`putcharcolor()` is clipped to the visible screen. If `x >= 40` or `y >= 25`, it
+does nothing.
 
 ---
 
@@ -446,6 +467,7 @@ key()       returns PETSCII/KERNAL character codes
 print()     uses KERNAL/PETSCII output
 putraw() writes raw screen codes directly to screen RAM
 putchar()   converts a character to a screen code
+putcharcolor() converts a character to a screen code and writes color RAM
 putstr()    converts string characters to screen codes
 ```
 

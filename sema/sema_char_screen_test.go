@@ -53,6 +53,7 @@ fn main() {
 
     putraw(0, 1, 16)
     putcolor(0, 0, 2)
+    putcharcolor(6, 0, '!', 7)
 }
 `)
 
@@ -98,6 +99,7 @@ fn main() {
     putchar(ax[i], ay[i], alienChar(row))
     putraw(xpos(), ypos(), alienColor(row))
     putcolor(xpos(), ypos(), alienColor(row))
+    putcharcolor(xpos(), ypos(), alienChar(row), alienColor(row))
     gotoxy(xpos(), ypos())
     putstrcolor(xpos(), ypos(), title, alienColor(row))
 }
@@ -112,6 +114,18 @@ func TestSemaRejectsStringLiteralInPutChar(t *testing.T) {
 	err := checkProgramForCharScreenTest(t, `
 fn main() {
     putchar(0, 0, "P")
+}
+`)
+
+	if err == nil {
+		t.Fatalf("expected sema error, got nil")
+	}
+}
+
+func TestSemaRejectsStringLiteralInPutCharColor(t *testing.T) {
+	err := checkProgramForCharScreenTest(t, `
+fn main() {
+    putcharcolor(0, 0, "P", 2)
 }
 `)
 

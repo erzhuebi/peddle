@@ -68,6 +68,11 @@ type Generator struct {
 	usedShrIntRuntime       bool
 	usedStringCopyRuntime   bool
 	usedStringAppendRuntime bool
+	usedGotoXYRuntime       bool
+	usedPutRawRuntime       bool
+	usedPutCharRuntime      bool
+	usedPutColorRuntime     bool
+	usedPutCharColorRuntime bool
 	usedPutStrRuntime       bool
 	usedPutStrColorRuntime  bool
 	usedCharToScreenTable   bool

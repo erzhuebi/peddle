@@ -104,8 +104,7 @@ fn buildMissSound(data byte[32]) {
 }
 
 fn drawChar(x int, y int, ch char, color byte) {
-    putchar(x, y, ch)
-    putcolor(x, y, color)
+    putcharcolor(x, y, ch, color)
 }
 
 fn drawPaddle(x int, y int, color byte) {
