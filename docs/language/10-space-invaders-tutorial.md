@@ -141,7 +141,7 @@ does not need to change.
 
 ---
 
-# Step 3: Store Aliens in Parallel Arrays
+# Step 3: Store Aliens as Structs
 
 The alien grid needs three pieces of data per alien:
 
@@ -149,18 +149,26 @@ The alien grid needs three pieces of data per alien:
 - x position
 - y position
 
-Peddle arrays work well for this:
+A struct gives those fields a clear name:
 
 ```peddle
-var alienAlive bool[32]
-var alienX byte[32]
-var alienY byte[32]
+struct Alien {
+    alive bool
+    x byte
+    y byte
+}
+```
+
+Then the game can keep all aliens in one array:
+
+```peddle
+var aliens Alien[32]
 ```
 
 Initialize the grid row by row:
 
 ```peddle
-fn initAliens(alive bool[32], ax byte[32], ay byte[32]) {
+fn initAliens(aliens Alien[32]) {
     var i byte
     var row byte
     var col byte
@@ -170,9 +178,9 @@ fn initAliens(alive bool[32], ax byte[32], ay byte[32]) {
     while row < 4 {
         col = 0
         while col < 8 {
-            alive[i] = true
-            ax[i] = col * 4 + 2
-            ay[i] = row * 2 + 2
+            aliens[i].alive = true
+            aliens[i].x = col * 4 + 2
+            aliens[i].y = row * 2 + 2
             i = i + 1
             col = col + 1
         }
@@ -184,7 +192,7 @@ fn initAliens(alive bool[32], ax byte[32], ay byte[32]) {
 Draw only aliens that are alive:
 
 ```peddle
-fn drawAliens(alive bool[32], ax byte[32], ay byte[32]) {
+fn drawAliens(aliens Alien[32]) {
     var i byte
     var row byte
     var ch char
@@ -192,20 +200,20 @@ fn drawAliens(alive bool[32], ax byte[32], ay byte[32]) {
     i = 0
     while i < 32 {
         row = i / 8
-        if alive[i] {
+        if aliens[i].alive {
             ch = 'T'
             if row == 0 { ch = 'W' }
             if row == 1 { ch = 'M' }
             if row == 2 { ch = 'V' }
-            drawChar(ax[i], ay[i], ch)
+            drawChar(aliens[i].x, aliens[i].y, ch)
         }
         i = i + 1
     }
 }
 ```
 
-This parallel-array style is common in small C64 games. It avoids dynamic
-allocation and keeps the memory layout obvious.
+This `Alien[32]` style is the normal game-object pattern in Peddle: a fixed-size
+array, simple fields, and loops over indices.
 
 ---
 
@@ -408,10 +416,10 @@ After moving the player bullet, compare it with each alive alien.
 ```peddle
 i = 0
 while i < 32 {
-    if alienAlive[i] {
-        if alienX[i] == pbX {
-            if alienY[i] == pbY {
-                alienAlive[i] = false
+    if aliens[i].alive {
+        if aliens[i].x == pbX {
+            if aliens[i].y == pbY {
+                aliens[i].alive = false
                 pbActive = false
                 putchar(pbX, pbY, ' ')
                 putchar(oldPbX, oldPbY, ' ')
@@ -438,7 +446,7 @@ showHUD(score, lives)
 After a hit, reduce the alien movement interval as fewer aliens remain:
 
 ```peddle
-aliveCount = countAlive(alienAlive)
+aliveCount = countAlive(aliens)
 if aliveCount < 24 { alienMoveInterval = 16 }
 if aliveCount < 16 { alienMoveInterval = 12 }
 if aliveCount < 8  { alienMoveInterval = 8  }
@@ -469,11 +477,11 @@ Before moving, check if any alive alien would hit a side wall:
 hitWall = false
 i = 0
 while i < 32 {
-    if alienAlive[i] {
+    if aliens[i].alive {
         if alienGoRight {
-            if alienX[i] >= 38 { hitWall = true }
+            if aliens[i].x >= 38 { hitWall = true }
         } else {
-            if alienX[i] <= 1 { hitWall = true }
+            if aliens[i].x <= 1 { hitWall = true }
         }
     }
     i = i + 1
@@ -487,8 +495,8 @@ if hitWall {
     alienGoRight = !alienGoRight
     i = 0
     while i < 32 {
-        if alienAlive[i] {
-            alienY[i] = alienY[i] + 1
+        if aliens[i].alive {
+            aliens[i].y = aliens[i].y + 1
         }
         i = i + 1
     }
@@ -500,11 +508,11 @@ Otherwise, move horizontally:
 ```peddle
 i = 0
 while i < 32 {
-    if alienAlive[i] {
+    if aliens[i].alive {
         if alienGoRight {
-            alienX[i] = alienX[i] + 1
+            aliens[i].x = aliens[i].x + 1
         } else {
-            alienX[i] = alienX[i] - 1
+            aliens[i].x = aliens[i].x - 1
         }
     }
     i = i + 1
@@ -512,13 +520,13 @@ while i < 32 {
 ```
 
 Erase old positions after drawing the new formation. The reference game copies
-the old alien arrays before movement, then erases old positions afterward.
+the old alien array before movement, then erases old positions afterward.
 
 ```peddle
-copyAlienPositions(alienX, alienY, oldAlienX, oldAlienY)
+copyAliens(aliens, oldAliens)
 # move aliens
-drawAliens(alienAlive, alienX, alienY)
-eraseAliens(alienAlive, oldAlienX, oldAlienY)
+drawAliens(aliens)
+eraseAliens(oldAliens)
 ```
 
 This avoids flicker from clearing the entire screen.
@@ -579,9 +587,9 @@ Then find the next alive alien:
 ```peddle
 searched = 0
 while searched < 32 {
-    if alienAlive[fireSearch] {
-        abX[fireSlot] = alienX[fireSearch]
-        abY[fireSlot] = alienY[fireSearch] + 1
+    if aliens[fireSearch].alive {
+        abX[fireSlot] = aliens[fireSearch].x
+        abY[fireSlot] = aliens[fireSearch].y + 1
         abActive[fireSlot] = true
         drawChar(abX[fireSlot], abY[fireSlot], '!')
         break
@@ -734,12 +742,12 @@ if lives == 0 {
     gameResult = RESULT_GAME_OVER
 }
 
-if aliensAtBottom(alienAlive, alienY) {
+if aliensAtBottom(aliens) {
     gameOver = true
     gameResult = RESULT_LANDED
 }
 
-aliveCount = countAlive(alienAlive)
+aliveCount = countAlive(aliens)
 if aliveCount == 0 {
     gameOver = true
     gameResult = RESULT_WIN
@@ -840,7 +848,7 @@ For Space Invaders, the answers are:
 | Concept | Implementation |
 |---|---|
 | Player | `playerX`, fixed `PLAYER_Y` |
-| Aliens | `alienAlive[32]`, `alienX[32]`, `alienY[32]` |
+| Aliens | `Alien` struct plus `aliens Alien[32]` |
 | Player bullet | one active bullet with `pbActive`, `pbX`, `pbY` |
 | Alien bullets | three active slots with `abActive[3]`, `abX[3]`, `abY[3]` |
 | Timing | `bulletTimer`, `alienTimer`, `fireTimer` |

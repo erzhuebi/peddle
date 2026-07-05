@@ -31,6 +31,12 @@ const E4_LO = 237
 const E4_HI = 21
 const COLOR_WHITE = 1
 
+struct Alien {
+    alive bool
+    x byte
+    y byte
+}
+
 fn waveform(data byte[128], voice byte, value byte) {
     append(data, 4)
     append(data, voice)
@@ -128,7 +134,7 @@ fn drawChar(x byte, y byte, ch char) {
     putcolor(x, y, COLOR_WHITE)
 }
 
-fn initAliens(alive bool[32], ax byte[32], ay byte[32]) {
+fn initAliens(aliens Alien[32]) {
     var i byte
     var row byte
     var col byte
@@ -137,9 +143,9 @@ fn initAliens(alive bool[32], ax byte[32], ay byte[32]) {
     while row < 4 {
         col = 0
         while col < 8 {
-            alive[i] = true
-            ax[i] = col * 4 + 2
-            ay[i] = row * 2 + 2
+            aliens[i].alive = true
+            aliens[i].x = col * 4 + 2
+            aliens[i].y = row * 2 + 2
             i = i + 1
             col = col + 1
         }
@@ -147,41 +153,42 @@ fn initAliens(alive bool[32], ax byte[32], ay byte[32]) {
     }
 }
 
-fn drawAliens(alive bool[32], ax byte[32], ay byte[32]) {
+fn drawAliens(aliens Alien[32]) {
     var i byte
     var row byte
     var ch char
     i = 0
     while i < 32 {
         row = i / 8
-        if alive[i] {
+        if aliens[i].alive {
             ch = 'T'
             if row == 0 { ch = 'W' }
             if row == 1 { ch = 'M' }
             if row == 2 { ch = 'V' }
-            drawChar(ax[i], ay[i], ch)
+            drawChar(aliens[i].x, aliens[i].y, ch)
         }
         i = i + 1
     }
 }
 
-fn eraseAliens(alive bool[32], ax byte[32], ay byte[32]) {
+fn eraseAliens(aliens Alien[32]) {
     var i byte
     i = 0
     while i < 32 {
-        if alive[i] {
-            putchar(ax[i], ay[i], ' ')
+        if aliens[i].alive {
+            putchar(aliens[i].x, aliens[i].y, ' ')
         }
         i = i + 1
     }
 }
 
-fn copyAlienPositions(srcX byte[32], srcY byte[32], dstX byte[32], dstY byte[32]) {
+fn copyAliens(src Alien[32], dst Alien[32]) {
     var i byte
     i = 0
     while i < 32 {
-        dstX[i] = srcX[i]
-        dstY[i] = srcY[i]
+        dst[i].alive = src[i].alive
+        dst[i].x = src[i].x
+        dst[i].y = src[i].y
         i = i + 1
     }
 }
@@ -201,24 +208,24 @@ fn drawShots(playerX byte, pbActive bool, pbX byte, pbY byte, abActive bool[3], 
     }
 }
 
-fn countAlive(alive bool[32]) int {
+fn countAlive(aliens Alien[32]) int {
     var i byte
     var n int
     n = 0
     i = 0
     while i < 32 {
-        if alive[i] { n = n + 1 }
+        if aliens[i].alive { n = n + 1 }
         i = i + 1
     }
     return n
 }
 
-fn aliensAtBottom(alive bool[32], ay byte[32]) bool {
+fn aliensAtBottom(aliens Alien[32]) bool {
     var i byte
     i = 0
     while i < 32 {
-        if alive[i] {
-            if ay[i] >= 21 { return true }
+        if aliens[i].alive {
+            if aliens[i].y >= 21 { return true }
         }
         i = i + 1
     }
@@ -226,9 +233,7 @@ fn aliensAtBottom(alive bool[32], ay byte[32]) bool {
 }
 
 fn main() {
-    var alienAlive bool[32]
-    var alienX byte[32]
-    var alienY byte[32]
+    var aliens Alien[32]
     var alienGoRight bool
     var alienMoveInterval int
     var alienTimer int
@@ -261,8 +266,7 @@ fn main() {
     var pts int
     var atBottom bool
     var gameResult byte
-    var oldAlienX byte[32]
-    var oldAlienY byte[32]
+    var oldAliens Alien[32]
 
     # Sound
     var soundPool byte[1024]
@@ -315,7 +319,7 @@ fn main() {
         i = i + 1
     }
 
-    initAliens(alienAlive, alienX, alienY)
+    initAliens(aliens)
 
     sound_init(soundPool)
     buildRocketSound(rocketData)
@@ -334,7 +338,7 @@ fn main() {
         putstr(0, 24, "SOUND LOAD FAILED")
     }
     drawChar(playerX, 23, 'A')
-    drawAliens(alienAlive, alienX, alienY)
+    drawAliens(aliens)
 
     alienTimer = ticks()
     bulletTimer = ticks()
@@ -412,10 +416,10 @@ fn main() {
                     # Check collision with each alien
                     i = 0
                     while i < 32 {
-                        if alienAlive[i] {
-                            if alienX[i] == pbX {
-                                if alienY[i] == pbY {
-                                    alienAlive[i] = false
+                        if aliens[i].alive {
+                            if aliens[i].x == pbX {
+                                if aliens[i].y == pbY {
+                                    aliens[i].alive = false
                                     row = i / 8
                                     pts = 10
                                     if row == 0 { pts = 30 }
@@ -433,7 +437,7 @@ fn main() {
                                         }
                                     }
                                     # Speed up aliens as fewer remain
-                                    aliveCount = countAlive(alienAlive)
+                                    aliveCount = countAlive(aliens)
                                     if aliveCount < 24 { alienMoveInterval = 16 }
                                     if aliveCount < 16 { alienMoveInterval = 12 }
                                     if aliveCount < 8  { alienMoveInterval = 8  }
@@ -489,17 +493,17 @@ fn main() {
         # Alien movement tick
         if tickdue(alienTimer, alienMoveInterval) {
             alienTimer = ticks()
-            copyAlienPositions(alienX, alienY, oldAlienX, oldAlienY)
+            copyAliens(aliens, oldAliens)
 
             # Check if any alive alien would hit a side wall
             hitWall = false
             i = 0
             while i < 32 {
-                if alienAlive[i] {
+                if aliens[i].alive {
                     if alienGoRight {
-                        if alienX[i] >= 38 { hitWall = true }
+                        if aliens[i].x >= 38 { hitWall = true }
                     } else {
-                        if alienX[i] <= 1 { hitWall = true }
+                        if aliens[i].x <= 1 { hitWall = true }
                     }
                 }
                 i = i + 1
@@ -510,35 +514,35 @@ fn main() {
                 alienGoRight = !alienGoRight
                 i = 0
                 while i < 32 {
-                    if alienAlive[i] {
-                        alienY[i] = alienY[i] + 1
+                    if aliens[i].alive {
+                        aliens[i].y = aliens[i].y + 1
                     }
                     i = i + 1
                 }
             } else {
                 i = 0
                 while i < 32 {
-                    if alienAlive[i] {
+                    if aliens[i].alive {
                         if alienGoRight {
-                            alienX[i] = alienX[i] + 1
+                            aliens[i].x = aliens[i].x + 1
                         } else {
-                            alienX[i] = alienX[i] - 1
+                            aliens[i].x = aliens[i].x - 1
                         }
                     }
                     i = i + 1
                 }
             }
-            drawAliens(alienAlive, alienX, alienY)
-            eraseAliens(alienAlive, oldAlienX, oldAlienY)
+            drawAliens(aliens)
+            eraseAliens(oldAliens)
             drawShots(playerX, pbActive, pbX, pbY, abActive, abX, abY)
 
-            atBottom = aliensAtBottom(alienAlive, alienY)
+            atBottom = aliensAtBottom(aliens)
             if atBottom {
                 gameOver = true
                 gameResult = RESULT_LANDED
             }
 
-            aliveCount = countAlive(alienAlive)
+            aliveCount = countAlive(aliens)
             if aliveCount == 0 {
                 gameOver = true
                 gameResult = RESULT_WIN
@@ -566,9 +570,9 @@ fn main() {
                 # Find the next alive alien to fire from (round-robin)
                 searched = 0
                 while searched < 32 {
-                    if alienAlive[fireSearch] {
-                        abX[fireSlot] = alienX[fireSearch]
-                        abY[fireSlot] = alienY[fireSearch] + 1
+                    if aliens[fireSearch].alive {
+                        abX[fireSlot] = aliens[fireSearch].x
+                        abY[fireSlot] = aliens[fireSearch].y + 1
                         abActive[fireSlot] = true
                         drawChar(abX[fireSlot], abY[fireSlot], '!')
                         break
