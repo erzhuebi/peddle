@@ -11,7 +11,28 @@ DEVTOOL_CMD ?= ./cmd/devtool
 BASE_VERSION := $(shell [ -f $(VERSION_FILE) ] && cat $(VERSION_FILE) || echo "0.0.0")
 VERSION := $(BASE_VERSION)-dev
 
-EXAMPLE ?= smoke/hello
+DEFAULT_EXAMPLE := smoke/hello
+PRIMARY_GOAL := $(firstword $(MAKECMDGOALS))
+EXAMPLE_GOAL := $(word 2,$(MAKECMDGOALS))
+KNOWN_TARGETS := help all check check-run build run example clean test examples version release-notes bump-patch bump-minor bump-major _bump_version _write_release_notes
+EXAMPLE_ARG :=
+
+ifneq ($(filter run example,$(PRIMARY_GOAL)),)
+ifneq ($(EXAMPLE_GOAL),)
+ifeq ($(filter $(EXAMPLE_GOAL),$(KNOWN_TARGETS)),)
+EXAMPLE_ARG := $(EXAMPLE_GOAL)
+endif
+endif
+endif
+
+ifeq ($(origin EXAMPLE), undefined)
+ifneq ($(EXAMPLE_ARG),)
+EXAMPLE := $(EXAMPLE_ARG)
+else
+EXAMPLE := $(DEFAULT_EXAMPLE)
+endif
+endif
+
 OPT     ?= speed
 MEM_FLAGS ?=
 
@@ -19,7 +40,12 @@ SRC     := examples/$(EXAMPLE).ped
 ASM_OUT := build/$(EXAMPLE).asm
 PRG_OUT := build/$(EXAMPLE).prg
 
-.PHONY: help all check check-run build run example hello clean test examples version release-notes bump-patch bump-minor bump-major _bump_version _write_release_notes
+.PHONY: help all check check-run build run example clean test examples version release-notes bump-patch bump-minor bump-major _bump_version _write_release_notes
+
+ifneq ($(EXAMPLE_ARG),)
+$(EXAMPLE_ARG):
+	@:
+endif
 
 # default target
 help:
@@ -27,10 +53,9 @@ help:
 	@echo ""
 	@echo "  make all                           - run tests and build peddlec compiler"
 	@echo "  make build                         - build peddlec compiler"
-	@echo "  make run EXAMPLE=smoke/hello       - compile examples/smoke/hello.ped, assemble PRG, run in VICE"
-	@echo "  make run EXAMPLE=smoke/hello OPT=size - same, but compile with --opt=size"
-	@echo "  make example EXAMPLE=demos/pong    - compile examples/demos/pong.ped and assemble PRG without running"
-	@echo "  make hello                         - same as make run EXAMPLE=hello"
+	@echo "  make run smoke/hello               - compile examples/smoke/hello.ped, assemble PRG, run in VICE"
+	@echo "  make run smoke/hello OPT=size      - same, but compile with --opt=size"
+	@echo "  make example demos/pong            - compile examples/demos/pong.ped and assemble PRG without running"
 	@echo "  make examples                      - list available examples"
 	@echo "  make check                         - check compiler toolchain"
 	@echo "  make test                          - run Go tests"
@@ -43,11 +68,19 @@ help:
 	@echo ""
 	@echo "Optional variables:"
 	@echo "  OPT=speed|size"
+	@echo "  EXAMPLE=smoke/hello                - explicit form, useful for scripts"
 	@echo "  MEM_FLAGS='--mem-report --mem-limit=32768'"
 	@echo ""
 	@echo "Version:"
 	@echo "  base: $(BASE_VERSION)"
 	@echo "  dev : $(VERSION)"
+	@echo ""
+	@echo "Version workflow:"
+	@echo "  .version stores only the base version, for example 0.17.0"
+	@echo "  normal builds append -dev, so work-in-progress builds are 0.17.0-dev"
+	@echo "  make bump-patch/minor/major tags the current state as v0.17.0"
+	@echo "  then it bumps .version to the next base version for the next -dev cycle"
+	@echo "  no -dev branch is created; create/switch sprint branches manually if needed"
 	@echo ""
 	@echo "Toolchain:"
 	@echo "  macOS: brew install go 64tass vice"
@@ -193,14 +226,13 @@ example: check-run build
 		$(MAKE) --no-print-directory examples; \
 		exit 1; \
 	fi
+	@mkdir -p "$(dir $(ASM_OUT))" "$(dir $(PRG_OUT))"
 	$(PEDDLEC_BIN) --opt=$(OPT) $(MEM_FLAGS) -o $(ASM_OUT) $(SRC)
 	$(ASM) $(ASM_OUT) -o $(PRG_OUT)
 	@echo "wrote $(PRG_OUT)"
 
 run: example
 	$(VICE) -autostart $(PRG_OUT)
-
-hello: run
 
 clean:
 	rm -rf build
