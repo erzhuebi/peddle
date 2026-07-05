@@ -1,0 +1,67 @@
+struct Player {
+    hp int
+    x byte
+}
+
+var score int
+var lives byte
+var ready bool
+var title char[16]
+var values byte[4]
+var player Player
+
+fn initState() {
+    score = 0
+    lives = 3
+    ready = true
+    title = "GLOBALS"
+
+    values[0] = 1
+    values[1] = 2
+
+    player.hp = 42
+    player.x = 7
+}
+
+fn addScore(points int) {
+    score = score + points
+}
+
+fn loseLife() {
+    if lives > 0 {
+        lives = lives - 1
+    }
+}
+
+fn checkState() bool {
+    if ready == false { return false }
+    if score != 15 { return false }
+    if lives != 2 { return false }
+    if len(title) != 7 { return false }
+    if title[0] != 'G' { return false }
+    if title[6] != 'S' { return false }
+    if len(values) != 2 { return false }
+    if values[0] != 1 { return false }
+    if values[1] != 2 { return false }
+    if player.hp != 42 { return false }
+    if player.x != 7 { return false }
+
+    return true
+}
+
+fn main() {
+    var pass bool
+
+    initState()
+    addScore(10)
+    addScore(5)
+    loseLife()
+
+    pass = checkState()
+
+    if pass {
+        print("TEST SUCCESSFUL")
+    } else {
+        print("TEST FAILED")
+    }
+}
