@@ -71,12 +71,20 @@ fn main() {
     var lives byte = 3
     var playerX byte = 19
     var oldPlayerX byte
+    var pbActive bool = false
+    var pbX byte = 0
+    var pbY byte = 0
+    var oldPbX byte = 0
+    var oldPbY byte = 0
     var gameOver bool = false
     var k char
     var j byte
     var moveLeft bool
     var moveRight bool
     var firePressed bool
+    var bulletTimer int = ticks()
+    var alienTimer int = ticks()
+    var fireTimer int = ticks()
 
     cls()
     border(6)
@@ -87,7 +95,7 @@ fn main() {
     showHUD(score, lives)
     drawAliens(aliens)
     drawChar(playerX, PLAYER_Y, 'A')
-    putstr(0, 24, "A/D OR JOY:MOVE  SPACE/FIRE:MARK  Q:QUIT")
+    putstr(0, 24, "SPACE/FIRE SHOOTS  Q:QUIT")
 
     while gameOver == false {
         moveLeft = false
@@ -99,15 +107,12 @@ fn main() {
 
         if k == 'q' { gameOver = true }
         if k == 'Q' { gameOver = true }
-
         if k == 'a' { moveLeft = true }
         if k == 'A' { moveLeft = true }
         if (j & 4) == 0 { moveLeft = true }
-
         if k == 'd' { moveRight = true }
         if k == 'D' { moveRight = true }
         if (j & 8) == 0 { moveRight = true }
-
         if k == ' ' { firePressed = true }
         if (j & 16) == 0 { firePressed = true }
 
@@ -130,7 +135,36 @@ fn main() {
         }
 
         if firePressed {
-            putstr(0, 1, "FIRE PRESSED ")
+            if pbActive == false {
+                pbX = playerX
+                pbY = 22
+                pbActive = true
+                drawChar(pbX, pbY, 'I')
+            }
+        }
+
+        if tickdue(bulletTimer, 4) {
+            bulletTimer = ticks()
+            if pbActive {
+                oldPbX = pbX
+                oldPbY = pbY
+                if pbY <= 2 {
+                    pbActive = false
+                    putchar(oldPbX, oldPbY, ' ')
+                } else {
+                    pbY = pbY - 1
+                    drawChar(pbX, pbY, 'I')
+                    putchar(oldPbX, oldPbY, ' ')
+                }
+            }
+        }
+
+        if tickdue(alienTimer, 20) {
+            alienTimer = ticks()
+        }
+
+        if tickdue(fireTimer, 40) {
+            fireTimer = ticks()
         }
     }
 }

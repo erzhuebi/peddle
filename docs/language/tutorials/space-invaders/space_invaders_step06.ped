@@ -15,13 +15,11 @@ fn drawChar(x byte, y byte, ch char) {
 
 fn showHUD(score int, lives byte) {
     var nums char[8]
-
     putstr(0, 0, "SCORE:")
     clear(nums)
     copy(nums, itoa(score))
     putstr(6, 0, "       ")
     putstr(6, 0, nums)
-
     putstr(29, 0, "LIVES:")
     clear(nums)
     copy(nums, itoa(lives))
@@ -33,7 +31,6 @@ fn initAliens(aliens Alien[32]) {
     var i byte = 0
     var row byte = 0
     var col byte
-
     while row < 4 {
         col = 0
         while col < 8 {
@@ -51,7 +48,6 @@ fn drawAliens(aliens Alien[32]) {
     var i byte = 0
     var row byte
     var ch char
-
     while i < 32 {
         row = i / 8
         if aliens[i].alive {
@@ -65,8 +61,49 @@ fn drawAliens(aliens Alien[32]) {
     }
 }
 
+fn eraseAliens(aliens Alien[32]) {
+    var i byte = 0
+    while i < 32 {
+        if aliens[i].alive {
+            putchar(aliens[i].x, aliens[i].y, ' ')
+        }
+        i = i + 1
+    }
+}
+
+fn copyAliens(src Alien[32], dst Alien[32]) {
+    var i byte = 0
+    while i < 32 {
+        dst[i].alive = src[i].alive
+        dst[i].x = src[i].x
+        dst[i].y = src[i].y
+        i = i + 1
+    }
+}
+
+fn drawShots(playerX byte, pbActive bool, pbX byte, pbY byte) {
+    drawChar(playerX, PLAYER_Y, 'A')
+    if pbActive {
+        drawChar(pbX, pbY, 'I')
+    }
+}
+
+fn countAlive(aliens Alien[32]) int {
+    var i byte = 0
+    var n int = 0
+    while i < 32 {
+        if aliens[i].alive { n = n + 1 }
+        i = i + 1
+    }
+    return n
+}
+
 fn main() {
     var aliens Alien[32]
+    var oldAliens Alien[32]
+    var alienGoRight bool = true
+    var alienMoveInterval int = 20
+    var alienTimer int = ticks()
     var score int = 0
     var lives byte = 3
     var playerX byte = 19
@@ -83,28 +120,28 @@ fn main() {
     var moveRight bool
     var firePressed bool
     var bulletTimer int = ticks()
-    var alienTimer int = ticks()
-    var fireTimer int = ticks()
+    var i byte
+    var row byte
+    var pts int
+    var aliveCount int
+    var hitWall bool
 
     cls()
     border(6)
     background(0)
     textcolor(PLAYFIELD_COLOR)
-
     initAliens(aliens)
     showHUD(score, lives)
     drawAliens(aliens)
     drawChar(playerX, PLAYER_Y, 'A')
-    putstr(0, 24, "SPACE/FIRE SHOOTS  Q:QUIT")
+    putstr(0, 24, "MOVING ALIENS  Q:QUIT")
 
     while gameOver == false {
         moveLeft = false
         moveRight = false
         firePressed = false
-
         k = key()
         j = joy(2) & 31
-
         if k == 'q' { gameOver = true }
         if k == 'Q' { gameOver = true }
         if k == 'a' { moveLeft = true }
@@ -124,7 +161,6 @@ fn main() {
                 putchar(oldPlayerX, PLAYER_Y, ' ')
             }
         }
-
         if moveRight {
             if playerX < 39 {
                 oldPlayerX = playerX
@@ -133,7 +169,6 @@ fn main() {
                 putchar(oldPlayerX, PLAYER_Y, ' ')
             }
         }
-
         if firePressed {
             if pbActive == false {
                 pbX = playerX
@@ -142,7 +177,6 @@ fn main() {
                 drawChar(pbX, pbY, 'I')
             }
         }
-
         if tickdue(bulletTimer, 4) {
             bulletTimer = ticks()
             if pbActive {
@@ -153,18 +187,79 @@ fn main() {
                     putchar(oldPbX, oldPbY, ' ')
                 } else {
                     pbY = pbY - 1
-                    drawChar(pbX, pbY, 'I')
-                    putchar(oldPbX, oldPbY, ' ')
+                    i = 0
+                    while i < 32 {
+                        if aliens[i].alive {
+                            if aliens[i].x == pbX {
+                                if aliens[i].y == pbY {
+                                    aliens[i].alive = false
+                                    row = i / 8
+                                    pts = 10
+                                    if row == 0 { pts = 30 }
+                                    if row == 1 { pts = 20 }
+                                    score = score + pts
+                                    showHUD(score, lives)
+                                    pbActive = false
+                                    putchar(pbX, pbY, ' ')
+                                    putchar(oldPbX, oldPbY, ' ')
+                                    aliveCount = countAlive(aliens)
+                                    if aliveCount < 24 { alienMoveInterval = 16 }
+                                    if aliveCount < 16 { alienMoveInterval = 12 }
+                                    if aliveCount < 8  { alienMoveInterval = 8  }
+                                    if aliveCount < 4  { alienMoveInterval = 5  }
+                                    break
+                                }
+                            }
+                        }
+                        i = i + 1
+                    }
+                    if pbActive {
+                        drawChar(pbX, pbY, 'I')
+                        putchar(oldPbX, oldPbY, ' ')
+                    }
                 }
             }
         }
-
-        if tickdue(alienTimer, 20) {
+        if tickdue(alienTimer, alienMoveInterval) {
             alienTimer = ticks()
-        }
-
-        if tickdue(fireTimer, 40) {
-            fireTimer = ticks()
+            copyAliens(aliens, oldAliens)
+            hitWall = false
+            i = 0
+            while i < 32 {
+                if aliens[i].alive {
+                    if alienGoRight {
+                        if aliens[i].x >= 38 { hitWall = true }
+                    } else {
+                        if aliens[i].x <= 1 { hitWall = true }
+                    }
+                }
+                i = i + 1
+            }
+            if hitWall {
+                alienGoRight = !alienGoRight
+                i = 0
+                while i < 32 {
+                    if aliens[i].alive {
+                        aliens[i].y = aliens[i].y + 1
+                    }
+                    i = i + 1
+                }
+            } else {
+                i = 0
+                while i < 32 {
+                    if aliens[i].alive {
+                        if alienGoRight {
+                            aliens[i].x = aliens[i].x + 1
+                        } else {
+                            aliens[i].x = aliens[i].x - 1
+                        }
+                    }
+                    i = i + 1
+                }
+            }
+            drawAliens(aliens)
+            eraseAliens(oldAliens)
+            drawShots(playerX, pbActive, pbX, pbY)
         }
     }
 }

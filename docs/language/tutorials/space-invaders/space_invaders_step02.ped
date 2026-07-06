@@ -27,6 +27,15 @@ fn main() {
     var score int = 0
     var lives byte = 3
     var playerX byte = 19
+    var oldPlayerX byte
+    var frames int = 0
+    var gameOver bool = false
+    var k char
+    var j byte
+    var moveLeft bool
+    var moveRight bool
+    var firePressed bool
+    var nums char[8]
 
     cls()
     border(6)
@@ -34,16 +43,59 @@ fn main() {
     textcolor(PLAYFIELD_COLOR)
 
     showHUD(score, lives)
-    putstr(0, 1, "DIRECT SCREEN DRAWING")
-    putstr(0, 24, "A/D OR JOY:MOVE  SPACE/FIRE:SHOOT  Q:QUIT")
-
+    putstr(0, 1, "INPUT AND PLAYER MOVEMENT")
+    putstr(0, 2, "FRAMES:")
+    putstr(0, 24, "A/D OR JOY:MOVE  SPACE/FIRE:MARK  Q:QUIT")
     drawChar(playerX, PLAYER_Y, 'A')
-    drawChar(4, 6, 'W')
-    drawChar(8, 6, 'M')
-    drawChar(12, 6, 'V')
-    drawChar(16, 6, 'T')
-    drawChar(playerX, 18, 'I')
-    drawChar(25, 11, '!')
 
-    waitkey()
+    while gameOver == false {
+        moveLeft = false
+        moveRight = false
+        firePressed = false
+
+        k = key()
+        j = joy(2) & 31
+
+        if k == 'q' { gameOver = true }
+        if k == 'Q' { gameOver = true }
+
+        if k == 'a' { moveLeft = true }
+        if k == 'A' { moveLeft = true }
+        if (j & 4) == 0 { moveLeft = true }
+
+        if k == 'd' { moveRight = true }
+        if k == 'D' { moveRight = true }
+        if (j & 8) == 0 { moveRight = true }
+
+        if k == ' ' { firePressed = true }
+        if (j & 16) == 0 { firePressed = true }
+
+        if moveLeft {
+            if playerX > 0 {
+                oldPlayerX = playerX
+                playerX = playerX - 1
+                drawChar(playerX, PLAYER_Y, 'A')
+                putchar(oldPlayerX, PLAYER_Y, ' ')
+            }
+        }
+
+        if moveRight {
+            if playerX < 39 {
+                oldPlayerX = playerX
+                playerX = playerX + 1
+                drawChar(playerX, PLAYER_Y, 'A')
+                putchar(oldPlayerX, PLAYER_Y, ' ')
+            }
+        }
+
+        if firePressed {
+            putstr(0, 4, "FIRE PRESSED ")
+        }
+
+        frames = frames + 1
+        clear(nums)
+        copy(nums, itoa(frames))
+        putstr(8, 2, "          ")
+        putstr(8, 2, nums)
+    }
 }

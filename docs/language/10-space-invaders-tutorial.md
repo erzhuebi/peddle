@@ -10,8 +10,9 @@ examples/demos/space_invaders.ped
 The goal is not only to copy that program. The goal is to show the game
 structure that you can reuse for other C64 games:
 
+- game loop first, then features
 - fixed screen layout
-- game state stored in arrays
+- game state stored in structs and arrays
 - non-blocking input
 - joystick and keyboard control
 - independent timers for movement
@@ -22,7 +23,7 @@ structure that you can reuse for other C64 games:
 
 Each step builds on the previous one.
 
-Every step also has a complete runnable checkpoint file:
+Every implementation step also has a complete runnable checkpoint file:
 
 | Step | Checkpoint |
 |---|---|
@@ -35,61 +36,61 @@ Every step also has a complete runnable checkpoint file:
 | 7 | [space_invaders_step07.ped](tutorials/space-invaders/space_invaders_step07.ped) |
 | 8 | [space_invaders_step08.ped](tutorials/space-invaders/space_invaders_step08.ped) |
 | 9 | [space_invaders_step09.ped](tutorials/space-invaders/space_invaders_step09.ped) |
-| 10 | [space_invaders_step10.ped](tutorials/space-invaders/space_invaders_step10.ped) |
-| 11 | [space_invaders_step11.ped](tutorials/space-invaders/space_invaders_step11.ped) |
-| 12 | [space_invaders_step12.ped](tutorials/space-invaders/space_invaders_step12.ped) |
-| 13 | [space_invaders.ped](../../examples/demos/space_invaders.ped) |
 
 ---
 
-# Step 1: Start With the Screen Plan
+# Step 1: Start With a Running Game Loop
 
-The C64 text screen is 40 columns by 25 rows. A simple action game becomes much
-easier when you reserve rows for specific jobs.
+Start with something that already behaves like a game: a loop that runs until
+the player quits. The loop reads input without blocking, updates state, and
+draws a changing value on the screen.
 
-The reference Space Invaders game uses this layout:
-
-```text
-row 0       score and lives
-row 1       controls or status text
-rows 2-21   alien field and bullets
-row 23      player cannon
-row 24      key guide
-```
-
-Define the important constants first:
+For the first checkpoint, the state is only a loop counter and a quit flag:
 
 ```peddle
 const PLAYFIELD_COLOR = 1
 
-const PLAYER_Y = 23
-const ALIEN_ROWS = 4
-const ALIEN_COLS = 8
-const ALIEN_COUNT = 32
-
-const RESULT_NONE = 0
-const RESULT_GAME_OVER = 1
-const RESULT_LANDED = 2
-const RESULT_WIN = 3
-```
-
-For small games, it is often easiest to put runtime state inside `main()` as
-local variables and pass arrays to helper functions. Shared state can also be
-declared as top-level `var` globals when several functions need to mutate it.
-Declare all function locals at the beginning of the function body.
-
-```peddle
 fn main() {
-    var score int = 0
-    var lives byte = 3
-    var playerX byte = 19
-    var gameOver bool = false
-    var gameResult byte = RESULT_NONE
+    var frames int = 0
+    var quit bool = false
+    var k char
+    var nums char[8]
 }
 ```
 
-This shape is deliberate: declarations carry their starting values, and the game
-loop can focus on runtime changes.
+Declare function locals at the beginning of the function body. Then initialize
+the screen once:
+
+```peddle
+cls()
+border(6)
+background(0)
+textcolor(PLAYFIELD_COLOR)
+
+putstr(0, 0, "SPACE INVADERS LOOP")
+putstr(0, 2, "FRAMES:")
+putstr(0, 24, "Q:QUIT")
+```
+
+The first loop is deliberately tiny:
+
+```peddle
+while quit == false {
+    k = key()
+    if k == 'q' { quit = true }
+    if k == 'Q' { quit = true }
+
+    frames = frames + 1
+    clear(nums)
+    copy(nums, itoa(frames))
+    putstr(8, 2, "          ")
+    putstr(8, 2, nums)
+}
+```
+
+This is the heart of the game. Every later step adds one responsibility to this
+loop: draw the player, read controls, move bullets, move aliens, check
+collisions, and play sounds.
 
 **Checkpoint**
 
@@ -102,7 +103,25 @@ Complete runnable code for this step:
 
 ---
 
-# Step 2: Draw Directly to Screen RAM
+# Step 2: Draw the Screen and Move the Player
+
+Now give the loop a game-shaped screen. The C64 text screen is 40 columns by 25
+rows, so reserve rows for jobs:
+
+```text
+row 0       score and lives
+row 1       status text
+rows 2-21   alien field and bullets
+row 23      player cannon
+row 24      key guide
+```
+
+Add the first constants:
+
+```peddle
+const PLAYFIELD_COLOR = 1
+const PLAYER_Y = 23
+```
 
 Use direct screen builtins for games. They do not move the KERNAL text cursor,
 so they are predictable inside animation loops.
@@ -133,7 +152,7 @@ fn showHUD(score int, lives byte) {
 }
 ```
 
-Initialize the screen once before the game begins:
+Initialize the HUD and player once before entering the loop:
 
 ```peddle
 cls()
@@ -141,121 +160,13 @@ border(6)
 background(0)
 textcolor(1)
 showHUD(score, lives)
-putstr(0, 24, "A/D OR JOY:MOVE  SPACE/FIRE:SHOOT  Q:QUIT")
+drawChar(playerX, PLAYER_Y, 'A')
+putstr(0, 24, "Q:QUIT")
 ```
 
-The reference game uses simple characters:
-
-```text
-A  player cannon
-I  player bullet
-!  alien bullet
-W  top-row alien
-M  second-row alien
-V  third-row alien
-T  fourth-row alien
-```
-
-You can replace these later with custom characters or sprites. The game logic
-does not need to change.
-
-**Checkpoint**
-
-Complete runnable code for this step:
-[space_invaders_step02.ped](tutorials/space-invaders/space_invaders_step02.ped)
-
-```sh
-./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step02.ped
-```
-
----
-
-# Step 3: Store Aliens as Structs
-
-The alien grid needs three pieces of data per alien:
-
-- alive or destroyed
-- x position
-- y position
-
-A struct gives those fields a clear name:
-
-```peddle
-struct Alien {
-    alive bool
-    x byte
-    y byte
-}
-```
-
-Then the game can keep all aliens in one array:
-
-```peddle
-var aliens Alien[32]
-```
-
-Initialize the grid row by row:
-
-```peddle
-fn initAliens(aliens Alien[32]) {
-    var i byte = 0
-    var row byte = 0
-    var col byte
-
-    while row < 4 {
-        col = 0
-        while col < 8 {
-            aliens[i].alive = true
-            aliens[i].x = col * 4 + 2
-            aliens[i].y = row * 2 + 2
-            i = i + 1
-            col = col + 1
-        }
-        row = row + 1
-    }
-}
-```
-
-Draw only aliens that are alive:
-
-```peddle
-fn drawAliens(aliens Alien[32]) {
-    var i byte = 0
-    var row byte
-    var ch char
-
-    while i < 32 {
-        row = i / 8
-        if aliens[i].alive {
-            ch = 'T'
-            if row == 0 { ch = 'W' }
-            if row == 1 { ch = 'M' }
-            if row == 2 { ch = 'V' }
-            drawChar(aliens[i].x, aliens[i].y, ch)
-        }
-        i = i + 1
-    }
-}
-```
-
-This `Alien[32]` style is the normal game-object pattern in Peddle: a fixed-size
-array, simple fields, and loops over indices.
-
-**Checkpoint**
-
-Complete runnable code for this step:
-[space_invaders_step03.ped](tutorials/space-invaders/space_invaders_step03.ped)
-
-```sh
-./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step03.ped
-```
-
----
-
-# Step 4: Read Keyboard and Joystick Without Blocking
-
-Games should not call `waitkey()` inside the main loop. Use `key()` for
-non-blocking keyboard input and `joy(port)` for joystick input.
+Then make the player controllable without blocking the loop. Games should not
+call `waitkey()` inside the main loop. Use `key()` for non-blocking keyboard
+input and `joy(port)` for joystick input.
 
 Keyboard:
 
@@ -344,25 +255,40 @@ if moveRight {
 }
 ```
 
-The current reference program uses `A`, `D`, space, and `Q`. Adding joystick
-support follows this exact pattern.
+The loop now feels interactive: it runs continuously, but the player can steer
+the cannon at any time.
+
+The reference game uses simple characters:
+
+```text
+A  player cannon
+I  player bullet
+!  alien bullet
+W  top-row alien
+M  second-row alien
+V  third-row alien
+T  fourth-row alien
+```
+
+You can replace these later with custom characters or sprites. The game logic
+does not need to change.
 
 **Checkpoint**
 
 Complete runnable code for this step:
-[space_invaders_step04.ped](tutorials/space-invaders/space_invaders_step04.ped)
+[space_invaders_step02.ped](tutorials/space-invaders/space_invaders_step02.ped)
 
 ```sh
-./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step04.ped
+./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step02.ped
 ```
 
 ---
 
-# Step 5: Use Timers Instead of Delay Loops
+# Step 3: Add Timers and the Player Bullet
 
 Action games need several things moving at different speeds:
 
-- player input every frame
+- player input every loop
 - bullets every few ticks
 - aliens more slowly
 - alien shots even more slowly
@@ -397,20 +323,8 @@ if tickdue(fireTimer, 40) {
 This keeps the game responsive because the loop never sleeps. It only performs
 work when a timer is due.
 
-**Checkpoint**
-
-Complete runnable code for this step:
-[space_invaders_step05.ped](tutorials/space-invaders/space_invaders_step05.ped)
-
-```sh
-./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step05.ped
-```
-
----
-
-# Step 6: Add the Player Bullet
-
-Use one active player bullet at a time:
+Now use the bullet timer for a real player shot. Use one active player bullet at
+a time:
 
 ```peddle
 var pbActive bool = false
@@ -457,15 +371,97 @@ old characters on the screen.
 **Checkpoint**
 
 Complete runnable code for this step:
-[space_invaders_step06.ped](tutorials/space-invaders/space_invaders_step06.ped)
+[space_invaders_step03.ped](tutorials/space-invaders/space_invaders_step03.ped)
 
 ```sh
-./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step06.ped
+./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step03.ped
 ```
 
 ---
 
-# Step 7: Check Bullet and Alien Collision
+# Step 4: Store Aliens as Structs
+
+The alien grid needs three pieces of data per alien:
+
+- alive or destroyed
+- x position
+- y position
+
+A struct gives those fields a clear name:
+
+```peddle
+struct Alien {
+    alive bool
+    x byte
+    y byte
+}
+```
+
+Then the game can keep all aliens in one array:
+
+```peddle
+var aliens Alien[32]
+```
+
+Initialize the grid row by row:
+
+```peddle
+fn initAliens(aliens Alien[32]) {
+    var i byte = 0
+    var row byte = 0
+    var col byte
+
+    while row < 4 {
+        col = 0
+        while col < 8 {
+            aliens[i].alive = true
+            aliens[i].x = col * 4 + 2
+            aliens[i].y = row * 2 + 2
+            i = i + 1
+            col = col + 1
+        }
+        row = row + 1
+    }
+}
+```
+
+Draw only aliens that are alive:
+
+```peddle
+fn drawAliens(aliens Alien[32]) {
+    var i byte = 0
+    var row byte
+    var ch char
+
+    while i < 32 {
+        row = i / 8
+        if aliens[i].alive {
+            ch = 'T'
+            if row == 0 { ch = 'W' }
+            if row == 1 { ch = 'M' }
+            if row == 2 { ch = 'V' }
+            drawChar(aliens[i].x, aliens[i].y, ch)
+        }
+        i = i + 1
+    }
+}
+```
+
+This `Alien[32]` style is the normal game-object pattern in Peddle: a fixed-size
+array, simple fields, and loops over indices.
+
+**Checkpoint**
+
+Complete runnable code for this step:
+[space_invaders_step04.ped](tutorials/space-invaders/space_invaders_step04.ped)
+
+```sh
+./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step04.ped
+```
+
+---
+
+# Step 5: Check Bullet and Alien Collision
 
 After moving the player bullet, compare it with each alive alien.
 
@@ -515,15 +511,15 @@ gets closer to winning.
 **Checkpoint**
 
 Complete runnable code for this step:
-[space_invaders_step07.ped](tutorials/space-invaders/space_invaders_step07.ped)
+[space_invaders_step05.ped](tutorials/space-invaders/space_invaders_step05.ped)
 
 ```sh
-./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step07.ped
+./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step05.ped
 ```
 
 ---
 
-# Step 8: Move the Alien Formation
+# Step 6: Move the Alien Formation
 
 The alien formation has one shared direction:
 
@@ -596,15 +592,15 @@ This avoids flicker from clearing the entire screen.
 **Checkpoint**
 
 Complete runnable code for this step:
-[space_invaders_step08.ped](tutorials/space-invaders/space_invaders_step08.ped)
+[space_invaders_step06.ped](tutorials/space-invaders/space_invaders_step06.ped)
 
 ```sh
-./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step08.ped
+./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step06.ped
 ```
 
 ---
 
-# Step 9: Add Alien Bullets
+# Step 7: Add Alien Bullets
 
 The reference game allows three alien bullets at once:
 
@@ -680,15 +676,15 @@ This is the same state pattern as the player bullet, just repeated in arrays.
 **Checkpoint**
 
 Complete runnable code for this step:
-[space_invaders_step09.ped](tutorials/space-invaders/space_invaders_step09.ped)
+[space_invaders_step07.ped](tutorials/space-invaders/space_invaders_step07.ped)
 
 ```sh
-./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step09.ped
+./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step07.ped
 ```
 
 ---
 
-# Step 10: Add Sound Effects
+# Step 8: Add Sound Effects
 
 Peddle sound uses a byte stream and a sound pool. The reference game builds two
 effects:
@@ -793,15 +789,15 @@ effect is still active. Use different voice masks for different effects.
 **Checkpoint**
 
 Complete runnable code for this step:
-[space_invaders_step10.ped](tutorials/space-invaders/space_invaders_step10.ped)
+[space_invaders_step08.ped](tutorials/space-invaders/space_invaders_step08.ped)
 
 ```sh
-./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step10.ped
+./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step08.ped
 ```
 
 ---
 
-# Step 11: End Conditions
+# Step 9: End Conditions and Run the Game
 
 There are three natural end conditions:
 
@@ -848,68 +844,35 @@ waitkey()
 Separating game logic from the final display keeps the main loop easier to
 understand.
 
-**Checkpoint**
-
-Complete runnable code for this step:
-[space_invaders_step11.ped](tutorials/space-invaders/space_invaders_step11.ped)
-
-```sh
-./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step11.ped
-```
-
----
-
-# Step 12: Main Loop Template
-
-The final loop has a simple rhythm:
+By this point, the loop has grown naturally from the tiny loop in Step 1 into
+the complete game rhythm:
 
 ```peddle
 while gameOver == false {
-    # 1. read input
-    k = key()
-    j = joy(2) & 31
-
-    # 2. apply player movement
-
-    # 3. create player bullet if fire was pressed
-
-    # 4. update player and alien bullets when bulletTimer is due
-
-    # 5. update alien formation when alienTimer is due
-
-    # 6. create alien bullet when fireTimer is due
-
-    # 7. set gameOver and gameResult when an end condition is reached
+    # read input
+    # move the player
+    # fire and update bullets
+    # move aliens on their timer
+    # create alien shots on their timer
+    # check collisions and end conditions
 }
 ```
-
-This is the most useful template to carry into other games. Most C64 arcade
-games can start with this structure.
-
-**Checkpoint**
-
-Complete runnable code for this step:
-[space_invaders_step12.ped](tutorials/space-invaders/space_invaders_step12.ped)
-
-```sh
-./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step12.ped
-```
-
----
-
-# Step 13: Build and Run
 
 Compile the reference game:
 
 ```sh
-./peddle.sh examples/demos/space_invaders.ped
+./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step09.ped
 ```
 
 Run it in VICE:
 
 ```sh
-./peddle.sh --run examples/demos/space_invaders.ped
+./peddle.sh --run docs/language/tutorials/space-invaders/space_invaders_step09.ped
 ```
+
+The same final program is also kept as a polished demo at
+[space_invaders.ped](../../examples/demos/space_invaders.ped). Keep that demo
+copy identical to this tutorial checkpoint.
 
 The reference controls are:
 
@@ -919,16 +882,16 @@ SPACE  fire
 Q      quit
 ```
 
-To add joystick control, add the `joy(2)` input checks from Step 4 to the main
+To add joystick control, add the `joy(2)` input checks from Step 2 to the main
 loop.
 
 **Checkpoint**
 
 Complete runnable reference program:
-[space_invaders.ped](../../examples/demos/space_invaders.ped)
+[space_invaders_step09.ped](tutorials/space-invaders/space_invaders_step09.ped)
 
 ```sh
-./peddle.sh examples/demos/space_invaders.ped
+./peddle.sh docs/language/tutorials/space-invaders/space_invaders_step09.ped
 ```
 
 ---

@@ -2,42 +2,34 @@
 
 const PLAYFIELD_COLOR = 1
 
-const PLAYER_Y = 23
-const ALIEN_ROWS = 4
-const ALIEN_COLS = 8
-const ALIEN_COUNT = 32
-
-const RESULT_NONE = 0
-const RESULT_GAME_OVER = 1
-const RESULT_LANDED = 2
-const RESULT_WIN = 3
-
 fn main() {
-    var score int = 0
-    var lives byte = 3
-    var playerX byte = 19
-    var gameOver bool = false
-    var gameResult byte = RESULT_NONE
+    var frames int = 0
+    var quit bool = false
+    var k char
+    var nums char[8]
 
     cls()
     border(6)
     background(0)
     textcolor(PLAYFIELD_COLOR)
 
-    putstr(0, 0, "SCORE:0")
-    putstr(29, 0, "LIVES:3")
-    putstr(0, 1, "SPACE INVADERS SCREEN PLAN")
-    putstr(0, 2, "ROWS 2-21: ALIENS AND BULLETS")
-    putstr(0, PLAYER_Y, "                   A")
-    putstr(0, 24, "PRESS ANY KEY")
+    putstr(0, 0, "SPACE INVADERS LOOP")
+    putstr(0, 2, "FRAMES:")
+    putstr(0, 24, "Q:QUIT")
 
-    if gameOver {
-        gameResult = RESULT_GAME_OVER
+    while quit == false {
+        k = key()
+
+        if k == 'q' { quit = true }
+        if k == 'Q' { quit = true }
+
+        frames = frames + 1
+        clear(nums)
+        copy(nums, itoa(frames))
+        putstr(8, 2, "          ")
+        putstr(8, 2, nums)
     }
 
-    if gameResult == RESULT_NONE {
-        putstr(0, 4, "READY")
-    }
-
+    putstr(0, 4, "LOOP STOPPED")
     waitkey()
 }

@@ -2,6 +2,22 @@
 
 const PLAYFIELD_COLOR = 1
 const PLAYER_Y = 23
+const SOUND_STREAM = 1
+const SOUND_VOICE1 = 1
+const SOUND_VOICE2 = 2
+const SOUND_OVERLAY = 2
+const ERR_OK = 0
+const VOICE1 = 0
+const VOICE2 = 1
+const WAVE_TRIANGLE = 16
+const WAVE_NOISE = 128
+const GATE = 1
+const C4_LO = 103
+const C4_HI = 17
+const D4_LO = 138
+const D4_HI = 19
+const E4_LO = 237
+const E4_HI = 21
 
 struct Alien {
     alive bool
@@ -81,10 +97,17 @@ fn copyAliens(src Alien[32], dst Alien[32]) {
     }
 }
 
-fn drawShots(playerX byte, pbActive bool, pbX byte, pbY byte) {
+fn drawShots(playerX byte, pbActive bool, pbX byte, pbY byte, abActive bool[3], abX byte[3], abY byte[3]) {
+    var i byte = 0
     drawChar(playerX, PLAYER_Y, 'A')
     if pbActive {
         drawChar(pbX, pbY, 'I')
+    }
+    while i < 3 {
+        if abActive[i] {
+            drawChar(abX[i], abY[i], '!')
+        }
+        i = i + 1
     }
 }
 
@@ -96,6 +119,81 @@ fn countAlive(aliens Alien[32]) int {
         i = i + 1
     }
     return n
+}
+
+fn waveform(data byte[128], voice byte, value byte) {
+    append(data, 4)
+    append(data, voice)
+    append(data, value)
+}
+
+fn soundWait(data byte[128], frames byte) {
+    append(data, 1)
+    append(data, frames)
+}
+
+fn env(data byte[128], voice byte, ad byte, sr byte) {
+    append(data, 5)
+    append(data, voice)
+    append(data, ad)
+    append(data, 6)
+    append(data, voice)
+    append(data, sr)
+}
+
+fn volume(data byte[128], value byte) {
+    append(data, 7)
+    append(data, value)
+}
+
+fn freq(data byte[128], voice byte, lo byte, hi byte) {
+    append(data, 8)
+    append(data, voice)
+    append(data, lo)
+    append(data, hi)
+}
+
+fn gateOn(data byte[128], voice byte, wave byte) {
+    waveform(data, voice, wave + GATE)
+}
+
+fn gateOff(data byte[128], voice byte, wave byte) {
+    waveform(data, voice, wave)
+}
+
+fn rocketNote(data byte[128], lo byte, hi byte, frames byte) {
+    freq(data, VOICE1, lo, hi)
+    gateOn(data, VOICE1, WAVE_TRIANGLE)
+    soundWait(data, frames)
+    gateOff(data, VOICE1, WAVE_TRIANGLE)
+    soundWait(data, 1)
+}
+
+fn buildRocketSound(data byte[128]) {
+    clear(data)
+    volume(data, 15)
+    env(data, VOICE1, 8, 128)
+    rocketNote(data, C4_LO, C4_HI, 2)
+    rocketNote(data, D4_LO, D4_HI, 2)
+    rocketNote(data, E4_LO, E4_HI, 3)
+    append(data, 0)
+}
+
+fn buildExplosionSound(data byte[128]) {
+    clear(data)
+    volume(data, 15)
+    env(data, VOICE2, 2, 240)
+    freq(data, VOICE2, $00, $30)
+    gateOn(data, VOICE2, WAVE_NOISE)
+    soundWait(data, 3)
+    freq(data, VOICE2, $80, $18)
+    soundWait(data, 3)
+    freq(data, VOICE2, $40, $08)
+    soundWait(data, 4)
+    volume(data, 8)
+    soundWait(data, 3)
+    gateOff(data, VOICE2, WAVE_NOISE)
+    append(data, 0)
 }
 
 fn main() {
@@ -113,6 +211,11 @@ fn main() {
     var pbY byte = 0
     var oldPbX byte = 0
     var oldPbY byte = 0
+    var abActive bool[3] = [false, false, false]
+    var abX byte[3] = [0, 0, 0]
+    var abY byte[3] = [0, 0, 0]
+    var oldAbX byte
+    var oldAbY byte
     var gameOver bool = false
     var k char
     var j byte
@@ -120,21 +223,39 @@ fn main() {
     var moveRight bool
     var firePressed bool
     var bulletTimer int = ticks()
+    var fireTimer int = ticks()
+    var fireSearch byte = 0
+    var fireSlot byte = 0
+    var gotSlot bool
+    var searched byte
     var i byte
     var row byte
     var pts int
     var aliveCount int
     var hitWall bool
+    var soundPool byte[1024]
+    var rocketData byte[128]
+    var explosionData byte[128]
+    var rocketId uint
+    var explosionId uint
+    var sErr int
+    var eErr int
+    var playErr int
 
     cls()
     border(6)
     background(0)
     textcolor(PLAYFIELD_COLOR)
     initAliens(aliens)
+    sound_init(soundPool)
+    buildRocketSound(rocketData)
+    rocketId, sErr = sound_load(rocketData, SOUND_STREAM)
+    buildExplosionSound(explosionData)
+    explosionId, eErr = sound_load(explosionData, SOUND_STREAM)
     showHUD(score, lives)
     drawAliens(aliens)
     drawChar(playerX, PLAYER_Y, 'A')
-    putstr(0, 24, "MOVING ALIENS  Q:QUIT")
+    putstr(0, 24, "SOUND EFFECTS  Q:QUIT")
 
     while gameOver == false {
         moveLeft = false
@@ -175,6 +296,9 @@ fn main() {
                 pbY = 22
                 pbActive = true
                 drawChar(pbX, pbY, 'I')
+                if sErr == ERR_OK {
+                    playErr = sound_play(rocketId, SOUND_VOICE1, 4, SOUND_OVERLAY)
+                }
             }
         }
         if tickdue(bulletTimer, 4) {
@@ -202,6 +326,9 @@ fn main() {
                                     pbActive = false
                                     putchar(pbX, pbY, ' ')
                                     putchar(oldPbX, oldPbY, ' ')
+                                    if eErr == ERR_OK {
+                                        playErr = sound_play(explosionId, SOUND_VOICE2, 8, SOUND_OVERLAY)
+                                    }
                                     aliveCount = countAlive(aliens)
                                     if aliveCount < 24 { alienMoveInterval = 16 }
                                     if aliveCount < 16 { alienMoveInterval = 12 }
@@ -218,6 +345,37 @@ fn main() {
                         putchar(oldPbX, oldPbY, ' ')
                     }
                 }
+            }
+            i = 0
+            while i < 3 {
+                if abActive[i] {
+                    oldAbX = abX[i]
+                    oldAbY = abY[i]
+                    abY[i] = abY[i] + 1
+                    if abY[i] > PLAYER_Y {
+                        abActive[i] = false
+                        putchar(oldAbX, oldAbY, ' ')
+                    } else {
+                        if abX[i] == playerX {
+                            if abY[i] == PLAYER_Y {
+                                abActive[i] = false
+                                putchar(oldAbX, oldAbY, ' ')
+                                lives = lives - 1
+                                showHUD(score, lives)
+                                if lives == 0 {
+                                    gameOver = true
+                                } else {
+                                    drawChar(playerX, PLAYER_Y, 'A')
+                                }
+                            }
+                        }
+                        if abActive[i] {
+                            drawChar(abX[i], abY[i], '!')
+                            putchar(oldAbX, oldAbY, ' ')
+                        }
+                    }
+                }
+                i = i + 1
             }
         }
         if tickdue(alienTimer, alienMoveInterval) {
@@ -239,9 +397,7 @@ fn main() {
                 alienGoRight = !alienGoRight
                 i = 0
                 while i < 32 {
-                    if aliens[i].alive {
-                        aliens[i].y = aliens[i].y + 1
-                    }
+                    if aliens[i].alive { aliens[i].y = aliens[i].y + 1 }
                     i = i + 1
                 }
             } else {
@@ -259,7 +415,38 @@ fn main() {
             }
             drawAliens(aliens)
             eraseAliens(oldAliens)
-            drawShots(playerX, pbActive, pbX, pbY)
+            drawShots(playerX, pbActive, pbX, pbY, abActive, abX, abY)
+        }
+        if tickdue(fireTimer, 40) {
+            fireTimer = ticks()
+            gotSlot = false
+            i = 0
+            while i < 3 {
+                if gotSlot == false {
+                    if abActive[i] == false {
+                        fireSlot = i
+                        gotSlot = true
+                    }
+                }
+                i = i + 1
+            }
+            if gotSlot {
+                searched = 0
+                while searched < 32 {
+                    if aliens[fireSearch].alive {
+                        abX[fireSlot] = aliens[fireSearch].x
+                        abY[fireSlot] = aliens[fireSearch].y + 1
+                        abActive[fireSlot] = true
+                        drawChar(abX[fireSlot], abY[fireSlot], '!')
+                        break
+                    }
+                    fireSearch = fireSearch + 1
+                    if fireSearch >= 32 { fireSearch = 0 }
+                    searched = searched + 1
+                }
+                fireSearch = fireSearch + 1
+                if fireSearch >= 32 { fireSearch = 0 }
+            }
         }
     }
 }

@@ -65,12 +65,28 @@ fn drawAliens(aliens Alien[32]) {
     }
 }
 
+fn countAlive(aliens Alien[32]) int {
+    var i byte = 0
+    var n int = 0
+
+    while i < 32 {
+        if aliens[i].alive { n = n + 1 }
+        i = i + 1
+    }
+    return n
+}
+
 fn main() {
     var aliens Alien[32]
     var score int = 0
     var lives byte = 3
     var playerX byte = 19
     var oldPlayerX byte
+    var pbActive bool = false
+    var pbX byte = 0
+    var pbY byte = 0
+    var oldPbX byte = 0
+    var oldPbY byte = 0
     var gameOver bool = false
     var k char
     var j byte
@@ -78,10 +94,11 @@ fn main() {
     var moveRight bool
     var firePressed bool
     var bulletTimer int = ticks()
-    var alienTimer int = ticks()
-    var fireTimer int = ticks()
     var alienMoveInterval int = 20
-    var markerX byte = 0
+    var i byte
+    var row byte
+    var pts int
+    var aliveCount int
 
     cls()
     border(6)
@@ -92,7 +109,7 @@ fn main() {
     showHUD(score, lives)
     drawAliens(aliens)
     drawChar(playerX, PLAYER_Y, 'A')
-    putstr(0, 24, "TIMERS: A/D OR JOY MOVE  Q:QUIT")
+    putstr(0, 24, "SHOOT ALIENS  Q:QUIT")
 
     while gameOver == false {
         moveLeft = false
@@ -104,15 +121,12 @@ fn main() {
 
         if k == 'q' { gameOver = true }
         if k == 'Q' { gameOver = true }
-
         if k == 'a' { moveLeft = true }
         if k == 'A' { moveLeft = true }
         if (j & 4) == 0 { moveLeft = true }
-
         if k == 'd' { moveRight = true }
         if k == 'D' { moveRight = true }
         if (j & 8) == 0 { moveRight = true }
-
         if k == ' ' { firePressed = true }
         if (j & 16) == 0 { firePressed = true }
 
@@ -134,22 +148,57 @@ fn main() {
             }
         }
 
+        if firePressed {
+            if pbActive == false {
+                pbX = playerX
+                pbY = 22
+                pbActive = true
+                drawChar(pbX, pbY, 'I')
+            }
+        }
+
         if tickdue(bulletTimer, 4) {
             bulletTimer = ticks()
-            putchar(markerX, 22, ' ')
-            markerX = markerX + 1
-            if markerX >= 40 { markerX = 0 }
-            drawChar(markerX, 22, '.')
-        }
-
-        if tickdue(alienTimer, alienMoveInterval) {
-            alienTimer = ticks()
-            putstr(0, 1, "ALIEN TIMER")
-        }
-
-        if tickdue(fireTimer, 40) {
-            fireTimer = ticks()
-            if firePressed { putstr(14, 1, "FIRE") }
+            if pbActive {
+                oldPbX = pbX
+                oldPbY = pbY
+                if pbY <= 2 {
+                    pbActive = false
+                    putchar(oldPbX, oldPbY, ' ')
+                } else {
+                    pbY = pbY - 1
+                    i = 0
+                    while i < 32 {
+                        if aliens[i].alive {
+                            if aliens[i].x == pbX {
+                                if aliens[i].y == pbY {
+                                    aliens[i].alive = false
+                                    row = i / 8
+                                    pts = 10
+                                    if row == 0 { pts = 30 }
+                                    if row == 1 { pts = 20 }
+                                    score = score + pts
+                                    showHUD(score, lives)
+                                    pbActive = false
+                                    putchar(pbX, pbY, ' ')
+                                    putchar(oldPbX, oldPbY, ' ')
+                                    aliveCount = countAlive(aliens)
+                                    if aliveCount < 24 { alienMoveInterval = 16 }
+                                    if aliveCount < 16 { alienMoveInterval = 12 }
+                                    if aliveCount < 8  { alienMoveInterval = 8  }
+                                    if aliveCount < 4  { alienMoveInterval = 5  }
+                                    break
+                                }
+                            }
+                        }
+                        i = i + 1
+                    }
+                    if pbActive {
+                        drawChar(pbX, pbY, 'I')
+                        putchar(oldPbX, oldPbY, ' ')
+                    }
+                }
+            }
         }
     }
 }

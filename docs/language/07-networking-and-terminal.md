@@ -37,6 +37,43 @@ The C64 Ultimate modem simulator is accessed through a SwiftLink/6551 ACIA-compa
 
 ---
 
+# Testing With VICE
+
+On real C64 Ultimate hardware, Peddle talks to the Ultimate modem simulator directly:
+
+```text
+Peddle program -> SwiftLink/6551 ACIA at $de00 -> C64 Ultimate modem -> TCP server
+```
+
+VICE does not emulate the C64 Ultimate modem itself. For Mac/Linux development, Peddle uses a small compatibility shim:
+
+```text
+Peddle program -> VICE ACIA -> VICE RS232 socket -> scripts/vice_modem_shim.py -> TCP server
+```
+
+The shim is a fake modem, but the TCP connection behind it is real. It receives modem commands such as `ATDT host:port`, opens a real TCP socket to that target, replies `CONNECT`, and then forwards bytes in both directions.
+
+`./peddle.sh --run` starts the shim automatically before launching VICE. The default shim endpoint is `127.0.0.1:25232`, and VICE is started with a SwiftLink-style ACIA at `$de00`.
+
+To test the network probe locally:
+
+```sh
+python3 scripts/c64_echo_server.py
+./peddle.sh --run examples/smoke/net_probe.ped
+```
+
+The echo server listens on port `6764`. The Peddle program connects to that server through the modem API, sends a short message, reads the echoed response, and prints the result on the C64 screen.
+
+The VICE shim settings can be changed with environment variables:
+
+```sh
+VICE_NET_HOST=127.0.0.1 VICE_NET_PORT=25232 VICE_NET_BAUD=50 ./peddle.sh --run examples/smoke/net_probe.ped
+```
+
+For normal development the defaults are usually enough.
+
+---
+
 # netavailable()
 
 ```peddle
